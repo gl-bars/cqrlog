@@ -49,3 +49,6 @@ const h_CQZ = 5026;
 const h_STATE = 60192;
 const h_AWARD = 53520;
 
+h_APP_N1MM_EXCHANGE1 = 39939;
+h_APP_N1MM_EXCHANGE2 = 39936;
+

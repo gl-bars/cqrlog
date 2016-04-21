@@ -80,6 +80,7 @@ type
     acMarkAllHrdLog: TAction;
     acMarkAll: TAction;
     acMarkAlleQSL: TAction;
+    acImportCabrillo: TAction;
     acUploadAllToLoTW: TAction;
     acUploadToAll: TAction;
     acUploadToHrdLog: TAction;
@@ -127,6 +128,7 @@ type
     MenuItem1:  TMenuItem;
     MenuItem10: TMenuItem;
     MenuItem100: TMenuItem;
+    MenuItem101: TMenuItem;
     MenuItem11: TMenuItem;
     MenuItem12: TMenuItem;
     MenuItem13: TMenuItem;
@@ -315,6 +317,7 @@ type
     procedure aceQSLDwnExecute(Sender : TObject);
     procedure aceQSLUpExecute(Sender : TObject);
     procedure acHamQTHExecute(Sender : TObject);
+    procedure acImportCabrilloExecute(Sender: TObject);
     procedure acMarkAllClubLogExecute(Sender: TObject);
     procedure acMarkAlleQSLExecute(Sender: TObject);
     procedure acMarkAllExecute(Sender: TObject);
@@ -440,7 +443,7 @@ implementation
 { TfrmMain }
 uses fNewQSO, fPreferences, dUtils, dData, dDXCC, dDXCluster, fMarkQSL, fDXCCStat,
   fSort, fFilter, fImportProgress, fGrayline, fCallbook, fTRXControl,
-  fAdifImport, fSplash, fSearch, fExportProgress, fDXCluster, fQSLMgr,
+  fAdifImport, fCabrilloImport, fSplash, fSearch, fExportProgress, fDXCluster, fQSLMgr,
   fQSODetails, fWAZITUStat, fIOTAStat, fDatabaseUpdate, fExLabelPrint,
   fImportLoTWWeb, fLoTWExport, fGroupEdit, fCustomStat, fSQLConsole, fCallAttachment,
   fEditDetails, fQSLViewer, uMyIni, fRebuildMembStat, fAbout, fBigSquareStat,
@@ -1328,6 +1331,26 @@ end;
 procedure TfrmMain.acHamQTHExecute(Sender : TObject);
 begin
   dmUtils.ShowHamQTHInBrowser(dmData.qCQRLOG.Fields[4].AsString)
+end;
+
+procedure TfrmMain.acImportCabrilloExecute(Sender: TObject);
+begin
+  dlgOpen.Filter     := 'Cabrillo|*.log;*.cbr';
+  dlgOpen.DefaultExt := '.log';
+  if dlgOpen.Execute then
+  begin
+    with TfrmCabrilloImport.Create(self) do
+    try
+      lblFileName.Caption := dlgOpen.FileName;
+      lblCount.Caption := '0';
+      ShowModal
+    finally
+      Free
+    end;
+    acRefreshExecute(nil)
+  end
+  else
+    BringToFront
 end;
 
 procedure TfrmMain.acMarkAllClubLogExecute(Sender: TObject);

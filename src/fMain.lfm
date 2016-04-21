@@ -1187,6 +1187,9 @@ object frmMain: TfrmMain
           Action = acImportADIF
           OnClick = acImportADIFExecute
         end
+        object MenuItem101: TMenuItem
+          Action = acImportCabrillo
+        end
         object MenuItem33: TMenuItem
           Caption = '-'
         end
@@ -2447,6 +2450,10 @@ object frmMain: TfrmMain
       Category = 'LoTW'
       Caption = 'Mark all QSO as uploded to LoTW'
       OnExecute = acUploadAllToLoTWExecute
+    end
+    object acImportCabrillo: TAction
+      Caption = 'Cabrillo...'
+      OnExecute = acImportCabrilloExecute
     end
   end
   object tmrTime: TTimer

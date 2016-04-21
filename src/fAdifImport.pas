@@ -74,6 +74,9 @@ type Tnejakyzaznam=record
       STATE:string[3];
       AWARD:string[250];
       POWER:String[10];
+
+      EXCH1: string[20];
+      EXCH2: string[20];
      end;
 type
 
@@ -242,7 +245,10 @@ function TfrmAdifImport.zpracuj(h:longint;var data:string;var D:Tnejakyzaznam):b
       h_APP_CQRLOG_COUNTY:d.APP_CQRLOG_COUNTY:=data;
       h_CQZ:d.CQZ:=data;
       h_STATE:d.STATE:=data;
-      h_AWARD:d.AWARD:=data
+      h_AWARD:d.AWARD:=data;
+
+      h_APP_N1MM_EXCHANGE1: d.EXCH1:=data;
+      h_APP_N1MM_EXCHANGE2: d.EXCH2:=data;
       else
         begin{ writeln('Neznam...>',pom,'<');zpracuj:=false;exit;}end;
     end;//case
@@ -473,12 +479,14 @@ begin
                    'rst_s,rst_r,name,qth,qsl_s,qsl_r,qsl_via,iota,pwr,itu,waz,loc,my_loc,'+
                    'remarks,county,adif,idcall,award,band,state,cont,profile,lotw_qslsdate,lotw_qsls,'+
                    'lotw_qslrdate,lotw_qslr,qsls_date,qslr_date,eqsl_qslsdate,eqsl_qsl_sent,'+
-                   'eqsl_qslrdate,eqsl_qsl_rcvd) values('+
+                   'eqsl_qslrdate,eqsl_qsl_rcvd,'+
+                   'exch1,exch2) values('+
                    ':qsodate,:time_on,:time_off,:callsign,:freq,:mode,:rst_s,:rst_r,:name,:qth,'+
                    ':qsl_s,:qsl_r,:qsl_via,:iota,:pwr,:itu,:waz,:loc,:my_loc,:remarks,:county,:adif,'+
                    ':idcall,:award,:band,:state,:cont,:profile,:lotw_qslsdate,:lotw_qsls,:lotw_qslrdate,'+
                    ':lotw_qslr,:qsls_date,:qslr_date,:eqsl_qslsdate,:eqsl_qsl_sent,:eqsl_qslrdate,'+
-                   ':eqsl_qsl_rcvd)';
+                   ':eqsl_qsl_rcvd,'+
+                   ':exch1,:exch2)';
     if dmData.DebugLevel >=1 then Writeln(Q1.SQL.Text);
     Q1.Prepare;
     Q1.Params[0].AsString   := d.QSO_DATE;
@@ -586,6 +594,13 @@ begin
         Q1.Params[37].AsString  := ''
       end
     end;
+
+    if Length(d.EXCH1)>0 then
+       Q1.Params[38].AsString := d.EXCH1 else
+       Q1.Params[38].Clear;
+    if Length(d.EXCH2)>0 then
+       Q1.Params[39].AsString := d.EXCH2 else
+       Q1.Params[39].Clear;
     if dmData.DebugLevel >=1 then Writeln(Q1.SQL.Text);
     Q1.ExecSQL;
     inc(RecNR);

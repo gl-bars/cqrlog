@@ -12,6 +12,7 @@
       <Title Value="cqrlog"/>
       <Icon Value="0"/>
     </General>
+    <LazDoc Paths="doc"/>
     <VersionInfo>
       <AutoIncrementBuild Value="True"/>
       <MinorVersionNr Value="3"/>
@@ -82,7 +83,7 @@
         <MinVersion Major="1" Minor="2" Release="1" Valid="True"/>
       </Item10>
     </RequiredPackages>
-    <Units Count="88">
+    <Units Count="90">
       <Unit0>
         <Filename Value="cqrlog.lpr"/>
         <IsPartOfProject Value="True"/>
@@ -100,6 +101,7 @@
         <ComponentName Value="frmMain"/>
         <HasResources Value="True"/>
         <ResourceBaseClass Value="Form"/>
+        <UnitName Value="fMain"/>
       </Unit2>
       <Unit3>
         <Filename Value="fPreferences.pas"/>
@@ -114,6 +116,7 @@
         <ComponentName Value="dmUtils"/>
         <HasResources Value="True"/>
         <ResourceBaseClass Value="DataModule"/>
+        <UnitName Value="dUtils"/>
       </Unit4>
       <Unit5>
         <Filename Value="fChangeLocator.pas"/>
@@ -126,6 +129,7 @@
         <ComponentName Value="dmData"/>
         <HasResources Value="True"/>
         <ResourceBaseClass Value="DataModule"/>
+        <UnitName Value="dData"/>
       </Unit6>
       <Unit7>
         <Filename Value="dDXCC.pas"/>
@@ -133,6 +137,7 @@
         <ComponentName Value="dmDXCC"/>
         <HasResources Value="True"/>
         <ResourceBaseClass Value="DataModule"/>
+        <UnitName Value="dDXCC"/>
       </Unit7>
       <Unit8>
         <Filename Value="fMarkQSL.pas"/>
@@ -216,6 +221,7 @@
         <ComponentName Value="frmAdifImport"/>
         <HasResources Value="True"/>
         <ResourceBaseClass Value="Form"/>
+        <UnitName Value="fAdifImport"/>
       </Unit20>
       <Unit21>
         <Filename Value="fSplash.pas"/>
@@ -340,6 +346,7 @@
         <ComponentName Value="frmBandMap"/>
         <HasResources Value="True"/>
         <ResourceBaseClass Value="Form"/>
+        <UnitName Value="fBandMap"/>
       </Unit40>
       <Unit41>
         <Filename Value="fBandMapFilter.pas"/>
@@ -360,6 +367,7 @@
         <ComponentName Value="frmDatabaseUpdate"/>
         <HasResources Value="True"/>
         <ResourceBaseClass Value="Form"/>
+        <UnitName Value="fDatabaseUpdate"/>
       </Unit43>
       <Unit44>
         <Filename Value="fExLabelPrint.pas"/>
@@ -433,6 +441,7 @@
       <Unit55>
         <Filename Value="uMyIni.pas"/>
         <IsPartOfProject Value="True"/>
+        <UnitName Value="uMyIni"/>
       </Unit55>
       <Unit56>
         <Filename Value="fPropagation.pas"/>
@@ -514,6 +523,7 @@
         <ComponentName Value="frmChangelog"/>
         <HasResources Value="True"/>
         <ResourceBaseClass Value="Form"/>
+        <UnitName Value="fChangelog"/>
       </Unit68>
       <Unit69>
         <Filename Value="fBigSquareStat.pas"/>
@@ -640,6 +650,7 @@
         <ComponentName Value="frmRadioMemories"/>
         <HasResources Value="True"/>
         <ResourceBaseClass Value="Form"/>
+        <UnitName Value="fRadioMemories"/>
       </Unit86>
       <Unit87>
         <Filename Value="fAddRadioMemory.pas"/>
@@ -647,7 +658,21 @@
         <ComponentName Value="frmAddRadioMemory"/>
         <HasResources Value="True"/>
         <ResourceBaseClass Value="Form"/>
+        <UnitName Value="fAddRadioMemory"/>
       </Unit87>
+      <Unit88>
+        <Filename Value="fCabrilloImport.pas"/>
+        <IsPartOfProject Value="True"/>
+        <ComponentName Value="frmCabrilloImport"/>
+        <HasResources Value="True"/>
+        <ResourceBaseClass Value="Form"/>
+        <UnitName Value="fCabrilloImport"/>
+      </Unit88>
+      <Unit89>
+        <Filename Value="uextra_util.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UnitName Value="uextra_util"/>
+      </Unit89>
     </Units>
   </ProjectOptions>
   <CompilerOptions>

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<fpdoc-descriptions><package name="cqrlog"><module name="fCabrilloImport"><element name="TfrmCabrilloImport.QSOLines"><short>Raw QSO strings loaded from Cabrillo log (without "QSO: ")</short>
+      </element><element name="TfrmCabrilloImport.LoadCabrilloLines"><short>Parse specified Lines into gridHeader and QSOLines</short>
+      </element><element name="TfrmCabrilloImport.ClearGridRows"><short>Remove all rows, keep only one empty row</short>
+      </element><element name="TfrmCabrilloImport.CabrilloFilename"><short>Full path to the Cabrillo log selected by the user</short>
+      </element>
+    <element name="TfrmCabrilloImport.AddRowToGrid"><short>Add empty row to grid (unless the last row is already empty)</short>
+      </element>
+    <element name="TfrmCabrilloImport.GridSetSentRcvd"><short>Postprocessing: add _s(ent) or _r(eceived) to the detected columns</short>
+      </element><element name="TQSOLinesIterator.Lines"><short>Raw QSO strings loaded from Cabrillo log (without "QSO: ")</short>
+      </element>
+    <element name="TQSOLinesIterator"><short>Iterate over "QSO:" lines and extract fields</short>
+      </element>
+    </module>
+  </package>
+</fpdoc-descriptions>

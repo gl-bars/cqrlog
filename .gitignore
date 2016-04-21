@@ -1,7 +1,7 @@
 *.o
 *.~*~
 *.ppu
-src/backup/*.bak
+*.bak
 src/backup
 *.compiled
 *.or/share
