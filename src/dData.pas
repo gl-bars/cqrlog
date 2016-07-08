@@ -30,6 +30,7 @@ const
                        //program crashed after long time of inactivity
                        //so now after cDB_PING_INT will be run simple sql query
                        //which refresh connection
+  cDB_CQRLOG_COMMON = 'cqrlog_common';
 
 Type TMode = (tmRun,tmSP);
 Type TCurPos = (cpBegin,cpEnd);
@@ -299,6 +300,7 @@ type
     procedure LoadClubsSettings;
     procedure LoadZipSettings;
     procedure CheckForDatabases;
+    procedure OpenLogList;
     procedure CreateDatabase(nr : Word; log_name : String);
     procedure EditDatabaseName(nr : Word; log_name : String);
     procedure RefreshLogList(nr : Word = 0);
@@ -340,7 +342,7 @@ var
 implementation
 
 uses dUtils, dDXCC, fMain, fWorking, fUpgrade, fImportProgress, fNewQSO, dDXCluster, uMyIni,
-     fTRXControl, fRotControl, uVersion, dLogUpload;
+     fTRXControl, fRotControl, uVersion, dLogUpload, LCLProc;
 
 procedure TdmData.CheckForDatabases;
 var
@@ -349,16 +351,22 @@ begin
   if trmQ.Active then
     trmQ.Rollback;
   mQ.SQL.Clear;
-  mQ.SQL.Text := 'select * from tables where table_schema = '+
-                  QuotedStr('cqrlog_common');
+  mQ.SQL.Text := 'select * from information_schema.tables;';
+  try
   trmQ.StartTransaction;
   mQ.Open;
   if mQ.RecordCount > 0 then
     Exists := True;
   mQ.Close;
   trmQ.Rollback;
+  except
+    on E: EDatabaseError do
+      DebugLn('CheckForDatabases: connection failed (%s)', [E.Message]);
+  end;
   if not Exists then
   begin
+    MainCon.Connected:=false;
+    MainCon.CreateDB;
     trmQ.StartTransaction;
     if fDebugLevel>=1 then Writeln(scCommon.Script.Text);
     scCommon.ExecuteScript;
@@ -400,6 +408,11 @@ begin
     end
   end;
   mQ.SQL.Clear;
+  OpenLogList;
+end;
+
+procedure TdmData.OpenLogList;
+begin
   qLogList.Close;
   if trLogList.Active then
     trLogList.Rollback;
@@ -528,7 +541,7 @@ begin
   if RbnMonCon.Connected then
     RbnMonCon.Connected := False;
 
-  if fMySQLVersion < 5.5 then
+  {if fMySQLVersion < 5.5 then
   begin
     (MainCon as TMySQL51Connection).HostName := host;
     (MainCon as TMySQL51Connection).Port     := StrToInt(port);
@@ -561,20 +574,20 @@ begin
       (RbnMonCon as TMySQL56Connection).HostName := host;
       (RbnMonCon as TMySQL56Connection).Port     := StrToInt(port)
     end
-  end;
+  end;}
   MainCon.UserName     := user;
   MainCon.Password     := pass;
-  MainCon.DatabaseName := 'information_schema';
+  MainCon.DatabaseName := {'information_schema'} cDB_CQRLOG_COMMON;
 
   BandMapCon.UserName     := user;
   BandMapCon.Password     := pass;
-  BandMapCon.DatabaseName := 'information_schema';
+  BandMapCon.DatabaseName := {'information_schema'} cDB_CQRLOG_COMMON;
 
   RbnMonCon.UserName     := user;
   RbnMonCon.Password     := pass;
-  RbnMonCon.DatabaseName := 'information_schema';
+  RbnMonCon.DatabaseName := {'information_schema'} cDB_CQRLOG_COMMON;
 
-  if fMySQLVersion < 5.5 then
+  {if fMySQLVersion < 5.5 then
   begin
     (dmDXCluster.dbDXC as TMySQL51Connection).HostName := host;
     (dmDXCluster.dbDXC as TMySQL51Connection).Port     := StrToInt(port)
@@ -589,12 +602,12 @@ begin
       (dmDXCluster.dbDXC as TMySQL56Connection).HostName := host;
       (dmDXCluster.dbDXC as TMySQL56Connection).Port     := StrToInt(port)
     end
-  end;
+  end;}
   dmDXCluster.dbDXC.UserName     := user;
   dmDXCluster.dbDXC.Password     := pass;
-  dmDXCluster.dbDXC.DatabaseName := 'information_schema';
+  dmDXCluster.dbDXC.DatabaseName := {'information_schema'} cDB_CQRLOG_COMMON;
 
-  if fMySQLVersion < 5.5 then
+  {if fMySQLVersion < 5.5 then
   begin
     (dmLogUpload.LogUploadCon as TMySQL51Connection).HostName := host;
     (dmLogUpload.LogUploadCon as TMySQL51Connection).Port     := StrToInt(port)
@@ -609,11 +622,11 @@ begin
       (dmLogUpload.LogUploadCon as TMySQL56Connection).HostName := host;
       (dmLogUpload.LogUploadCon as TMySQL56Connection).Port     := StrToInt(port)
     end
-  end;
+  end;}
 
   dmLogUpload.LogUploadCon.UserName     := user;
   dmLogUpload.LogUploadCon.Password     := pass;
-  dmLogUpload.LogUploadCon.DatabaseName := 'information_schema';
+  dmLogUpload.LogUploadCon.DatabaseName := {'information_schema'} cDB_CQRLOG_COMMON;
 
   try
     MainCon.Connected                  := True;
@@ -624,6 +637,7 @@ begin
   except
     on E : Exception do
     begin
+      DebugLn(E.ClassName);
       Application.MessageBox(PChar('Error during connection to database: '+E.Message),
                              'Error',mb_ok + mb_IconError);
       Result := False
@@ -1094,12 +1108,15 @@ begin
 end;
 
 procedure TdmData.DataModuleCreate(Sender: TObject);
+const
+  MYSQL_EMBEDDED_LIB='libmysqld.so';
 var
   lib    : String;
   i      : Integer;
   c      : TConnectionName;
   MySQLVer : String;
   param    : String;
+  MySQLOpts: Array[0..3] of string;
 begin
   InitCriticalSection(csPreviousQSO);
   cqrini       := nil;
@@ -1165,7 +1182,7 @@ begin
   if lib <> '' then
     fDLLUtilName := lib;
 
-  lib := FindLib('/usr/lib64/','libmysqlclient.so*');
+  {lib := FindLib('/usr/lib64/','libmysqlclient.so*');
   if (lib = '') then
     lib := FindLib('/lib64/','libmysqlclient.so*');
   if (lib='') then
@@ -1179,11 +1196,27 @@ begin
   if (lib = '') then
     lib := FindLib('/lib/','libmysqlclient.so*');
   if (lib='') then
-    lib := FindLib('/usr/lib/mysql/','libmysqlclient.so*');
+    lib := FindLib('/usr/lib/mysql/','libmysqlclient.so*');}
+  lib := MYSQL_EMBEDDED_LIB;
+
+  fHomeDir    := GetAppConfigDir(False);
+  fDataDir    := fHomeDir+'database/';
+  fUsrHomeDir := copy(fHomeDir,1,Pos('.config',fHomeDir)-1);
+
+  PrepareDirectories;
+  PrepareMysqlConfigFile;
 
   if fDebugLevel>=1 then Writeln('Loading libmysqlclient: ',lib);
-  if lib <> '' then
-    InitialiseMySQL(lib);
+  if lib <> '' then begin
+    MySQLOpts[0]:=ParamStr(0);
+    MySQLOpts[1]:='--defaults-file='+fHomeDir+'database/'+'mysql.cnf';
+    MySQLOpts[2]:='--datadir='+fHomeDir+'database/';
+    MySQLOpts[3]:='--innodb_log_file_size=5M';
+    {MySQLOpts[4]:='--general-log';
+    MySQLOpts[5]:='--general-log-file=/tmp/libmysqld.log';}
+
+    InitialiseMySQL(lib, Length(MySQLOpts), PPChar(@MySQLOpts), nil);
+  end;
 
   try try
     c := TConnectionName.Create(nil);
@@ -1237,6 +1270,7 @@ begin
   end;
 
   MainCon.KeepConnection := True;
+  MainCon.Name:='MainCon';
   MainCon.Transaction := trmQ;
   for i:=0 to ComponentCount-1 do
   begin
@@ -1271,11 +1305,6 @@ begin
   fVersionString := cVERSION;
   fOrderBy := 'qsodate,time_on';
 
-  fHomeDir    := GetAppConfigDir(False);
-  fDataDir    := fHomeDir+'database/';
-  fUsrHomeDir := copy(fHomeDir,1,Pos('.config',fHomeDir)-1);
-
-  PrepareDirectories;
   PrepareCtyData;
   PrepareDXCCData;
   PrepareXplanetDir;
@@ -1368,7 +1397,8 @@ begin
   BandMapCon.Connected := False;
   MainCon.Connected := False;
   DoneCriticalsection(csPreviousQSO);
-  KillMySQL(False)
+  KillMySQL(False);
+  ReleaseMysql;
 end;
 
 procedure TdmData.Q1BeforeOpen(DataSet: TDataSet);
@@ -3464,22 +3494,22 @@ end;
 
 procedure TdmData.StartMysqldProcess;
 var
-  mysqld    : String;
+  //mysqld    : String;
   Connected : Boolean = False;
   Tryies    : Word = 0;
 begin
-  mysqld := GetMysqldPath;
+  //mysqld := GetMysqldPath;
   PrepareMysqlConfigFile;
-  MySQLProcess := TProcess.Create(nil);
+  {MySQLProcess := TProcess.Create(nil);
   MySQLProcess.CommandLine := mysqld+' --defaults-file='+fHomeDir+'database/'+'mysql.cnf'+
                               ' --datadir='+fHomeDir+'database/'+
                               ' --socket='+fHomeDir+'database/sock'+
                               ' --port=64000';
-  MySQLProcess.Execute;
+  MySQLProcess.Execute;}
   if MainCon.Connected then
     MainCon.Connected := False;
 
-  if fMySQLVersion < 5.5 then
+  {if fMySQLVersion < 5.5 then
   begin
     (MainCon as TMySQL51Connection).HostName := '127.0.0.1';
     (MainCon as TMySQL51Connection).Port     := 64000
@@ -3494,10 +3524,12 @@ begin
       (MainCon as TMySQL56Connection).HostName := '127.0.0.1';
       (MainCon as TMySQL56Connection).Port     := 64000
     end
-  end;
-  MainCon.DatabaseName := 'information_schema';
+  end;}
+  MainCon.DatabaseName := {'information_schema'} cDB_CQRLOG_COMMON;
   MainCon.UserName     := 'cqrlog';
   MainCon.Password     := 'cqrlog';
+  //MainCon.LoginPrompt:=true;
+  Exit; //no-server
 
   while true do
   begin
@@ -3506,7 +3538,7 @@ begin
       inc(Tryies);
       MainCon.Connected := True
     except
-      on E : Exception do
+      on E : EDatabaseError do
       begin
         if fDebugLevel>=1 then Writeln('Trying to connect to database');
         Sleep(1000);

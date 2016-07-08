@@ -70,9 +70,9 @@ object dmData: TdmData
       '#UNDEFINE'
     )
     Script.Strings = (
-      'CREATE DATABASE cqrlog_common DEFAULT CHARACTER SET = utf8  DEFAULT COLLATE = utf8_bin;'
+      '/*CREATE DATABASE cqrlog_common DEFAULT CHARACTER SET = utf8  DEFAULT COLLATE = utf8_bin;'
       ''
-      'USE cqrlog_common;'
+      'USE cqrlog_common;*/'
       ''
       'CREATE TABLE bands ('
       '       id_bands INT AUTO_INCREMENT PRIMARY KEY,'
@@ -792,7 +792,7 @@ object dmData: TdmData
       ''
       '# Use UTF-8 encoding for tables'
       'character_set_server=utf8'
-      'collation_server=utf8_general_ci'
+      'collation_server=utf8_bin'
       ''
       '# use InnoDB for transactions and better crash recovery'
       'default_storage_engine=innodb'

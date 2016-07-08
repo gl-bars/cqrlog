@@ -418,7 +418,9 @@ end;
 procedure TConnectionName.CreateDB;
 
 begin
-  ExecuteDirectMySQL('CREATE DATABASE ' +DatabaseName);
+  //ExecuteDirectMySQL('CREATE DATABASE ' +DatabaseName);
+  ExecuteDirectMySQL('CREATE DATABASE IF NOT EXISTS '+DatabaseName+
+    ' DEFAULT CHARACTER SET = utf8 DEFAULT COLLATE = utf8_bin');
 end;
 
 procedure TConnectionName.DropDB;

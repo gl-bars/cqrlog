@@ -849,6 +849,7 @@ begin
     dbDXC := TMySQL56Connection.Create(self);
 
   dbDXC.KeepConnection := True;
+  dbDXC.Name:='dbDXC';
   for i:=0 to ComponentCount-1 do
   begin
     if Components[i] is TSQLQuery then

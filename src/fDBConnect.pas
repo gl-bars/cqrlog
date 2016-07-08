@@ -6,7 +6,7 @@ interface
 
 uses
   Classes, SysUtils, FileUtil, LResources, Forms, Controls, Graphics, Dialogs,
-  StdCtrls, ExtCtrls, DBGrids, LCLType, Menus, IniFiles;
+  StdCtrls, ExtCtrls, DBGrids, LCLType, Menus, IniFiles, db;
 
 type
 
@@ -113,6 +113,8 @@ end;
 
 procedure TfrmDBConnect.UpdateGridFields;
 begin
+  if dbgrdLogs.DataSource.State = dsInactive then exit;
+
   //dbgrdLogs.Columns[0].Visible     := False;
   dbgrdLogs.Columns[0].Width       := 50;
   dbgrdLogs.Columns[1].Width       := 180;
@@ -230,13 +232,14 @@ end;
 procedure TfrmDBConnect.btnConnectClick(Sender: TObject);
 begin
   SaveLogin;
-  if dmData.OpenConnections(edtServer.Text,edtPort.Text,edtUser.Text,edtPass.Text) then
-  begin
+  {if dmData.OpenConnections(edtServer.Text,edtPort.Text,edtUser.Text,edtPass.Text) then
+  begin} //no-server
     dmData.CheckForDatabases;
+    dmData.OpenConnections(edtServer.Text,edtPort.Text,edtUser.Text,edtPass.Text);
+    dmData.OpenLogList; //reopen after OpenConnections
     UpdateGridFields;
     EnableButtons;
     OpenDefaultLog
-  end
 end;
 
 procedure TfrmDBConnect.btnDeleteLogClick(Sender: TObject);
@@ -415,7 +418,8 @@ begin
   end
   else begin
     if StartMysql then
-      dmData.StartMysqldProcess
+      dmData.StartMysqldProcess;
+    UpdateGridFields; //not done in btnConnectClick
   end;
   dlgOpen.InitialDir := dmData.HomeDir;
   dlgSave.InitialDir := dmData.HomeDir
