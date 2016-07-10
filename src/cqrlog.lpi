@@ -17,7 +17,7 @@
       <AutoIncrementBuild Value="True"/>
       <MinorVersionNr Value="3"/>
       <RevisionNr Value="1"/>
-      <BuildNr Value="2093"/>
+      <BuildNr Value="2096"/>
       <StringTable ProductVersion="0.3.1.2026"/>
     </VersionInfo>
     <BuildModes Count="1">
@@ -83,7 +83,7 @@
         <MinVersion Major="1" Minor="2" Release="1" Valid="True"/>
       </Item10>
     </RequiredPackages>
-    <Units Count="90">
+    <Units Count="97">
       <Unit0>
         <Filename Value="cqrlog.lpr"/>
         <IsPartOfProject Value="True"/>
@@ -101,7 +101,6 @@
         <ComponentName Value="frmMain"/>
         <HasResources Value="True"/>
         <ResourceBaseClass Value="Form"/>
-        <UnitName Value="fMain"/>
       </Unit2>
       <Unit3>
         <Filename Value="fPreferences.pas"/>
@@ -116,12 +115,12 @@
         <ComponentName Value="dmUtils"/>
         <HasResources Value="True"/>
         <ResourceBaseClass Value="DataModule"/>
-        <UnitName Value="dUtils"/>
       </Unit4>
       <Unit5>
         <Filename Value="fChangeLocator.pas"/>
         <IsPartOfProject Value="True"/>
         <ComponentName Value="frmChangeLocator"/>
+        <ResourceBaseClass Value="Form"/>
       </Unit5>
       <Unit6>
         <Filename Value="dData.pas"/>
@@ -129,7 +128,6 @@
         <ComponentName Value="dmData"/>
         <HasResources Value="True"/>
         <ResourceBaseClass Value="DataModule"/>
-        <UnitName Value="dData"/>
       </Unit6>
       <Unit7>
         <Filename Value="dDXCC.pas"/>
@@ -137,7 +135,6 @@
         <ComponentName Value="dmDXCC"/>
         <HasResources Value="True"/>
         <ResourceBaseClass Value="DataModule"/>
-        <UnitName Value="dDXCC"/>
       </Unit7>
       <Unit8>
         <Filename Value="fMarkQSL.pas"/>
@@ -162,6 +159,7 @@
         <Filename Value="fFilter.pas"/>
         <IsPartOfProject Value="True"/>
         <ComponentName Value="frmFilter"/>
+        <HasResources Value="True"/>
         <ResourceBaseClass Value="Form"/>
       </Unit11>
       <Unit12>
@@ -208,12 +206,15 @@
         <Filename Value="fFreq.pas"/>
         <IsPartOfProject Value="True"/>
         <ComponentName Value="frmFreq"/>
+        <HasResources Value="True"/>
         <ResourceBaseClass Value="Form"/>
       </Unit18>
       <Unit19>
         <Filename Value="fChangeFreq.pas"/>
         <IsPartOfProject Value="True"/>
         <ComponentName Value="frmChangeFreq"/>
+        <HasResources Value="True"/>
+        <ResourceBaseClass Value="Form"/>
       </Unit19>
       <Unit20>
         <Filename Value="fAdifImport.pas"/>
@@ -221,7 +222,6 @@
         <ComponentName Value="frmAdifImport"/>
         <HasResources Value="True"/>
         <ResourceBaseClass Value="Form"/>
-        <UnitName Value="fAdifImport"/>
       </Unit20>
       <Unit21>
         <Filename Value="fSplash.pas"/>
@@ -258,6 +258,7 @@
         <Filename Value="fNewDXCluster.pas"/>
         <IsPartOfProject Value="True"/>
         <ComponentName Value="frmNewDXCluster"/>
+        <ResourceBaseClass Value="Form"/>
       </Unit26>
       <Unit27>
         <Filename Value="fDXCluster.pas"/>
@@ -295,6 +296,7 @@
         <Filename Value="fSendSpot.pas"/>
         <IsPartOfProject Value="True"/>
         <ComponentName Value="frmSendSpot"/>
+        <ResourceBaseClass Value="Form"/>
       </Unit32>
       <Unit33>
         <Filename Value="fQSODetails.pas"/>
@@ -339,6 +341,7 @@
         <Filename Value="fRefCall.pas"/>
         <IsPartOfProject Value="True"/>
         <ComponentName Value="frmRefCall"/>
+        <ResourceBaseClass Value="Form"/>
       </Unit39>
       <Unit40>
         <Filename Value="fBandMap.pas"/>
@@ -346,7 +349,6 @@
         <ComponentName Value="frmBandMap"/>
         <HasResources Value="True"/>
         <ResourceBaseClass Value="Form"/>
-        <UnitName Value="fBandMap"/>
       </Unit40>
       <Unit41>
         <Filename Value="fBandMapFilter.pas"/>
@@ -367,7 +369,6 @@
         <ComponentName Value="frmDatabaseUpdate"/>
         <HasResources Value="True"/>
         <ResourceBaseClass Value="Form"/>
-        <UnitName Value="fDatabaseUpdate"/>
       </Unit43>
       <Unit44>
         <Filename Value="fExLabelPrint.pas"/>
@@ -441,7 +442,6 @@
       <Unit55>
         <Filename Value="uMyIni.pas"/>
         <IsPartOfProject Value="True"/>
-        <UnitName Value="uMyIni"/>
       </Unit55>
       <Unit56>
         <Filename Value="fPropagation.pas"/>
@@ -497,6 +497,7 @@
         <Filename Value="fRebuildMembStat.pas"/>
         <IsPartOfProject Value="True"/>
         <ComponentName Value="frmRebuildMembStat"/>
+        <HasResources Value="True"/>
         <ResourceBaseClass Value="Form"/>
       </Unit64>
       <Unit65>
@@ -523,7 +524,6 @@
         <ComponentName Value="frmChangelog"/>
         <HasResources Value="True"/>
         <ResourceBaseClass Value="Form"/>
-        <UnitName Value="fChangelog"/>
       </Unit68>
       <Unit69>
         <Filename Value="fBigSquareStat.pas"/>
@@ -650,7 +650,6 @@
         <ComponentName Value="frmRadioMemories"/>
         <HasResources Value="True"/>
         <ResourceBaseClass Value="Form"/>
-        <UnitName Value="fRadioMemories"/>
       </Unit86>
       <Unit87>
         <Filename Value="fAddRadioMemory.pas"/>
@@ -658,21 +657,66 @@
         <ComponentName Value="frmAddRadioMemory"/>
         <HasResources Value="True"/>
         <ResourceBaseClass Value="Form"/>
-        <UnitName Value="fAddRadioMemory"/>
       </Unit87>
       <Unit88>
+        <Filename Value="fException.pas"/>
+        <IsPartOfProject Value="True"/>
+        <HasResources Value="True"/>
+      </Unit88>
+      <Unit89>
+        <Filename Value="fdberror.pas"/>
+        <IsPartOfProject Value="True"/>
+        <ComponentName Value="frmDbError"/>
+        <ResourceBaseClass Value="Form"/>
+        <UnitName Value="fDbError"/>
+      </Unit89>
+      <Unit90>
+        <Filename Value="fCommentToCall.pas"/>
+        <IsPartOfProject Value="True"/>
+        <ComponentName Value="frmCommentToCall"/>
+        <HasResources Value="True"/>
+        <ResourceBaseClass Value="Form"/>
+      </Unit90>
+      <Unit91>
+        <Filename Value="fNewCommentToCall.pas"/>
+        <IsPartOfProject Value="True"/>
+        <ComponentName Value="frmNewCommentToCall"/>
+        <HasResources Value="True"/>
+        <ResourceBaseClass Value="Form"/>
+      </Unit91>
+      <Unit92>
+        <Filename Value="fFindCommentToCall.pas"/>
+        <IsPartOfProject Value="True"/>
+        <ComponentName Value="frmFindCommentToCall"/>
+        <HasResources Value="True"/>
+        <ResourceBaseClass Value="Form"/>
+      </Unit92>
+      <Unit93>
+        <Filename Value="frExportPref.pas"/>
+        <IsPartOfProject Value="True"/>
+        <ComponentName Value="fraExportPref"/>
+        <HasResources Value="True"/>
+        <ResourceBaseClass Value="Frame"/>
+      </Unit93>
+      <Unit94>
+        <Filename Value="fExportPref.pas"/>
+        <IsPartOfProject Value="True"/>
+        <ComponentName Value="frmExportPref"/>
+        <ResourceBaseClass Value="Form"/>
+      </Unit94>
+      <Unit95>
         <Filename Value="fCabrilloImport.pas"/>
         <IsPartOfProject Value="True"/>
         <ComponentName Value="frmCabrilloImport"/>
         <HasResources Value="True"/>
         <ResourceBaseClass Value="Form"/>
         <UnitName Value="fCabrilloImport"/>
-      </Unit88>
-      <Unit89>
+      </Unit95>
+      <Unit96>
         <Filename Value="uextra_util.pas"/>
         <IsPartOfProject Value="True"/>
         <UnitName Value="uextra_util"/>
-      </Unit89>
+      </Unit96>
     </Units>
   </ProjectOptions>
   <CompilerOptions>

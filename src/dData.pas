@@ -19,13 +19,14 @@ uses
   Classes, SysUtils, LResources, Forms, Controls, Dialogs, DB, FileUtil,
   memds, mysql51conn, sqldb, inifiles, stdctrls, RegExpr,
   dynlibs, lcltype, ExtCtrls, sqlscript, process, mysql51dyn, ssl_openssl_lib,
-  mysql55dyn, mysql55conn, CustApp, mysql56dyn, mysql56conn, grids;
+  mysql55dyn, mysql55conn, CustApp, mysql56dyn, mysql56conn, grids, LazFileUtils,
+  mysql57dyn, mysql57conn;
 
 const
   MaxCall   = 100000;
   cDB_LIMIT = 500;
   cDB_MAIN_VER = 11;
-  cDB_COMN_VER = 3;
+  cDB_COMN_VER = 4;
   cDB_PING_INT = 300;  //ping interval for database connection in seconds
                        //program crashed after long time of inactivity
                        //so now after cDB_PING_INT will be run simple sql query
@@ -190,16 +191,13 @@ type
     procedure PrepareMysqlConfigFile;
     procedure DeleteOldConfigFiles;
     procedure PrepareEmptyLogUploadStatusTables(lQ : TSQLQuery;lTr : TSQLTransaction);
-    procedure OpenFreqMemories;
     procedure GetCurrentFreqFromMem(var freq : Double; var mode : String; var bandwidth : Integer);
   public
-    {
-    MainCon51 : TMySQL51Connection;
-    MainCon55 : TMySQL55Connection;
-    }
-    MainCon    : TSQLConnection;
-    BandMapCon : TSQLConnection;
-    RbnMonCon  : TSQLConnection;
+    MainCon      : TSQLConnection;
+    BandMapCon   : TSQLConnection;
+    RbnMonCon    : TSQLConnection;
+    LogUploadCon : TSQLConnection;
+    dbDXC        : TSQLConnection;
 
     eQSLUsers : Array of ShortString;
     CallArray : Array [0..MaxCall] of String[20];
@@ -280,6 +278,7 @@ type
     function  CallExistsInLog(callsign,band,mode,LastDate,LastTime : String) : Boolean;
     function  RbnMonDXCCInfo(adif : Word; band, mode : String;DxccWithLoTW:Boolean;  var index : integer) : String;
     function  RbnCallExistsInLog(callsign,band,mode,LastDate,LastTime : String) : Boolean;
+    function  CallNoteExists(Callsign : String) : Boolean;
 
     procedure SaveQSO(date : TDateTime; time_on,time_off,call : String; freq : Currency;mode,rst_s,
                       rst_r, stn_name,qth,qsl_s,qsl_r,qsl_via,iota,pwr : String; itu,waz : Integer;
@@ -292,6 +291,7 @@ type
                       loc, my_loc,county,award,remarks : String; adif : Word; idcall,state,cont : String;
                       qso_dxcc : Boolean; profile : Integer; idx : LongInt);
     procedure SaveComment(call,text : String);
+    procedure DeleteComment(id : Integer);
     procedure PrepareImport;
     procedure DoAfterImport;
     procedure InsertProfiles(cmbProfile : TComboBox; ShowAll : Boolean);
@@ -331,6 +331,10 @@ type
     procedure LoadFreqMemories(grid : TStringGrid);
     procedure GetPreviousFreqFromMem(var freq : Double; var mode : String; var bandwidth : Integer);
     procedure GetNextFreqFromMem(var freq : Double; var mode : String; var bandwidth : Integer);
+    procedure OpenFreqMemories(mode : String);
+    procedure CheckApparmorConfig;
+    procedure SaveBandChanges(band : String; BandBegin, BandEnd, BandCW, BandRTTY, BandSSB, RXOffset, TXOffset : Currency);
+    procedure GetRXTXOffset(Freq : Currency; var RXOffset,TXOffset : Currency);
   end;
 
 var
@@ -342,7 +346,7 @@ var
 implementation
 
 uses dUtils, dDXCC, fMain, fWorking, fUpgrade, fImportProgress, fNewQSO, dDXCluster, uMyIni,
-     fTRXControl, fRotControl, uVersion, dLogUpload, LCLProc;
+     fTRXControl, fRotControl, uVersion, dLogUpload, fDbError, LCLProc;
 
 procedure TdmData.CheckForDatabases;
 var
@@ -529,111 +533,64 @@ begin
 end;
 
 function TdmData.OpenConnections(host,port,user,pass : String) : Boolean;
+var
+  sql : String;
 begin
   Result := True;
 
   if MainCon.Connected then
     MainCon.Connected := False;
-  if dmDXCluster.dbDXC.Connected then
-    dmDXCluster.dbDXC.Connected := False;
-  if dmLogUpload.LogUploadCon.Connected then
-    dmLogUpload.LogUploadCon.Connected := False;
+  if dbDXC.Connected then
+    dbDXC.Connected := False;
+  if LogUploadCon.Connected then
+    LogUploadCon.Connected := False;
   if RbnMonCon.Connected then
     RbnMonCon.Connected := False;
 
-  {if fMySQLVersion < 5.5 then
-  begin
-    (MainCon as TMySQL51Connection).HostName := host;
-    (MainCon as TMySQL51Connection).Port     := StrToInt(port);
-
-    (BandMapCon as TMySQL51Connection).HostName := host;
-    (BandMapCon as TMySQL51Connection).Port     := StrToInt(port);
-
-    (RbnMonCon as TMySQL51Connection).HostName := host;
-    (RbnMonCon as TMySQL51Connection).Port     := StrToInt(port)
-  end
-  else begin
-    if fMySQLVersion = 5.5 then
-    begin
-      (MainCon as TMySQL55Connection).HostName := host;
-      (MainCon as TMySQL55Connection).Port     := StrToInt(port);
-
-      (BandMapCon as TMySQL55Connection).HostName := host;
-      (BandMapCon as TMySQL55Connection).Port     := StrToInt(port);
-
-      (RbnMonCon as TMySQL55Connection).HostName := host;
-      (RbnMonCon as TMySQL55Connection).Port     := StrToInt(port)
-    end
-    else begin
-      (MainCon as TMySQL56Connection).HostName := host;
-      (MainCon as TMySQL56Connection).Port     := StrToInt(port);
-
-      (BandMapCon as TMySQL56Connection).HostName := host;
-      (BandMapCon as TMySQL56Connection).Port     := StrToInt(port);
-
-      (RbnMonCon as TMySQL56Connection).HostName := host;
-      (RbnMonCon as TMySQL56Connection).Port     := StrToInt(port)
-    end
-  end;}
+  {MainCon.HostName     := host;
+  MainCon.Params.Text  := 'Port='+port;}
   MainCon.UserName     := user;
   MainCon.Password     := pass;
   MainCon.DatabaseName := {'information_schema'} cDB_CQRLOG_COMMON;
 
+  {BandMapCon.HostName     := host;
+  BandMapCon.Params.Text  := 'Port='+port;}
   BandMapCon.UserName     := user;
   BandMapCon.Password     := pass;
   BandMapCon.DatabaseName := {'information_schema'} cDB_CQRLOG_COMMON;
 
+  {RbnMonCon.HostName     := host;
+  RbnMonCon.Params.Text  := 'Port='+port;}
   RbnMonCon.UserName     := user;
   RbnMonCon.Password     := pass;
   RbnMonCon.DatabaseName := {'information_schema'} cDB_CQRLOG_COMMON;
 
-  {if fMySQLVersion < 5.5 then
-  begin
-    (dmDXCluster.dbDXC as TMySQL51Connection).HostName := host;
-    (dmDXCluster.dbDXC as TMySQL51Connection).Port     := StrToInt(port)
-  end
-  else begin
-    if (fMySQLVersion = 5.5) then
-    begin
-      (dmDXCluster.dbDXC as TMySQL55Connection).HostName := host;
-      (dmDXCluster.dbDXC as TMySQL55Connection).Port     := StrToInt(port)
-    end
-    else begin
-      (dmDXCluster.dbDXC as TMySQL56Connection).HostName := host;
-      (dmDXCluster.dbDXC as TMySQL56Connection).Port     := StrToInt(port)
-    end
-  end;}
-  dmDXCluster.dbDXC.UserName     := user;
-  dmDXCluster.dbDXC.Password     := pass;
-  dmDXCluster.dbDXC.DatabaseName := {'information_schema'} cDB_CQRLOG_COMMON;
+  {dbDXC.HostName     := host;
+  dbDXC.Params.Text  := 'Port='+port;}
+  dbDXC.UserName     := user;
+  dbDXC.Password     := pass;
+  dbDXC.DatabaseName := {'information_schema'} cDB_CQRLOG_COMMON;
 
-  {if fMySQLVersion < 5.5 then
-  begin
-    (dmLogUpload.LogUploadCon as TMySQL51Connection).HostName := host;
-    (dmLogUpload.LogUploadCon as TMySQL51Connection).Port     := StrToInt(port)
-  end
-  else begin
-    if (fMySQLVersion = 5.5) then
-    begin
-      (dmLogUpload.LogUploadCon as TMySQL55Connection).HostName := host;
-      (dmLogUpload.LogUploadCon as TMySQL55Connection).Port     := StrToInt(port)
-    end
-    else begin
-      (dmLogUpload.LogUploadCon as TMySQL56Connection).HostName := host;
-      (dmLogUpload.LogUploadCon as TMySQL56Connection).Port     := StrToInt(port)
-    end
-  end;}
-
-  dmLogUpload.LogUploadCon.UserName     := user;
-  dmLogUpload.LogUploadCon.Password     := pass;
-  dmLogUpload.LogUploadCon.DatabaseName := {'information_schema'} cDB_CQRLOG_COMMON;
+  {LogUploadCon.HostName     := host;
+  LogUploadCon.Params.Text  := 'Port='+port;}
+  LogUploadCon.UserName     := user;
+  LogUploadCon.Password     := pass;
+  LogUploadCon.DatabaseName := {'information_schema'} cDB_CQRLOG_COMMON;
 
   try
-    MainCon.Connected                  := True;
-    dmDXCluster.dbDXC.Connected        := True;
-    dmLogUpload.LogUploadCon.Connected := True;
-    BandMapCon.Connected               := True;
-    RbnMonCon.Connected                := True;
+    MainCon.Connected      := True;
+    dbDXC.Connected        := True;
+    LogUploadCon.Connected := True;
+    BandMapCon.Connected   := True;
+    RbnMonCon.Connected    := True;
+
+    sql := 'SET SESSION sql_mode=(SELECT REPLACE(@@sql_mode,'+QuotedStr('ONLY_FULL_GROUP_BY')+','+QuotedStr('')+'));';
+
+    MainCon.ExecuteDirect(sql);
+    dbDXC.ExecuteDirect(sql);
+    LogUploadCon.ExecuteDirect(sql);
+    BandMapCon.ExecuteDirect(sql);
+    RbnMonCon.ExecuteDirect(sql)
   except
     on E : Exception do
     begin
@@ -825,7 +782,7 @@ begin
   frmTRXControl.InicializeRig;
   frmRotControl.InicializeRot;
 
-  OpenFreqMemories;
+  OpenFreqMemories('');
 
   LoadClubsSettings;
   LoadZipSettings
@@ -1027,6 +984,10 @@ begin
     CopyFile(s+'qslmgr.csv',d+'qslmgr.csv',True)
   end;
 
+  //us states
+  if not FileExistsUTF8(d+'us_states.tab') then
+    CopyFile(s+'us_states.tab',d+'us_states.tab');
+
   if not FileExistsUTF8(fHomeDir+'lotw1.txt') then
     CopyFile(s+'lotw1.txt',fHomeDir+'lotw1.txt',True);
   if not FileExistsUTF8(fHomeDir+'eqsl.txt') then
@@ -1221,6 +1182,19 @@ begin
   try try
     c := TConnectionName.Create(nil);
     MySQLVer := copy(c.ClientInfo,1,3);
+
+    if fDebugLevel>=1 then
+    begin
+      Writeln('**************************');
+      Writeln('MySQL version: ',MySQLVer);
+      Writeln('**************************')
+    end;
+
+    if MySQLVer = '10.' then
+      MySQLVer := '5.6';
+    if MySQLVer = '10.1' then
+      MySQLVer := '5.7'
+
   except
     on E : Exception do
     begin
@@ -1233,40 +1207,49 @@ begin
     FreeAndNil(c)
   end;
 
-  if fDebugLevel>=1 then
-  begin
-    Writeln('**************************');
-    Writeln('MySQL version: ',MySQLVer);
-    Writeln('**************************')
-  end;
-
   if not TryStrToCurr(MySQLVer,fMySQLVersion) then
     fMySQLVersion := 5.6;
 
   if fDebugLevel>=1 then
   begin
     Writeln('**********************************');
-    Writeln('MySQL version assigned: ',fMySQLVersion);
+    Writeln('MySQL version assigned: ',FloatToStr(fMySQLVersion));
     Writeln('**********************************')
   end;
 
 
   if fMySQLVersion < 5.5 then
   begin
-    MainCon    := TMySQL51Connection.Create(self);
-    BandMapCon := TMySQL51Connection.Create(self);
-    RbnMonCon  := TMySQL51Connection.Create(self);
+    MainCon      := TMySQL51Connection.Create(self);
+    BandMapCon   := TMySQL51Connection.Create(self);
+    RbnMonCon    := TMySQL51Connection.Create(self);
+    LogUploadCon := TMySQL51Connection.Create(self);
+    dbDXC        := TMySQL51Connection.Create(self)
   end
   else  if fMySQLVersion < 5.6 then
   begin
-    MainCon    := TMySQL55Connection.Create(self);
-    BandMapCon := TMySQL55Connection.Create(self);
-    RbnMonCon  := TMySQL55Connection.Create(self)
+    MainCon      := TMySQL55Connection.Create(self);
+    BandMapCon   := TMySQL55Connection.Create(self);
+    RbnMonCon    := TMySQL55Connection.Create(self);
+    LogUploadCon := TMySQL55Connection.Create(self);
+    dbDXC        := TMySQL55Connection.Create(self)
   end
   else begin
-    MainCon    := TMySQL56Connection.Create(self);
-    BandMapCon := TMySQL56Connection.Create(self);
-    RbnMonCon  := TMySQL56Connection.Create(self)
+    if fMySQLVersion < 5.7 then
+    begin
+      MainCon      := TMySQL56Connection.Create(self);
+      BandMapCon   := TMySQL56Connection.Create(self);
+      RbnMonCon    := TMySQL56Connection.Create(self);
+      LogUploadCon := TMySQL56Connection.Create(self);
+      dbDXC        := TMySQL56Connection.Create(self)
+    end
+    else begin
+      MainCon      := TMySQL57Connection.Create(self);
+      BandMapCon   := TMySQL57Connection.Create(self);
+      RbnMonCon    := TMySQL57Connection.Create(self);
+      LogUploadCon := TMySQL57Connection.Create(self);
+      dbDXC        := TMySQL57Connection.Create(self)
+    end
   end;
 
   MainCon.KeepConnection := True;
@@ -1652,6 +1635,50 @@ begin
   Result := qComment.Fields[0].AsString;
   qComment.Close;
   trComment.Rollback
+end;
+
+procedure TdmData.DeleteComment(id : Integer);
+const
+  C_DEL = 'delete from notes where id_notes = %d';
+
+begin
+  qComment.Close;
+  if trComment.Active then
+    trComment.Rollback;
+
+  trComment.StartTransaction;
+  try try
+    qComment.SQL.Text := Format(C_DEL,[id]);
+    qComment.ExecSQL
+  except
+    on E : Exception do
+    begin
+      Writeln(E.Message);
+      trComment.Rollback
+    end
+  end
+  finally
+    if trComment.Active then
+      trComment.Commit
+  end
+end;
+
+function TdmData.CallNoteExists(Callsign : String) : Boolean;
+const
+  C_SEL = 'select id_notes from notes where callsign=%s';
+begin
+  Result := False;
+  if dmData.trQ.Active then
+    dmData.trQ.Rollback;
+  dmData.trQ.StartTransaction;
+  try
+    dmData.Q.SQL.Text := Format(C_SEL,[QuotedStr(Callsign)]);
+    dmData.Q.Open;
+    Result := dmData.Q.RecordCount > 0
+  finally
+    dmData.Q.Close;
+    dmData.trQ.Rollback
+  end
 end;
 
 procedure TdmData.PrepareImport;
@@ -2943,20 +2970,33 @@ end;
 
 function TdmData.GetQSOCount : Integer;
 begin
-  Result := 0;
+  Q.Close;
+  if trQ.Active then
+    trQ.RollBack;
+
   if IsFilter then
-    Result := qCQRLOG.RecordCount
-  else begin
-    Q.Close;
+  begin
+    Q.SQL.Text := dmData.qCQRLOG.SQL.Text;
+    trQ.StartTransaction;
     try
-      Q.SQL.Text := 'SELECT COUNT(*) FROM cqrlog_main';
-      if trQ.Active then trQ.RollBack;
-      trQ.StartTransaction;
-      dmData.Q.Open;
-      Result := dmData.Q.Fields[0].AsInteger
+      Q.Open;
+      Q.Last;
+      Q.First;
+      Result := dmData.Q.RecordCount
     finally
-      dmData.Q.Close;
-      dmData.trQ.RollBack
+      Q.Close;
+      trQ.RollBack
+    end
+  end
+  else begin
+    Q.SQL.Text := 'SELECT COUNT(*) FROM cqrlog_main';
+    trQ.StartTransaction;
+    try
+      Q.Open;
+      Result := Q.Fields[0].AsInteger
+    finally
+      Q.Close;
+      trQ.RollBack
     end
   end
 end;
@@ -3083,6 +3123,18 @@ begin
         if fDebugLevel>=1 then Writeln(Q1.SQL.Text);
         Q1.ExecSQL
       end;
+
+      if (old_version < 4) then
+      begin
+        Q1.SQL.Text := 'alter table cqrlog_common.bands add rx_offset numeric(10,4) default 0';
+        if fDebugLevel>=1 then Writeln(Q1.SQL.Text);
+        Q1.ExecSQL;
+
+        Q1.SQL.Text := 'alter table cqrlog_common.bands add tx_offset numeric(10,4) default 0';
+        if fDebugLevel>=1 then Writeln(Q1.SQL.Text);
+        Q1.ExecSQL
+      end;
+
       Q1.SQL.Text := 'update cqrlog_common.db_version set nr='+IntToStr(cDB_COMN_VER);
       if fDebugLevel>=1 then Writeln(Q1.SQL.Text);
       Q1.ExecSQL
@@ -3447,41 +3499,14 @@ begin
   if FileExistsUTF8('/usr/sbin/mysqld') then //openSUSE
     Result := '/usr/sbin/mysqld';
   if Result = '' then  //don't know where mysqld is, so hopefully will be in  $PATH
-    Result := 'mysqld';
-
-  if FileExistsUTF8('/etc/apparmor.d/usr.sbin.mysqld') then
-  begin
-    l := TStringList.Create;
-    try
-      l.LoadFromFile('/etc/apparmor.d/usr.sbin.mysqld');
-      l.Text := UpperCase(l.Text);
-      if Pos(UpperCase('@{HOME}/.config/cqrlog/database/** rwk,'),l.Text) = 0 then
-      begin
-        info := 'It looks like apparmor is running in your system. CQRLOG needs to add this :'+
-                LineEnding+
-                '@{HOME}/.config/cqrlog/database/** rwk,'+
-                LineEnding+
-                'into /etc/apparmor.d/usr.sbin.mysqld'+
-                LineEnding+
-                LineEnding+
-                'You can do that by running /usr/share/cqrlog/cqrlog-apparmor-fix or you can add the line '+
-                'and restart apparmor manually.'+
-                LineEnding+
-                LineEnding+
-                'Click OK to continue (program may not work correctly) or Cancel and modify the file '+
-                'first.';
-         if Application.MessageBox(PChar(info),'Information ...',mb_OKCancel+mb_IconInformation) = idCancel then
-           Application.Terminate
-      end
-    finally
-      l.Free
-    end
-  end
+    Result := 'mysqld'
 end;
 
 procedure TdmData.PrepareMysqlConfigFile;
 var
   f : TextFile;
+  l : TStringList;
+  i : Integer;
 begin
   if not FileExistsUTF8(fHomeDir+'database'+DirectorySeparator+'mysql.cnf') then
   begin
@@ -3489,6 +3514,29 @@ begin
     Rewrite(f);
     Writeln(f,scMySQLConfig.Script.Text);
     CloseFile(f)
+  end
+  else begin
+    //innodb_additional_mem_pool_size is deprecated in MySQL >= 5.6.3
+    //and MySQL in Ubuntu 16.04 doesn't start with this parameter
+    //in mysql.cnf
+    //it seems I can remove it in all versions of MySQL used by CQRLOG
+
+    l := TStringList.Create;
+    try try
+      l.LoadFromFile(fHomeDir+'database'+DirectorySeparator+'mysql.cnf');
+      i := l.IndexOf('innodb_additional_mem_pool_size=1M');
+      if i > -1 then
+      begin
+        l.Strings[i] := '#innodb_additional_mem_pool_size=1M';
+        l.SaveToFile(fHomeDir+'database'+DirectorySeparator+'mysql.cnf')
+      end
+    except
+      on E : Exception do
+        Writeln(E.Message)
+    end
+    finally
+      FreeAndNil(l);
+    end
   end
 end;
 
@@ -3505,26 +3553,14 @@ begin
                               ' --datadir='+fHomeDir+'database/'+
                               ' --socket='+fHomeDir+'database/sock'+
                               ' --port=64000';
+  if fDebugLevel >= 1 then Writeln(MySQLProcess.CommandLine);
   MySQLProcess.Execute;}
+
   if MainCon.Connected then
     MainCon.Connected := False;
 
-  {if fMySQLVersion < 5.5 then
-  begin
-    (MainCon as TMySQL51Connection).HostName := '127.0.0.1';
-    (MainCon as TMySQL51Connection).Port     := 64000
-  end
-  else begin
-    if fMySQLVersion = 5.5 then
-    begin
-      (MainCon as TMySQL55Connection).HostName := '127.0.0.1';
-      (MainCon as TMySQL55Connection).Port     := 64000
-    end
-    else begin
-      (MainCon as TMySQL56Connection).HostName := '127.0.0.1';
-      (MainCon as TMySQL56Connection).Port     := 64000
-    end
-  end;}
+  {MainCon.HostName     := '127.0.0.1';
+  MainCon.Params.Text  := 'Port=64000';}
   MainCon.DatabaseName := {'information_schema'} cDB_CQRLOG_COMMON;
   MainCon.UserName     := 'cqrlog';
   MainCon.Password     := 'cqrlog';
@@ -3559,8 +3595,12 @@ begin
   MainCon.DatabaseName := '';
   if not Connected then
   begin
-    Application.MessageBox('MySQL could not be started, please check if the MySQL server is installed properly','Error...',
-                           mb_OK + mb_IconError)
+    with TfrmDbError.Create(nil) do
+    try
+      ShowModal
+    finally
+      Free
+    end
   end
 end;
 
@@ -4164,7 +4204,7 @@ begin
     dmData.Q.Close;
     if dmData.trQ.Active then
       dmData.trQ.Commit;
-    OpenFreqMemories
+    OpenFreqMemories(frmTRXControl.GetRawMode)
   end
 end;
 
@@ -4191,15 +4231,28 @@ begin
   end
 end;
 
-procedure TdmData.OpenFreqMemories;
+procedure TdmData.OpenFreqMemories(mode : String);
 const
-  C_SEL = 'select id,freq,mode,bandwidth from freqmem order by id';
+  C_SEL = 'select id,freq,mode,bandwidth from freqmem';
 begin
   qFreqMem.Close;
   if trFreqMem.Active then
     trFreqMem.Rollback;
 
-  qFreqMem.SQL.Text := C_SEL;
+  if (mode='') then
+    qFreqMem.SQL.Text := C_SEL + ' order by id'
+  else begin
+    if ((mode='LSB') or (mode='USB') or (mode='FM') or (mode='AM')) then
+    begin
+      qFreqMem.SQL.Text := C_SEL + ' where (mode = ' + QuotedStr('LSB') +') or ' +
+                           '(mode = ' + QuotedStr('USB') + ') or (mode = ' + QuotedStr('FM') + ') or ' +
+                           '(mode = ' + QuotedStr('AM')+ ') order by id'
+    end
+    else
+      qFreqMem.SQL.Text := C_SEL + ' where (mode = ' + QuotedStr(mode) +') order by id'
+  end;
+
+  if fDebugLevel>=1 then Writeln(qFreqMem.SQL.Text);
   trFreqMem.StartTransaction;
   qFreqMem.Open;
 
@@ -4229,7 +4282,7 @@ procedure TdmData.GetPreviousFreqFromMem(var freq : Double; var mode : String; v
 begin
   if not qFreqMem.Active then
   begin
-    OpenFreqMemories;
+    OpenFreqMemories(frmTRXControl.GetRawMode);
     qFreqMem.Last
   end
   else begin
@@ -4248,7 +4301,7 @@ procedure TdmData.GetNextFreqFromMem(var freq : Double; var mode : String; var b
 begin
   if not qFreqMem.Active then
   begin
-    OpenFreqMemories;
+    OpenFreqMemories(frmTRXControl.GetRawMode);
     qFreqMem.First
   end
   else begin
@@ -4259,6 +4312,128 @@ begin
       qFreqMem.Next
   end;
   GetCurrentFreqFromMem(freq,mode,bandwidth)
+end;
+
+procedure TdmData.CheckApparmorConfig;
+
+  function IsModified(FileName : String) : Boolean;
+  var
+    l : TStringList;
+  begin
+    Result := False;
+    l := TStringList.Create;
+    try
+      l.LoadFromFile(FileName);
+      l.Text := UpperCase(l.Text);
+      if Pos(UpperCase('@{HOME}/.config/cqrlog/database/** rwk,'),l.Text) = 0 then
+        Result := True
+    finally
+      l.Free
+    end
+  end;
+
+var
+  ShowInfo : Boolean = False;
+  MsgText  : String = '';
+begin
+  Writeln('Checking apparmor configuration');
+
+  if FileExistsUTF8('/etc/apparmor.d/usr.sbin.mysqld') then
+  begin
+    ShowInfo := IsModified('/etc/apparmor.d/usr.sbin.mysqld')
+  end;
+
+  if FileExistsUTF8('/etc/apparmor.d/local/usr.sbin.mysqld') then //debian
+  begin
+    ShowInfo := IsModified('/etc/apparmor.d/usr.sbin.mysqld')
+  end;
+
+
+  MsgText := 'It looks like apparmor is running in your system. CQRLOG needs to add this :'+
+             LineEnding+
+             '@{HOME}/.config/cqrlog/database/** rwk,'+
+             LineEnding+
+             'into /etc/apparmor.d/usr.sbin.mysqld'+
+             LineEnding+
+             LineEnding+
+             'You can do that by running /usr/share/cqrlog/cqrlog-apparmor-fix or you can add the line '+
+             'and restart apparmor manually.'+
+             LineEnding+
+             LineEnding+
+             'Click OK to continue (program may not work correctly) or Cancel and modify the file '+
+             'first.';
+  if Application.MessageBox(PChar(MsgText),'Information ...',mb_OKCancel+mb_IconInformation) = idCancel then
+    Application.Terminate
+end;
+
+procedure TdmData.SaveBandChanges(band : String; BandBegin, BandEnd, BandCW, BandRTTY, BandSSB, RXOffset, TXOffset : Currency);
+const
+  C_UPD = 'update cqrlog_common.bands set b_begin = :b_begin, b_end = :b_end, cw = :cw, rtty = :rtty, '+
+          'ssb = :ssb, rx_offset = :rx_offset, tx_offset = :tx_offset where band = :band';
+begin
+  qBands.Close;
+  if trBands.Active then
+    trBands.Rollback;
+
+  trBands.StartTransaction;
+  try try
+    qBands.SQL.Text := C_UPD;
+    qBands.Prepare;
+    qBands.Params[0].AsCurrency := BandBegin;
+    qBands.Params[1].AsCurrency := BandEnd;
+    qBands.Params[2].AsCurrency := BandCW;
+    qBands.Params[3].AsCurrency := BandRTTY;
+    qBands.Params[4].AsCurrency := BandSSB;
+    qBands.Params[5].AsCurrency := RXOffset;
+    qBands.Params[6].AsCurrency := TXOffset;
+    qBands.Params[7].AsString   := band;
+    qBands.ExecSQL
+  except
+    on E : Exception do
+    begin
+      Writeln(E.Message);
+      trBands.Rollback
+    end
+  end
+  finally
+    if trBands.Active then
+      trBands.Commit
+  end
+end;
+
+procedure TdmData.GetRXTXOffset(Freq : Currency; var RXOffset,TXOffset : Currency);
+const
+  C_SEL = 'select rx_offset, tx_offset from cqrlog_common.bands where b_begin <= :b_begin '+
+          'and b_end >= :b_end';
+begin
+  RXOffset := 0;
+  TXOffset := 0;
+
+  qBands.Close;
+  if trBands.Active then
+    trBands.Rollback;
+
+  trBands.StartTransaction;
+  try try
+    qBands.SQL.Text := C_SEL;
+    qBands.Prepare;
+    qBands.Params[0].AsCurrency := Freq;
+    qBands.Params[1].AsCurrency := Freq;
+    qBands.Open;
+
+    if qBands.RecordCount > 0 then
+    begin
+      RXOffset := qBands.Fields[0].AsCurrency;
+      TXOffset := qBands.Fields[1].AsCurrency
+    end
+  except
+    on E : Exception do
+      Writeln(E.Message)
+  end
+  finally
+    qBands.Close;
+    trBands.Rollback
+  end
 end;
 
 initialization

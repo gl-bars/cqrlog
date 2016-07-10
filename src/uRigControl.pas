@@ -10,6 +10,7 @@ uses
 type TRigMode =  record
     mode : String[10];
     pass : word;
+    raw  : String[10];
 end;
 
 type TVFO = (VFOA,VFOB);
@@ -39,6 +40,8 @@ type TRigControl = class
     RigCommand   : TStringList;
     fRigSendCWR  : Boolean;
     BadRcvd      : Integer;
+    fRXOffset    : Double;
+    fTXOffset    : Double;
 
     function  RigConnected   : Boolean;
     function  StartRigctld   : Boolean;
@@ -71,12 +74,17 @@ type TRigControl = class
     property Connected   : Boolean read RigConnected;
     //connect rigctld
     property RigPoll     : Word    read fRigPoll     write fRigPoll;
-    //poll rate in miliseconds
+    //poll rate in milliseconds
     property RigSendCWR  : Boolean read fRigSendCWR    write fRigSendCWR;
     //send CWR instead of CW
     property LastError   : String  read fLastError;
     //last error during operation
 
+    //RX offset for transvertor in MHz
+    property RXOffset : Double read fRXOffset write fRXOffset;
+
+    //TX offset for transvertor in MHz
+    property TXOffset : Double read fTXOffset write fTXOffset;
 
     function  GetCurrVFO  : TVFO;
     function  GetModePass : TRigMode;
@@ -89,6 +97,7 @@ type TRigControl = class
     function  GetFreqHz(vfo : TVFO)   : Double; overload;
     function  GetFreqKHz(vfo : TVFO)  : Double; overload;
     function  GetFreqMHz(vfo : TVFO)  : Double; overload;
+    function  GetRawMode : String;
 
     procedure SetCurrVFO(vfo : TVFO);
     procedure SetModePass(mode : TRigMode);
@@ -102,7 +111,7 @@ implementation
 constructor TRigControl.Create;
 begin
   RigCommand := TStringList.Create;
-  fDebugMode   := DebugMode;
+  fDebugMode := False;
   if DebugMode then Writeln('In create');
   fRigCtldHost := 'localhost';
   fRigCtldPort := 4532;
@@ -122,20 +131,20 @@ function TRigControl.StartRigctld : Boolean;
 var
   cmd : String;
 begin
-
   cmd := fRigCtldPath + ' ' +RigCtldArgs;
-  {
-  cmd := StringReplace(cmd,'%m',IntToStr(fRigId),[rfReplaceAll, rfIgnoreCase]);
-  cmd := StringReplace(cmd,'%r',fRigDevice,[rfReplaceAll, rfIgnoreCase]);
-  cmd := StringReplace(cmd,'%t',IntToStr(fRigCtldPort),[rfReplaceAll, rfIgnoreCase]);
-  }
-  if DebugMode then Writeln('Starting RigCtld ...');
-  if fDebugMode then Writeln(cmd);
-  rigProcess.CommandLine := cmd;
 
+  if fDebugMode then Writeln('Starting RigCtld ...');
+  if fDebugMode then Writeln(cmd);
+
+  rigProcess.CommandLine := cmd;
   try
     rigProcess.Execute;
-    sleep(1000)
+    sleep(1500);
+    if not rigProcess.Active then
+    begin
+      Result := False;
+      exit
+    end
   except
     on E : Exception do
     begin
@@ -146,8 +155,6 @@ begin
       exit
     end
   end;
-  tmrRigPoll.Interval := fRigPoll;
-  tmrRigPoll.Enabled  := True;
 
   Result := True
 end;
@@ -171,6 +178,12 @@ begin
     Writeln('RigSendCWR: ',RigSendCWR);
     Writeln('RigId:      ',RigId);
     Writeln('')
+  end;
+
+  if (RigId = 1) then
+  begin
+    Result := False;
+    exit
   end;
 
   if fRunRigCtld then
@@ -220,7 +233,7 @@ end;
 
 procedure TRigControl.SetFreqKHz(freq : Double);
 begin
-  RigCommand.Add('F '+FloatToStr(freq*1000))
+  RigCommand.Add('F '+FloatToStr(freq*1000-TXOffset*1000000))
 end;
 
 procedure TRigControl.ClearRit;
@@ -243,19 +256,19 @@ begin
   result := fMode.mode
 end;
 
-function TRigControl.GetFreqHz   : Double;
+function TRigControl.GetFreqHz : Double;
 begin
-  result := fFreq
+  result := fFreq + fRXOffset*1000000;
 end;
 
-function TRigControl.GetFreqKHz  : Double;
+function TRigControl.GetFreqKHz : Double;
 begin
-  result := fFreq / 1000
+  result := (fFreq + fRXOffset*1000000) / 1000
 end;
 
-function TRigControl.GetFreqMHz  : Double;
+function TRigControl.GetFreqMHz : Double;
 begin
-  result := fFreq / 1000000
+  result := (fFreq + fRXOffset*1000000) / 1000000
 end;
 
 function TRigControl.GetModePass(vfo : TVFO) : TRigMode;
@@ -344,6 +357,9 @@ begin
   begin
     //Writeln('Whole MSG:|',msg,'|');
     msg := trim(msg);
+
+    if DebugMode then Writeln('Msg from rig: ',msg);
+
     a := Explode(LineEnding,msg);
     for i:=0 to Length(a)-1 do
     begin
@@ -367,6 +383,7 @@ begin
         begin
           BadRcvd := 0;
           fMode.mode := a[i];
+          fMode.raw  := a[i];
           if (fMode.mode = 'USB') or (fMode.mode = 'LSB') then
             fMode.mode := 'SSB';
           if fMode.mode = 'CWR' then
@@ -378,6 +395,7 @@ begin
             fFreq := 0;
             fVFO := VFOA;
             fMode.mode := 'SSB';
+            fMode.raw  := 'SSB';
             fMode.pass := 2700
           end
           else
@@ -496,7 +514,9 @@ begin
     RigCommand.Clear
   end
   else begin
-    rcvdFreqMode.SendMessage('fmv'+LineEnding)
+    cmd := 'fmv'+LineEnding;
+    if DebugMode then Writeln('Sending: '+cmd);
+    rcvdFreqMode.SendMessage(cmd)
   end
 end;
 
@@ -528,6 +548,10 @@ begin
   Result[i] := Copy(S, 1, Length(S))
 end;
 
+function TRigControl.GetRawMode : String;
+begin
+  Result := fMode.raw
+end;
 
 destructor TRigControl.Destroy;
 var
@@ -554,7 +578,6 @@ begin
   FreeAndNil(RigCommand);
   if DebugMode then Writeln(6)
 end;
-
 
 end.
 

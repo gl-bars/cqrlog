@@ -69,7 +69,7 @@ implementation
 
 { TfrmImportProgress }
 
-uses dData, dUtils, fImportTest, dDXCC, uMyini;
+uses dData, dUtils, fImportTest, dDXCC, uMyini, dLogUpload;
 
 procedure TfrmImportProgress.FormActivate(Sender: TObject);
 begin
@@ -243,11 +243,21 @@ begin
       CopyFile(Directory+'eqsl.txt',dmData.HomeDir+'eqsl.txt');
       dmData.LoadeQSLCalls
     end;
+
+    lblComment.Caption := 'Loading MASTER.SCP ...';
+    Application.ProcessMessages;
     if FileExistsUTF8(Directory+'MASTER.SCP') then
     begin
       DeleteFileUTF8(dmData.HomeDir+'MASTER.SCP');
       CopyFile(Directory+'MASTER.SCP',dmData.HomeDir+'MASTER.SCP');
-      dmData.LoadeQSLCalls
+      dmData.LoadMasterSCP
+    end;
+
+    if FileExistsUTF8(Directory+'us_states.tab') then
+    begin
+      DeleteFileUTF8(dmData.HomeDir+'dxcc_data'+PathDelim+'us_states.tab');
+      CopyFile(Directory+'us_states.tab',dmData.HomeDir+'dxcc_data'+PathDelim+'us_states.tab')
+      //reloading is in dmDXCC.ReloadDXCCTables
     end;
 
     lblComment.Caption := 'Importing IOTA table ...';
@@ -520,7 +530,7 @@ begin
   l := TStringList.Create;
   AssignFile(f,FileName);
   try
-    if cqrini.ReadBool('OnlineLog','IgnoreLoTWeQSL',False) then
+    if cqrini.ReadBool('OnlineLog','IgnoreLoTWeQSL',False) and dmLogUpload.LogUploadEnabled then
       dmData.DisableOnlineLogSupport;
 
     dmData.trQ1.StartTransaction;
@@ -883,7 +893,7 @@ begin
       dmData.trQ1.Rollback;
     l.Free;
     CloseFile(f);
-    if cqrini.ReadBool('OnlineLog','IgnoreLoTWeQSL',False) then
+    if cqrini.ReadBool('OnlineLog','IgnoreLoTWeQSL',False) and dmLogUpload.LogUploadEnabled then
       dmData.EnableOnlineLogSupport(False)
   end;
   Close
@@ -1269,7 +1279,7 @@ begin
     if dmData.DebugLevel>=1 then Writeln(dmData.Q.SQL.Text);
     dmData.Q.ExecSQL;
 
-    dmData.Q.SQL.Text := 'truncate table cqrlog_main';
+    dmData.Q.SQL.Text := 'delete from cqrlog_main';
     if dmData.DebugLevel>=1 then Writeln(dmData.Q.SQL.Text);
     dmData.Q.ExecSQL;
 

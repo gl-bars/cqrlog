@@ -96,6 +96,21 @@ type
     procedure tmrRadioTimer(Sender : TObject);
   private
     radio : TRigControl;
+    old_mode : String;
+
+    btn160MBand : String;
+    btn80MBand  : String;
+    btn40MBand  : String;
+    btn30MBand  : String;
+    btn20MBand  : String;
+    btn17MBand  : String;
+    btn15MBand  : String;
+    btn12MBand  : String;
+    btn10MBand  : String;
+    btn6MBand   : String;
+    btn2MBand   : String;
+    btn70CMBand : String;
+
     function  GetActualMode : String;
     function  GetModeNumber(mode : String) : Cardinal;
     procedure SetMode(mode : String;bandwidth :Integer);
@@ -126,6 +141,7 @@ type
     function  GetFreqkHz : Double;
     function  GetFreqMHz : Double;
     function  GetDislayFreq : String;
+    function  GetRawMode : String;
 
     procedure SetModeFreq(mode,freq : String);
     procedure SetFreqModeBandWidth(freq : Double; mode : String; BandWidth : Integer);
@@ -135,6 +151,8 @@ type
     procedure DisableSplit;
     procedure ClearRIT;
     procedure LoadButtonCaptions;
+    procedure SetDebugMode(DebugMode : Boolean);
+    procedure LoadBandButtons;
   end;
 
 {
@@ -155,7 +173,7 @@ property RigCtldHost : String  read fRigCtldHost write fRigCtldHost;
 property Connected   : Boolean read RigConnected;
 //connect rigctld
 property RigPoll     : Word    read fRigPoll     write fRigPoll;
-//poll rate in miliseconds
+//poll rate in milliseconds
 }
 
  type
@@ -314,31 +332,41 @@ begin
     exit
   end;
 
+  m := radio.GetRawMode;
+  if (m<>old_mode) then
+  begin
+    if not (((old_mode='LSB') or (old_mode='USB')) and ((m='LSB') or (m='USB'))) then
+    begin
+      old_mode := m;
+      dmData.OpenFreqMemories(old_mode)
+    end
+  end;
+
   if (b='') then
     b := dmUtils.GetBandFromFreq(lblFreq.Caption);
-  if b = '160M' then
+  if b = btn160MBand then
     btn160m.Font.Color := clRed
-  else if b = '80M' then
+  else if b = btn80MBand then
     btn80m.Font.Color  := clRed
-  else if b = '40M' then
+  else if b = btn40MBand then
     btn40m.Font.Color  := clRed
-  else if b = '30M' then
+  else if b = btn30MBand then
     btn30m.Font.Color  := clRed
-  else if b = '20M' then
+  else if b = btn20MBand then
     btn20m.Font.Color  := clRed
-  else if b = '17M' then
+  else if b = btn17MBand then
     btn17m.Font.Color  := clRed
-  else if b = '15M' then
+  else if b = btn15MBand then
     btn15m.Font.Color  := clRed
-  else if b = '12M' then
+  else if b = btn12MBand then
     btn12m.Font.Color  := clRed
-  else if b = '10M' then
+  else if b = btn10MBand then
     btn10m.Font.Color  := clRed
-  else if b = '6M' then
+  else if b = btn6MBand then
     btn6m.Font.Color   := clRed
-  else if b = '2M' then
+  else if b = btn2MBand then
     btn2m.Font.Color   := clRed
-  else if b = '70CM' then
+  else if b = btn70CMBand then
     btn70cm.Font.Color := clRed;
   frmGrayline.band := b;
   frmBandMap.CurrentBand := b;
@@ -391,9 +419,11 @@ end;
 procedure TfrmTRXControl.FormShow(Sender: TObject);
 begin
   LoadButtonCaptions;
+  LoadBandButtons;
   dmUtils.LoadWindowPos(frmTRXControl);
   rbRadio1.Caption := cqrini.ReadString('TRX1','Desc','Radio 1');
-  rbRadio2.Caption := cqrini.ReadString('TRX2','Desc','Radio 2')
+  rbRadio2.Caption := cqrini.ReadString('TRX2','Desc','Radio 2');
+  old_mode := ''
 end;
 
 procedure TfrmTRXControl.btn10mClick(Sender: TObject);
@@ -682,16 +712,16 @@ function TfrmTRXControl.InicializeRig : Boolean;
 var
   n      : String = '';
   id     : Integer = 0;
+  port   : Integer;
+  poll   : Integer;
 begin
   if Assigned(radio) then
   begin
-    //Writeln('huu0');
     FreeAndNil(radio);
   end;
-  //Writeln('huu1');
+
   Application.ProcessMessages;
   Sleep(500);
-  //Writeln('huu2');
 
   tmrRadio.Enabled := False;
 
@@ -702,29 +732,38 @@ begin
 
   radio := TRigControl.Create;
 
-  if dmData.DebugLevel>0 then
+  if (dmData.DebugLevel>0) or cqrini.ReadBool('TRX','Debug',False) then
     radio.DebugMode := True;
-  //Writeln('huu3');
+
   if not TryStrToInt(cqrini.ReadString('TRX'+n,'model',''),id) then
     radio.RigId := 1
   else
     radio.RigId := id;
-  //Writeln('huu4');
+
+  //broken configuration caused crash because RigCtldPort was empty
+  //probably late to change it to Integer, I have no idea if the current
+  //setting would be converted automatically or user has to do it again :(
+  if not TryStrToInt(cqrini.ReadString('TRX'+n,'RigCtldPort','4532'),port) then
+    port := 4532;
+
+  if not TryStrToInt(cqrini.ReadString('TRX'+n,'poll','500'),poll) then
+    poll := 500;
+
   radio.RigCtldPath := cqrini.ReadString('TRX','RigCtldPath','/usr/bin/rigctld');
   radio.RigCtldArgs := dmUtils.GetRadioRigCtldCommandLine(StrToInt(n));
   radio.RunRigCtld  := cqrini.ReadBool('TRX'+n,'RunRigCtld',False);
   radio.RigDevice   := cqrini.ReadString('TRX'+n,'device','');
-  radio.RigCtldPort := StrToInt(cqrini.ReadString('TRX'+n,'RigCtldPort','4532'));
+  radio.RigCtldPort := port;
   radio.RigCtldHost := cqrini.ReadString('TRX'+n,'host','localhost');
-  radio.RigPoll     := StrToInt(cqrini.ReadString('TRX'+n,'poll','500'));
+  radio.RigPoll     := poll;
   radio.RigSendCWR  := cqrini.ReadBool('TRX'+n,'CWR',False);
 
   tmrRadio.Interval := radio.RigPoll;
   tmrRadio.Enabled  := True;
   Result := True;
+
   if not radio.Connected then
   begin
-    //Writeln('huu5');
     FreeAndNil(radio)
   end
 end;
@@ -908,6 +947,8 @@ end;
 procedure TfrmTRXControl.SetFreqModeBandWidth(freq : Double; mode : String; BandWidth : Integer);
 var
   rmode : TRigMode;
+  RXOffset : Currency;
+  TXOffset : Currency;
 begin
   if mode = 'SSB' then
   begin
@@ -919,6 +960,10 @@ begin
 
   if Assigned(radio) then
   begin
+    dmData.GetRXTXOffset(freq/1000,RXOffset,TXOffset);
+    radio.RXOffset := RXOffset;
+    radio.TXOffset := TXOffset;
+
     radio.SetFreqKHz(freq);
     if AutoMode then
     begin
@@ -998,7 +1043,11 @@ end;
 
 procedure TfrmTRXControl.CloseRigs;
 begin
+  if dmData.DebugLevel > 0 then
+    WriteLn('Closing rigs... ');
 
+  if Assigned(radio) then
+    FreeAndNil(radio)
 end;
 
 procedure TfrmTRXControl.UpdateModeButtons(mode : String);
@@ -1089,6 +1138,8 @@ end;
 
 procedure TfrmTRXControl.ClearRIT;
 begin
+  if (lblFreq.Caption = empty_freq) then
+    exit;
   radio.ClearRit
 end;
 
@@ -1106,6 +1157,38 @@ begin
   btn6m.Caption   := cqrini.ReadString('DefFreq','6btn','6m');
   btn2m.Caption   := cqrini.ReadString('DefFreq','2btn','2m');
   btn70cm.Caption := cqrini.ReadString('DefFreq','70btn','70cm')
+end;
+
+procedure TfrmTRXControl.SetDebugMode(DebugMode : Boolean);
+begin
+  if Assigned(radio) then
+  begin
+    radio.DebugMode := DebugMode
+  end
+end;
+
+function TfrmTRXControl.GetRawMode : String;
+begin
+  if Assigned(radio) then
+    Result := radio.GetRawMode
+  else
+    Result := ''
+end;
+
+procedure TfrmTRXControl.LoadBandButtons;
+begin
+  btn160MBand := dmUtils.GetBandFromFreq(FloatToStr(cqrini.ReadFloat('DefFreq','160cw',1830)/1000));
+  btn80MBand  := dmUtils.GetBandFromFreq(FloatToStr(cqrini.ReadFloat('DefFreq','80cw',3525)/1000));
+  btn40MBand  := dmUtils.GetBandFromFreq(FloatToStr(cqrini.ReadFloat('DefFreq','40cw',7015)/1000));
+  btn30MBand  := dmUtils.GetBandFromFreq(FloatToStr(cqrini.ReadFloat('DefFreq','30cw',10110)/1000));
+  btn20MBand  := dmUtils.GetBandFromFreq(FloatToStr(cqrini.ReadFloat('DefFreq','20cw',14025)/1000));
+  btn17MBand  := dmUtils.GetBandFromFreq(FloatToStr(cqrini.ReadFloat('DefFreq','17cw',18080)/1000));
+  btn15MBand  := dmUtils.GetBandFromFreq(FloatToStr(cqrini.ReadFloat('DefFreq','15cw',21025)/1000));
+  btn12MBand  := dmUtils.GetBandFromFreq(FloatToStr(cqrini.ReadFloat('DefFreq','12cw',24895)/1000));
+  btn10MBand  := dmUtils.GetBandFromFreq(FloatToStr(cqrini.ReadFloat('DefFreq','10cw',28025)/1000));
+  btn6MBand   := dmUtils.GetBandFromFreq(FloatToStr(cqrini.ReadFloat('DefFreq','6cw',50090)/1000));
+  btn2MBand   := dmUtils.GetBandFromFreq(FloatToStr(cqrini.ReadFloat('DefFreq','2cw',144050)/1000));
+  btn70CMBand := dmUtils.GetBandFromFreq(FloatToStr(cqrini.ReadFloat('DefFreq','70cw',430000)/1000))
 end;
 
 initialization

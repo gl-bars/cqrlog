@@ -28,6 +28,7 @@ const
 type
   TRemoteModeType = (rmtFldigi, rmtWsjt);
 
+
 type
 
   { TfrmNewQSO }
@@ -68,6 +69,7 @@ type
     acRefreshTime: TAction;
     acRBNMonitor: TAction;
     acRemoteWsjt: TAction;
+    acCommentToCallsign : TAction;
     acUploadToAll: TAction;
     acUploadToHrdLog: TAction;
     acUploadToClubLog: TAction;
@@ -98,6 +100,8 @@ type
     MenuItem89: TMenuItem;
     MenuItem90: TMenuItem;
     MenuItem91: TMenuItem;
+    MenuItem92 : TMenuItem;
+    MenuItem93 : TMenuItem;
     mnuRemoteModeWsjt: TMenuItem;
     mnuOnlineLog: TMenuItem;
     MenuItem54: TMenuItem;
@@ -309,6 +313,7 @@ type
     tmrEnd: TTimer;
     tmrStart: TTimer;
     procedure acBigSquareExecute(Sender: TObject);
+    procedure acCommentToCallsignExecute(Sender : TObject);
     procedure acCWFKeyExecute(Sender: TObject);
     procedure acHotkeysExecute(Sender: TObject);
     procedure acLogUploadStatusExecute(Sender: TObject);
@@ -347,7 +352,6 @@ type
     procedure edtNameEnter(Sender: TObject);
     procedure edtPWREnter(Sender: TObject);
     procedure edtQSL_VIAEnter(Sender: TObject);
-    procedure edtQSL_VIAExit(Sender: TObject);
     procedure edtQTHEnter(Sender: TObject);
     procedure edtRemQSOEnter(Sender: TObject);
     procedure edtStartTimeEnter(Sender: TObject);
@@ -524,27 +528,6 @@ type
     WsjtxBand             : String;
     WsjtxRememberAutoMode : Boolean;
 
-    NameNotChanged   : Boolean;
-    QthNotChanged    : Boolean;
-    GridNotChanged   : Boolean;
-    CountyNotChanged : Boolean;
-    QslViaNotChanged : Boolean;
-    AwardNotChanged  : Boolean;
-    StateNotChanged  : Boolean;
-    WazNotChanged    : Boolean;
-    ItuNotChanged    : Boolean;
-
-    //it would be great if OnChange works as I expected :)
-    OldName   : String;
-    OldQth    : String;
-    OldGrid   : String;
-    OldCounty : String;
-    OldAward  : String;
-    OldQslVia : String;
-    OldState  : String;
-    OldWaz    : String;
-    OldItu    : String;
-
     procedure ShowDXCCInfo(ref_adif : Word = 0);
     procedure ShowFields;
     procedure ChangeReports;
@@ -577,6 +560,9 @@ type
     procedure GoToRemoteMode(RemoteType : TRemoteModeType);
     procedure DisableRemoteMode;
     procedure CloseAllWindows;
+    procedure onExcept(Sender: TObject; E: Exception);
+    procedure DisplayCoordinates(latitude, Longitude : Currency);
+    procedure DrawGrayline;
 
     function CheckFreq(freq : String) : String;
   public
@@ -667,7 +653,7 @@ uses dUtils, fChangeLocator, dDXCC, dDXCluster, dData, fMain, fSelectDXCC, fGray
      fQSODetails, fWAZITUStat, fIOTAStat, fGraphStat, fImportProgress, fBandMap,
      fLongNote, fRefCall, fKeyTexts, fCWType, fExportProgress, fPropagation, fCallAttachment,
      fQSLViewer, fCWKeys, uMyIni, fDBConnect, fAbout, uVersion, fChangelog,
-     fBigSquareStat, fSCP, fRotControl, fLogUploadStatus, fRbnMonitor;
+     fBigSquareStat, fSCP, fRotControl, fLogUploadStatus, fRbnMonitor, fException, fCommentToCall;
 
 procedure TQSLTabThread.Execute;
 var
@@ -879,23 +865,23 @@ begin
       dmData.qQSOBefore.Last
     end;
 
-    if (edtName.Text = '') or NameNotChanged then
+    if (edtName.Text = '') then
       edtName.Text := sName;
-    if (edtQTH.Text = '') or QthNotChanged then
+    if (edtQTH.Text = '') then
       edtQTH.Text := qth;
-    if (edtGrid.Text = '') or GridNotChanged then
+    if (edtGrid.Text = '') then
       edtGrid.Text := loc;
-    if (edtCounty.Text = '') or CountyNotChanged then
+    if (edtCounty.Text = '') then
       edtCounty.text := county;
-    if (edtQSL_VIA.Text = '') or QslViaNotChanged then
+    if (edtQSL_VIA.Text = '') then
       edtQSL_VIA.Text := qsl_via;
-    if (edtAward.Text = '') or AwardNotChanged then
+    if (edtAward.Text = '') then
       edtAward.Text := award;
-    if (edtState.Text = '') or StateNotChanged then
+    if (edtState.Text = '') then
       edtState.Text := state;
-    if (waz <> '') or WazNotChanged then
+    if (waz <> '') then
       edtWAZ.Text := waz;
-    if (itu <> '') or ItuNotChanged then
+    if (itu <> '') then
       edtITU.Text := itu
   end
 end;
@@ -931,7 +917,7 @@ begin
   if ref_adif = 0 then
   begin
     Date := dmUtils.StrToDateFormat(edtDate.Text);
-    adif := dmDXCC.id_country(edtCall.Text,date,pfx, cont, country, WAZ, posun, ITU, lat, long);
+    adif := dmDXCC.id_country(edtCall.Text,edtState.Text,date,pfx, cont, country, WAZ, posun, ITU, lat, long);
     dmUtils.ModifyWAZITU(waz,itu);
     sDelta := posun
   end
@@ -1141,27 +1127,7 @@ begin
   sbtnQSL.Visible    := False;
   ChangeDXCC := False;
   adif := 0;
-  FreqBefChange := frmTRXControl.GetFreqMHz;
-
-  OldName   := '';
-  OldQth    := '';
-  OldGrid   := '';
-  OldCounty := '';
-  OldAward  := '';
-  OldQslVia := '';
-  OldState  := '';
-  OldWaz    := '';
-  OldItu    := '';
-
-  NameNotChanged   := True;
-  QthNotChanged    := True;
-  GridNotChanged   := True;
-  CountyNotChanged := True;
-  QslViaNotChanged := True;
-  AwardNotChanged  := True;
-  StateNotChanged  := True;
-  WazNotChanged    := True;
-  ItuNotChanged    := True
+  FreqBefChange := frmTRXControl.GetFreqMHz
 end;
 
 procedure TfrmNewQSO.LoadSettings;
@@ -1338,8 +1304,10 @@ begin
       frmTRXControl.Close;
       cqrini.WriteBool('Window','TRX',True)
     end
-    else
-      cqrini.WriteBool('Window','TRX',False);
+    else begin
+      cqrini.WriteBool('Window','TRX',False)
+    end;
+    frmTRXControl.CloseRigs;
 
     if frmRotControl.Showing then
     begin
@@ -1427,7 +1395,7 @@ begin
       frmRBNMonitor.Close
     end
     else
-      cqrini.WriteBool('Window','CWType',False)
+      cqrini.WriteBool('Window','RBNMonitor',False)
   end
 end;
 
@@ -2670,10 +2638,7 @@ begin
   begin
     if frmGrayline.Showing then
     begin
-      frmGrayline.s := lblLat.Caption;
-      frmGrayline.d := lblLong.Caption;
-      frmGrayline.pfx := lblDXCC.Caption;
-      frmGrayline.kresli
+      DrawGrayline
     end
   end;
   if NOT (old_call = '') then
@@ -2692,15 +2657,12 @@ begin
   begin
     frmQSODetails.iota := cmbIOTA.Text
   end;
-  edtCounty.SelectAll;
-  OldCounty := edtCounty.Text
+  edtCounty.SelectAll
 end;
 
 procedure TfrmNewQSO.edtCountyExit(Sender: TObject);
 begin
-  CheckCountyClub;
-  if edtCounty.Text<>OldCounty then
-    CountyNotChanged := False
+  CheckCountyClub
 end;
 
 procedure TfrmNewQSO.edtCountyKeyDown(Sender: TObject; var Key: Word;
@@ -2708,14 +2670,14 @@ procedure TfrmNewQSO.edtCountyKeyDown(Sender: TObject; var Key: Word;
 begin
   if (key = 40) then  //down arrow
   begin
-    edtState.SetFocus;
-    key := 0;
+    edtAward.SetFocus;
+    key := 0
   end;
   if (key = 38) then //up arrow
   begin
-    cmbIOTA.SetFocus;
-    key := 0;
-  end;
+    edtState.SetFocus;
+    key := 0
+  end
 end;
 
 procedure TfrmNewQSO.edtCQKeyDown(Sender: TObject; var Key: Word;
@@ -2789,13 +2751,13 @@ begin
   if (key = 40) then  //down arrow
   begin
     edtDXCCRef.SetFocus;
-    key := 0;
+    key := 0
   end;
   if (key = 38) then //up arrow
   begin
-    edtState.SetFocus;
-    key := 0;
-  end;
+    edtCounty.SetFocus;
+    key := 0
+  end
 end;
 
 procedure TfrmNewQSO.edtDXCCRefExit(Sender: TObject);
@@ -2862,9 +2824,7 @@ end;
 
 procedure TfrmNewQSO.edtGridExit(Sender: TObject);
 begin
-  CalculateDistanceEtc;
-  if OldGrid<>edtGrid.Text then
-    GridNotChanged := False
+  CalculateDistanceEtc
 end;
 
 procedure TfrmNewQSO.edtGridKeyDown(Sender: TObject; var Key: Word;
@@ -2929,9 +2889,7 @@ end;
 
 procedure TfrmNewQSO.edtITUExit(Sender: TObject);
 begin
-  frmQSODetails.itu := edtITU.Text;
-  if edtITU.Text<>OldItu then
-    ItuNotChanged := False
+  frmQSODetails.itu := edtITU.Text
 end;
 
 procedure TfrmNewQSO.edtITUKeyDown(Sender: TObject; var Key: Word;
@@ -3006,9 +2964,7 @@ begin
     tmp := edtName.Text;
     tmp[1] := UpCase(tmp[1]);
     edtName.Text := tmp
-  end;
-  if edtName.Text<>OldName then
-    NameNotChanged := False
+  end
 end;
 
 procedure TfrmNewQSO.edtNameKeyDown(Sender: TObject; var Key: Word;
@@ -3083,10 +3039,7 @@ begin
     tmp[1] := UpCase(tmp[1]);
     edtQTH.Text := tmp
   end;
-  CheckQTHClub;
-
-  if OldQth<>edtQTH.Text then
-    QthNotChanged := False
+  CheckQTHClub
 end;
 
 procedure TfrmNewQSO.edtQTHKeyDown(Sender: TObject; var Key: Word;
@@ -3217,19 +3170,19 @@ procedure TfrmNewQSO.cmbIOTAKeyDown(Sender: TObject; var Key: Word;
 begin
   if (key = 40) then  //down arrow
   begin
-    edtCounty.SetFocus;
-    key := 0;
+    edtState.SetFocus;
+    key := 0
   end;
   if (key = 38) then //up arrow
   begin
     edtWAZ.SetFocus;
-    key := 0;
+    key := 0
   end;
   if ((key = VK_SPACE) and UseSpaceBar) then
   begin
-    edtCounty.SetFocus;
-    key := 0;
-  end;
+    edtState.SetFocus;
+    key := 0
+  end
 end;
 
 procedure TfrmNewQSO.cmbModeChange(Sender: TObject);
@@ -3580,8 +3533,7 @@ end;
 
 procedure TfrmNewQSO.edtGridEnter(Sender: TObject);
 begin
-  edtGrid.SelectAll;
-  OldGrid := edtGrid.Text
+  edtGrid.SelectAll
 end;
 
 procedure TfrmNewQSO.acPropExecute(Sender: TObject);
@@ -3713,9 +3665,21 @@ begin
   end
 end;
 
+procedure TfrmNewQSO.acCommentToCallsignExecute(Sender : TObject);
+begin
+  frmCommentToCall := TfrmCommentToCall.Create(frmNewQSO);
+  try
+    frmCommentToCall.ShowModal
+  finally
+    frmCommentToCall.Free
+  end
+end;
+
 procedure TfrmNewQSO.acOpenLogExecute(Sender: TObject);
 var
   old : String;
+  LogId   : Integer;
+  LogName : String;
 begin
   with TfrmDBConnect.Create(self) do
   try
@@ -3725,11 +3689,19 @@ begin
     if ModalResult = mrOK then
     begin
       if old = dmData.qLogList.Fields[1].AsString then exit;
+
+      LogId   := dmData.qLogList.Fields[0].AsInteger;
+      LogName := dmData.qLogList.Fields[1].AsString;
+
       frmDXCluster.StopAllConnections;
       SaveSettings;
       dmData.CloseDatabases;
-      dmData.OpenDatabase(dmData.qLogList.Fields[0].AsInteger);
-      dmData.LogName    := dmData.qLogList.Fields[1].AsString;
+
+      dmData.OpenDatabase(LogId);
+      dmData.RefreshLogList(LogId);
+
+      dmData.LogName := LogName;
+
       frmNewQSO.Caption := dmUtils.GetNewQSOCaption('New QSO');
       LoadSettings;
       ShowFields
@@ -3777,8 +3749,7 @@ end;
 
 procedure TfrmNewQSO.edtAwardEnter(Sender: TObject);
 begin
-  edtAward.SelectAll;
-  OldAward := edtAward.Text
+  edtAward.SelectAll
 end;
 
 procedure TfrmNewQSO.edtHisRSTExit(Sender: TObject);
@@ -3789,8 +3760,7 @@ end;
 
 procedure TfrmNewQSO.edtITUEnter(Sender: TObject);
 begin
-  edtITU.SelectAll;
-  OldItu := edtITU.Text
+  edtITU.SelectAll
 end;
 
 procedure TfrmNewQSO.edtMyRSTExit(Sender: TObject);
@@ -3809,8 +3779,7 @@ begin
     tmp[1] := UpCase(tmp[1]);
     edtName.Text := tmp
   end;
-  edtName.SelectAll;
-  OldName := edtName.Text
+  edtName.SelectAll
 end;
 
 procedure TfrmNewQSO.edtPWREnter(Sender: TObject);
@@ -3820,20 +3789,12 @@ end;
 
 procedure TfrmNewQSO.edtQSL_VIAEnter(Sender: TObject);
 begin
-  edtQSL_VIA.SelectAll;
-  OldQslVia := edtQSL_VIA.Text
-end;
-
-procedure TfrmNewQSO.edtQSL_VIAExit(Sender: TObject);
-begin
-  if edtQSL_VIA.Text<>OldQslVia then
-    QslViaNotChanged := False
+  edtQSL_VIA.SelectAll
 end;
 
 procedure TfrmNewQSO.edtQTHEnter(Sender: TObject);
 begin
-  edtQTH.SelectAll;
-  OldQth := edtQTH.Text
+  edtQTH.SelectAll
 end;
 
 procedure TfrmNewQSO.edtRemQSOEnter(Sender: TObject);
@@ -3848,14 +3809,12 @@ end;
 
 procedure TfrmNewQSO.edtStateEnter(Sender: TObject);
 begin
-  edtState.SelectAll;
-  OldState := edtState.Text
+  edtState.SelectAll
 end;
 
 procedure TfrmNewQSO.edtWAZEnter(Sender: TObject);
 begin
-  edtWAZ.SelectAll;
-  OldWaz := edtWAZ.Text
+  edtWAZ.SelectAll
 end;
 
 procedure TfrmNewQSO.FormWindowStateChange(Sender: TObject);
@@ -4173,9 +4132,7 @@ end;
 
 procedure TfrmNewQSO.edtAwardExit(Sender: TObject);
 begin
-  CheckAwardClub;
-  if edtAward.Text<>OldAward then
-    AwardNotChanged := False
+  CheckAwardClub
 end;
 
 procedure TfrmNewQSO.edtCallEnter(Sender: TObject);
@@ -4220,10 +4177,6 @@ begin
     cqrini.WriteBool('TMPQSO','OFF',cbOffline.Checked);
     SearchQRZ := cqrini.ReadBool('NewQSO','AutoSearch',False)
   end;
-  if ChangeDXCC then
-    ShowDXCCInfo(adif)
-  else
-    ShowDXCCInfo();
   {
   if (not (fViewQSO or fEditQSO or cbOffline.Checked or lblQSOTakes.Visible)) or
      ((fEditQSO or fViewQSO) and (old_call <> edtCall.Text))  then
@@ -4263,24 +4216,28 @@ begin
     lblQSONr.Caption := IntToStr(dmData.qQSOBefore.RecordCount)
   else
     lblQSONr.Caption := IntToStr(dmData.qQSOBefore.RecordCount+1);
-  ShowCountryInfo;
-  ChangeReports;
-  ShowStatistic(adif);
   if (not (fViewQSO or fEditQSO)) then
   begin
     InsertNameQTH;
     cmbQSL_S.Text := dmData.SendQSL(edtCall.Text,cmbMode.Text,cmbFreq.Text,adif)
   end;
+
+
+  if ChangeDXCC then
+    ShowDXCCInfo(adif)
+  else
+    ShowDXCCInfo();
+
+  ShowCountryInfo;
+  ChangeReports;
+  ShowStatistic(adif);
   CalculateDistanceEtc;
   mComment.Text := dmData.GetComment(edtCall.Text);
   if (lblDXCC.Caption <> '!') and (lblDXCC.Caption <> '#') then
   begin
     if frmGrayline.Showing then
     begin
-      frmGrayline.s := lblLat.Caption;
-      frmGrayline.d := lblLong.Caption;
-      frmGrayline.pfx := lblDXCC.Caption;
-      frmGrayline.kresli
+      DrawGrayline
     end
   end;
   if NOT (old_call = '') then
@@ -4597,9 +4554,9 @@ begin
     acSendSpot.Execute;
 
   if ((Shift = [ssAlt]) and (key = VK_V)) then
-    frmTRXControl.btnMemUp.Click;
+    frmTRXControl.btnMemDwn.Click;
   if ((Shift = [ssAlt]) and (key = VK_B)) then
-    frmTRXControl.btnMemDwn.Click
+    frmTRXControl.btnMemUp.Click
 end;
 
 procedure TfrmNewQSO.FormKeyPress(Sender: TObject; var Key: char);
@@ -4647,9 +4604,13 @@ end;
 
 procedure TfrmNewQSO.edtStateExit(Sender: TObject);
 begin
-  CheckStateClub;
-  if edtState.Text<>OldState then
-    StateNotChanged := False
+  ShowDXCCInfo();
+  ShowCountryInfo;
+  ShowStatistic(adif);
+  CalculateDistanceEtc;
+  if frmGrayline.Showing then
+    DrawGrayline;
+  CheckStateClub
 end;
 
 procedure TfrmNewQSO.edtStateKeyDown(Sender: TObject; var Key: Word;
@@ -4657,26 +4618,24 @@ procedure TfrmNewQSO.edtStateKeyDown(Sender: TObject; var Key: Word;
 begin
   if (key = 40) then  //down arrow
   begin
-    edtAward.SetFocus;
-    key := 0;
+    edtCounty.SetFocus;
+    key := 0
   end;
   if (key = 38) then //up arrow
   begin
-    edtCounty.SetFocus;
-    key := 0;
+    cmbIOTA.SetFocus;
+    key := 0
   end;
   if ((key = VK_SPACE) and UseSpaceBar) then
   begin
-    edtAward.SetFocus;
-    key := 0;
-  end;
+    edtCounty.SetFocus;
+    key := 0
+  end
 end;
 
 procedure TfrmNewQSO.edtWAZExit(Sender: TObject);
 begin
-  frmQSODetails.waz := edtWAZ.Text;
-  if edtWAZ.Text<>OldWaz then
-    WazNotChanged := False
+  frmQSODetails.waz := edtWAZ.Text
 end;
 
 procedure TfrmNewQSO.mCommentKeyDown(Sender: TObject; var Key: Word;
@@ -4772,16 +4731,31 @@ begin
 end;
 
 procedure TfrmNewQSO.ShowFields;
+var
+  aColumns : array of TVisibleColumn;
+  i : Integer;
+  y : Integer;
 
-  procedure ChangeVis(Column : String; IfShow : Boolean);
-  var
-    i       : Integer;
-    fQsoGr  : String;
-    fqSize  : Integer;
-    isAdded : Boolean = False;
-  begin
-    fQsoGr := cqrini.ReadString('Fonts','QGrids','Sans 10');
-    fqSize := cqrini.ReadInteger('Fonts','qSize',10);
+  fQsoGr  : String;
+  fqSize  : Integer;
+  isAdded : Boolean = False;
+  fDefault : Boolean;
+  ColExists : Boolean = False;
+begin
+  dbgrdQSOBefore.DataSource := dmData.dsrQSOBefore;
+  dbgrdQSOBefore.ResetColWidths;
+  LoadGrid;
+  SetLength(aColumns,38);
+  dmUtils.LoadVisibleColumnsConfiguration(aColumns);
+
+  fQsoGr   := cqrini.ReadString('Fonts','QGrids','Sans 10');
+  fqSize   := cqrini.ReadInteger('Fonts','qSize',10);
+  fDefault := cqrini.ReadBool('Fonts','UseDefault',True);
+
+  try
+    //it's strange but disable grid browsing speed up this much more
+    //then code refactoring before
+    dbgrdQSOBefore.DataSource.DataSet.DisableControls;
 
     for i:=0 to dbgrdQSOBefore.Columns.Count-1 do
     begin
@@ -4845,15 +4819,18 @@ procedure TfrmNewQSO.ShowFields;
         dbgrdQSOBefore.Columns[i].Title.Alignment := taCenter
       end;
 
-      if UpperCase(dbgrdQSOBefore.Columns[i].DisplayName) = UpperCase(Column) then
+      for y:=0 to Length(aColumns)-1 do
       begin
-        dbgrdQSOBefore.Columns[i].Visible := IfShow;
-        if IfShow and (dbgrdQSOBefore.Columns[i].Width = 0) then
-          dbgrdQSOBefore.Columns[i].Width := 60;
-        isAdded := True
+        if UpperCase(dbgrdQSOBefore.Columns[i].DisplayName) = aColumns[y].FieldName then
+        begin
+          dbgrdQSOBefore.Columns[i].Visible := aColumns[y].Visible;
+          aColumns[y].Exists := True;
+          if aColumns[y].Visible and (dbgrdQSOBefore.Columns[i].Width = 0) then
+            dbgrdQSOBefore.Columns[i].Width := 60
+        end
       end;
 
-      if cqrini.ReadBool('Fonts','UseDefault',True) then
+      if fDefault then
       begin
         dbgrdQSOBefore.Columns[i].Title.Font.Name := 'default';
         dbgrdQSOBefore.Columns[i].Title.Font.Size := 0
@@ -4863,57 +4840,20 @@ procedure TfrmNewQSO.ShowFields;
         dbgrdQSOBefore.Columns[i].Title.Font.Size := fqSize
       end
     end;
-    if (not isAdded) and IfShow then
-    begin
-      dbgrdQSOBefore.Columns.Add;
-      dbgrdQSOBefore.Columns[dbgrdQSOBefore.Columns.Count-1].FieldName   := LowerCase(Column);
-      dbgrdQSOBefore.Columns[dbgrdQSOBefore.Columns.Count-1].DisplayName := LowerCase(Column);
-      dbgrdQSOBefore.Columns[dbgrdQSOBefore.Columns.Count-1].Width       := 60
-    end
-  end;
 
-begin
-  dbgrdQSOBefore.DataSource := dmData.dsrQSOBefore;
-  dbgrdQSOBefore.ResetColWidths;
-  LoadGrid;
-  //dbgrdQSOBefore.Columns[0].Visible := False;
-  ChangeVis('qsodate',cqrini.ReadBool('Columns','qsodate',True));
-  ChangeVis('TIME_ON',cqrini.ReadBool('Columns','time_on',True));
-  ChangeVis('TIME_OFF',cqrini.ReadBool('Columns','time_off',False));
-  ChangeVis('CALLSIGN',cqrini.ReadBool('Columns','CallSign',True));
-  ChangeVis('MODE',cqrini.ReadBool('Columns','Mode',True));
-  ChangeVis('FREQ',cqrini.ReadBool('Columns','Freq',True));
-  ChangeVis('RST_S',cqrini.ReadBool('Columns','RST_S',True));
-  ChangeVis('RST_R',cqrini.ReadBool('Columns','RST_R',True));
-  ChangeVis('NAME',cqrini.ReadBool('Columns','Name',True));
-  ChangeVis('QTH',cqrini.ReadBool('Columns','QTH',True));
-  ChangeVis('QSL_S',cqrini.ReadBool('Columns','QSL_S',True));
-  ChangeVis('QSL_R',cqrini.ReadBool('Columns','QSL_R',True));
-  ChangeVis('QSL_VIA',cqrini.ReadBool('Columns','QSL_VIA',False));
-  ChangeVis('LOC',cqrini.ReadBool('Columns','Locator',False));
-  ChangeVis('MY_LOC',cqrini.ReadBool('Columns','MyLoc',False));
-  ChangeVis('IOTA',cqrini.ReadBool('Columns','IOTA',False));
-  ChangeVis('AWARD',cqrini.ReadBool('Columns','Award',False));
-  ChangeVis('COUNTY',cqrini.ReadBool('Columns','County',False));
-  ChangeVis('PWR',cqrini.ReadBool('Columns','Power',False));
-  ChangeVis('dxcc_ref',cqrini.ReadBool('Columns','DXCC',False));
-  ChangeVis('REMARKS',cqrini.ReadBool('Columns','Remarks',False));
-  ChangeVis('WAZ',cqrini.ReadBool('Columns','WAZ',False));
-  ChangeVis('ITU',cqrini.ReadBool('Columns','ITU',False));
-  ChangeVis('STATE',cqrini.ReadBool('Columns','State',False));
-  ChangeVis('LOTW_QSLSDATE',cqrini.ReadBool('Columns','LoTWQSLSDate',False));
-  ChangeVis('LOTW_QSLRDATE',cqrini.ReadBool('Columns','LoTWQSLRDate',False));
-  ChangeVis('LOTW_QSLS',cqrini.ReadBool('Columns','LoTWQSLS',False));
-  ChangeVis('LOTW_QSLR',cqrini.ReadBool('Columns','LOTWQSLR',False));
-  ChangeVis('CONT',cqrini.ReadBool('Columns','Cont',False));
-  ChangeVis('QSLS_DATE',cqrini.ReadBool('Columns','QSLSDate',False));
-  ChangeVis('QSLR_DATE',cqrini.ReadBool('Columns','QSLRDate',False));
-  ChangeVis('EQSL_QSL_SENT',cqrini.ReadBool('Columns','eQSLQSLS',False));
-  ChangeVis('EQSL_QSLSDATE',cqrini.ReadBool('Columns','eQSLQSLSDate',False));
-  ChangeVis('EQSL_QSL_RCVD',cqrini.ReadBool('Columns','eQSLQSLR',False));
-  ChangeVis('EQSL_QSLRDATE',cqrini.ReadBool('Columns','eQSLQSLRDate',False));
-  ChangeVis('QSLR',cqrini.ReadBool('Columns','QSLRAll',False));
-  ChangeVis('COUNTRY',cqrini.ReadBool('Columns','Country',False))
+    for i:=0 to Length(aColumns) do
+    begin
+      if (aColumns[i].Visible) and (not aColumns[i].Exists) then
+      begin
+        dbgrdQSOBefore.Columns.Add;
+        dbgrdQSOBefore.Columns[dbgrdQSOBefore.Columns.Count-1].FieldName   := aColumns[i].FieldName;
+        dbgrdQSOBefore.Columns[dbgrdQSOBefore.Columns.Count-1].DisplayName := aColumns[i].FieldName;
+        dbgrdQSOBefore.Columns[dbgrdQSOBefore.Columns.Count-1].Width       := 60
+      end
+    end
+  finally
+    dbgrdQSOBefore.DataSource.DataSet.EnableControls
+  end
 end;
 
 procedure TfrmNewQSO.ChangeReports;
@@ -5115,6 +5055,10 @@ begin
       SunRise := SunRise + (SunDelta/24);
       SunSet  := SunSet + (SunDelta/24)
     end;
+
+    DisplayCoordinates(lat,long);
+    DrawGrayline;
+
     {
     if SunDelta <> 0 then
     begin
@@ -5330,6 +5274,7 @@ var
   IgnoreQRZ : Boolean = False;
   MvToRem   : Boolean = False;
   AlwaysReplace : Boolean;
+  ReplaceZonesEtc : Boolean;
   tmp : String;
 begin
   if c_ErrMsg <> '' then
@@ -5347,6 +5292,8 @@ begin
     IgnoreQRZ     := cqrini.ReadBool('NewQSO','IgnoreQRZ',False);
     MvToRem       := cqrini.ReadBool('NewQSO','MvToRem',True);
     AlwaysReplace := cqrini.ReadBool('NewQSO','UseCallBookData',False);
+    ReplaceZonesEtc := cqrini.ReadBool('NewQSO','UseCallbookZonesEtc',True);
+
 
     if (not IgnoreQRZ) and (c_qsl<>'') then
     begin
@@ -5368,12 +5315,12 @@ begin
       end
     end;
 
-    if (edtName.Text = '') or AlwaysReplace or NameNotChanged then
+    if (edtName.Text = '') or AlwaysReplace then
       edtName.Text := c_nick; //operator's name
-    if ((edtQTH.Text = '') or AlwaysReplace or QthNotChanged) and (c_callsign = edtCall.Text) then
+    if ((edtQTH.Text = '') or AlwaysReplace) and (c_callsign = edtCall.Text) then
       edtQTH.Text := c_qth;  //qth
 
-    if ((edtGrid.Text='') or AlwaysReplace or GridNotChanged) and dmUtils.IsLocOK(c_grid) and (c_callsign = edtCall.Text) then
+    if ((edtGrid.Text='') or AlwaysReplace) and dmUtils.IsLocOK(c_grid) and (c_callsign = edtCall.Text) then
     begin
       edtGrid.Text := c_grid;
       edtGridExit(nil)
@@ -5385,10 +5332,10 @@ begin
       cmbIOTAExit(nil)
     end;
 
-    if ((c_state <> '') and (edtState.Text = '') or AlwaysReplace or StateNotChanged) and (c_callsign = edtCall.Text) then
+    if ((c_state <> '') and (edtState.Text = '') or AlwaysReplace or ReplaceZonesEtc) and (c_callsign = edtCall.Text) then
     begin
       edtState.Text := c_state;
-      if ((c_county <> '') and (edtCounty.Text='')) or AlwaysReplace or StateNotChanged then
+      if ((c_county <> '') and (edtCounty.Text='')) or AlwaysReplace or ReplaceZonesEtc then
       begin
         if (edtState.Text<>'') then
           edtCounty.Text := edtState.Text+','+c_county
@@ -5397,11 +5344,22 @@ begin
       end
     end;  //county
 
-    if (c_itu<>'') then
-      edtITU.Text := c_itu;
+    if ((c_itu<>'') or ReplaceZonesEtc) and (c_callsign = edtCall.Text) then
+    begin
+      edtITU.Text    := c_itu;
+      lblITU.Caption := c_itu
+    end;
 
-    if (c_waz<>'') then
-      edtWAZ.Text := c_waz;
+    if ((c_waz<>'') or ReplaceZonesEtc) and (c_callsign = edtCall.Text) then
+    begin
+      edtWAZ.Text    := c_waz;
+      lblWAZ.Caption := c_waz
+    end;
+
+    if (edtGrid.Text <> '') then
+    begin
+      CalculateDistanceEtc
+    end;
 
     if c_zip <> '' then
     begin
@@ -5444,6 +5402,8 @@ begin
       end
     end //zip code
   end;
+  if edtState.Text<>'' then
+    edtStateExit(nil);
   CheckAwardClub;
   CheckQTHClub;
   CheckCountyClub;
@@ -6044,7 +6004,35 @@ begin
   end
 end;
 
+procedure TfrmNewQSO.onExcept(Sender: TObject; E: Exception);
+begin
+  with TfrmException.Create(self) do
+  try
+    memErrorMessage.Lines.Add('Error in ' + E.UnitName);
+    memErrorMessage.Lines.Add(E.Message);
+    ShowModal
+  finally
+    Free
+  end
+end;
 
+procedure TfrmNewQSO.DisplayCoordinates(latitude, Longitude : Currency);
+var
+  lat,long : String;
+begin
+  dmUtils.GetShorterCoordinates(latitude,longitude,lat,long);
+
+  lblLat.Caption  := lat;
+  lblLong.Caption := long
+end;
+
+procedure TfrmNewQSO.DrawGrayLine;
+begin
+  frmGrayline.s   := lblLat.Caption;
+  frmGrayline.d   := lblLong.Caption;
+  frmGrayline.pfx := lblDXCC.Caption;
+  frmGrayline.kresli
+end;
 
 initialization
   {$I fNewQSO.lrs}

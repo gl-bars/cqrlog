@@ -17,7 +17,7 @@ interface
 
 uses
   Classes, SysUtils, LResources, Forms, Controls, Dialogs, sqldb,
-  mysql50conn, db, iniFiles, dateutils;
+  mysql50conn, db, iniFiles, dateutils, FileUtil;
 
 
 
@@ -47,7 +47,25 @@ const
 {                presne: c_pres_dlouhe=0;   co muze byt delsi nez nalezena znacka.
                          c_pres_kratke=1;   tak musi mit nalezena znacka stejnou delku jak "co".
                          c_pres_strikt=2;   jako kratke, ale BEZ = na zacatku.
-} 
+}
+
+type
+  TUSStates = record
+    prefix : String[10];
+    name   : String[30];
+    state  : String[3];
+    offset : String[5];
+    itu    : String[2];
+    waz    : String[2];
+    cont   : String[2];
+    lat    : String[10];
+    long   : String[10];
+    adif   : Integer;
+  end;
+
+const
+  MAX_STATES = 60;
+
 type
 
   { TdmDXCC }
@@ -76,6 +94,8 @@ type
     DXCCDelArray   : Array of Integer;
     AmbiguousArray : Array of String;
     ExceptionArray : Array of String;
+    USStatesArray  : Array of TUSStates;
+
     function  CoVyhodnocovat(znacka : String; datum : TDateTime; var UzNasel : Boolean;var ADIF : Integer) : String;
     function  NaselCountry(znacka : String; datum : TDateTime; var ADIF : Integer;presne : Integer = NotExactly) : Boolean; overload;
     function  NaselCountry(znacka : String; datum : TDateTime; var pfx, country,
@@ -83,6 +103,7 @@ type
     function  Explode(const cSeparator, vString: String): TExplodeArray;
     function  DateToDDXCCDate(date : TDateTime) : String;
     function  MyTryStrToInt(s : String; var i : Integer) : Boolean;
+    function  GetStateInfo(state : String; var country,lat,long,waz,itu,offset,cont : String) : Integer;
 
   public
     function  IsException(call : String) : Boolean;
@@ -92,6 +113,8 @@ type
     function  IsAmbiguous(call : String) : Boolean;
     function  IsPrefix(pref : String; Date : TDateTime) : Boolean;
     function  GetCont(call : String; Date : TDateTime) : String;
+    function  id_country(znacka: string; us_state : String; datum : TDateTime; var pfx, cont, country, WAZ,
+                           posun, ITU, lat, long: string) : Word; overload;
     function  id_country(znacka: string;datum : TDateTime; var pfx, cont, country, WAZ,
                                posun, ITU, lat, long: string) : Word; overload;
     function  id_country(znacka : String; Datum : TDateTime; var pfx,country : String) : Word; overload;
@@ -104,6 +127,7 @@ type
     procedure LoadDXCCRefArray;
     procedure LoadAmbiguousArray;
     procedure LoadExceptionArray;
+    procedure LoadUSStates;
   end;
 
 var
@@ -643,6 +667,12 @@ end;
 
 function TdmDXCC.id_country(znacka: string;datum : TDateTime; var pfx, cont, country, WAZ,
   posun, ITU, lat, long: string) : Word;
+begin
+  Result := id_country(znacka, '', datum, pfx, cont, country, WAZ, posun, ITU, lat, long)
+end;
+
+function TdmDXCC.id_country(znacka: string; us_state : String; datum : TDateTime; var pfx, cont, country, WAZ,
+                       posun, ITU, lat, long: string) : Word;
 var
   ADIF   : Integer;
   UzNasel : Boolean;
@@ -651,6 +681,7 @@ var
   x :longint;
   sZnac : string_mdz;
   sADIF : String;
+  us_adif : Integer;
 begin
   if (length(znacka)=0) then
   begin
@@ -678,6 +709,13 @@ begin
     begin
       if ADIF > 0 then
       begin
+        if ((adif = 6) or (adif = 9) or (adif = 103) or (adif = 110) or (adif = 166) or (adif = 202) or (adif = 285) or (adif = 291))
+           and (us_state<>'') then
+        begin
+          us_adif := GetStateInfo(us_state,country,lat,long,waz,itu,posun,cont);
+          if us_adif > 0 then
+            ADIF := us_adif
+        end;
         pfx := DXCCRefArray[adif].pref;
         Result := ADIF
       end
@@ -714,6 +752,13 @@ begin
     begin
       if ADIF > 0 then
       begin
+        if ((adif = 6) or (adif = 9) or (adif = 103) or (adif = 110) or (adif = 166) or (adif = 202) or (adif = 285) or (adif = 291))
+           and (us_state<>'') then
+        begin
+          us_adif := GetStateInfo(us_state,country,lat,long,waz,itu,posun,cont);
+          if us_adif > 0 then
+            ADIF := us_adif
+        end;
         pfx    := DXCCRefArray[adif].pref;
         Result := ADIF
       end
@@ -754,7 +799,14 @@ begin
   chy1 := new(Pchyb1,init);
   sez1 := new(Pseznam,init(dmData.HomeDir + 'dxcc_data/country.tab',chy1));
   uhej := sez1;
-  sez2 := new(Pseznam,init(dmData.HomeDir + 'dxcc_data/country_del.tab',chy1))
+  sez2 := new(Pseznam,init(dmData.HomeDir + 'dxcc_data/country_del.tab',chy1));
+
+  //after upgrade from version 1.9.1 and older, this file won't exist
+  //but we need it
+  if not FileExistsUTF8(dmData.HomeDir + 'dxcc_data/us_states.tab') then
+    CopyFile(dmData.HomeDir+'ctyfiles/us_states.tab',dmData.HomeDir + 'dxcc_data/us_states.tab');
+
+  LoadUSStates
 end;
 
 procedure TdmDXCC.DataModuleDestroy(Sender: TObject);
@@ -852,7 +904,8 @@ begin
   sez1 := new(Pseznam,init(dmData.HomeDir + 'dxcc_data/country.tab',chy1));
   uhej := sez1;
   sez2 := new(Pseznam,init(dmData.HomeDir + 'dxcc_data/country_del.tab',chy1));
-  LoadDXCCRefArray
+  LoadDXCCRefArray;
+  LoadUSStates
 end;
 
 procedure TdmDXCC.LoadDXCCRefArray;
@@ -977,6 +1030,74 @@ begin
     ExceptionArray[Length(ExceptionArray)-1]:=s
   end;
   CloseFile(f)
+end;
+
+procedure TdmDXCC.LoadUSStates;
+var
+  f : TextFile;
+  a : TExplodeArray;
+  i : Integer = 0;
+  r : String;
+begin
+  if FileExistsUTF8(dmData.HomeDir+'dxcc_data'+PathDelim+'us_states.tab') then
+  begin
+    try
+      AssignFile(f,dmData.HomeDir+'dxcc_data'+PathDelim+'us_states.tab');
+      Reset(f);
+
+      SetLength(USStatesArray,MAX_STATES);
+
+      while not Eof(f) do
+      begin
+        Readln(f,r);
+        a := Explode('|',r);
+
+        USStatesArray[i].prefix := a[0];
+        USStatesArray[i].name   := a[1];
+        USStatesArray[i].state  := a[2];
+        USStatesArray[i].cont   := a[3];
+
+        if (pos('+',a[4])>0) then
+          USStatesArray[i].offset := copy(a[4],2,10)
+        else
+          USStatesArray[i].offset := a[4];
+
+        USStatesArray[i].itu  := a[5];
+        USStatesArray[i].waz  := a[6];
+        USStatesArray[i].lat  := a[7];
+        USStatesArray[i].long := a[8];
+        USStatesArray[i].adif := StrToInt(a[9]);
+
+        inc(i)
+      end
+    finally
+      CloseFile(f);
+      if dmData.DebugLevel>=1 then Writeln(i,' us states loaded')
+    end
+  end
+end;
+
+function TdmDXCC.GetStateInfo(state : String; var country,lat,long,waz,itu,offset,cont : String) : Integer;
+var
+  i : Integer;
+begin
+  Result := 0;
+
+  for i:=0 to Length(USStatesArray)-1 do
+  begin
+    if (state = USStatesArray[i].state) then
+    begin
+      country := USStatesArray[i].name;
+      lat     := USStatesArray[i].lat;
+      long    := USStatesArray[i].long;
+      waz     := USStatesArray[i].waz;
+      itu     := USStatesArray[i].itu;
+      offset  := USStatesArray[i].offset;
+      cont    := USStatesArray[i].cont;
+      Result  := USStatesArray[i].adif;
+      break
+    end
+  end
 end;
 
 initialization

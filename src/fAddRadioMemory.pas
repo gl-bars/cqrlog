@@ -22,6 +22,7 @@ type
     Label2: TLabel;
     Label3: TLabel;
     procedure Button1Click(Sender: TObject);
+    procedure FormCreate(Sender : TObject);
     procedure FormShow(Sender: TObject);
   private
     { private declarations }
@@ -41,7 +42,7 @@ uses dUtils;
 procedure TfrmAddRadioMemory.FormShow(Sender: TObject);
 begin
   dmUtils.LoadFontSettings(frmAddRadioMemory);
-  dmUtils.InsertModes(cmbMode);
+
   edtFreq.SetFocus
 end;
 
@@ -64,6 +65,14 @@ begin
   end;
 
   ModalResult := mrOK
+end;
+
+procedure TfrmAddRadioMemory.FormCreate(Sender : TObject);
+begin
+  dmUtils.InsertModes(cmbMode);
+  cmbMode.Items.Delete(cmbMode.Items.IndexOf('SSB'));
+  cmbMode.Items.Insert(1,'USB');
+  cmbMode.Items.Insert(2,'LSB')
 end;
 
 initialization

@@ -121,7 +121,6 @@ type
     Label27: TLabel;
     Label28: TLabel;
     Label3:     TLabel;
-    lblDateTime: TLabel;
     lblDXCCCmf: TLabel;
     lblDXCC:    TLabel;
     lblQSOCount: TLabel;
@@ -447,7 +446,7 @@ uses fNewQSO, fPreferences, dUtils, dData, dDXCC, dDXCluster, fMarkQSL, fDXCCSta
   fQSODetails, fWAZITUStat, fIOTAStat, fDatabaseUpdate, fExLabelPrint,
   fImportLoTWWeb, fLoTWExport, fGroupEdit, fCustomStat, fSQLConsole, fCallAttachment,
   fEditDetails, fQSLViewer, uMyIni, fRebuildMembStat, fAbout, fBigSquareStat,
-  feQSLUpload, feQSLDownload, fSOTAExport, fRotControl, fLogUploadStatus;
+  feQSLUpload, feQSLDownload, fSOTAExport, fRotControl, fLogUploadStatus, fExportPref;
 
 procedure TfrmMain.ReloadGrid;
 begin
@@ -457,22 +456,9 @@ end;
 
 procedure TfrmMain.RefreshQSODXCCCount;
 begin
-  if dmData.IsFilter then
-    lblQSOCount.Caption := IntToStr(dmData.qCQRLOG.RecordCount)
-  else
-  begin
-    dmData.Q.Close;
-    dmData.Q.SQL.Text := 'SELECT COUNT(*) FROM cqrlog_main';
-    if dmData.trQ.Active then
-      dmData.trQ.RollBack;
-    dmData.trQ.StartTransaction;
-    dmData.Q.Open;
-    lblQSOCount.Caption := IntToStr(dmData.Q.Fields[0].AsInteger);
-    dmData.trQ.RollBack;
-    dmData.Q.Close
-  end;
-  lblDXCC.Caption    := IntToStr(dmDXCC.DXCCCount);
-  lblDXCCCmf.Caption := IntToStr(dmDXCC.DXCCCmfCount)
+  lblQSOCount.Caption := IntToStr(dmData.GetQSOCount);
+  lblDXCC.Caption     := IntToStr(dmDXCC.DXCCCount);
+  lblDXCCCmf.Caption  := IntToStr(dmDXCC.DXCCCmfCount)
 end;
 
 procedure TfrmMain.acPreferencesExecute(Sender: TObject);
@@ -789,7 +775,7 @@ begin
   sDate := '';
   Date  := dmUtils.GetDateTime(0);
   dmUtils.DateInRightFormat(date, tmp, sDate);
-  lblDateTime.Caption := sDate + '  ' + TimeToStr(Date) + '     ';
+  sbMain.Panels[4].Text := sDate + '  ' + TimeToStr(Date)
 end;
 
 procedure TfrmMain.acAboutExecute(Sender: TObject);
@@ -1033,7 +1019,7 @@ var
 begin
   if not dmData.IsFilter then
   begin
-    msg := 'You do not have filter enabled!' + LineEnding+
+    msg := 'You do not have filter activated!' + LineEnding+
            'This could cause that you won''t have more callsigns on one label and ' +
            'only last 500 QSO will be printed.'+LineEnding+LineEnding+
            'Do you want to continue?';
@@ -1692,7 +1678,7 @@ begin
       if (tmp <> '') then
       begin
         dmData.IsFilter := True;
-        sbMain.Panels[2].Text := 'Filter is USED!';
+        sbMain.Panels[2].Text := 'Filter is ACTIVE!';
         RefreshQSODXCCCount;
         ShowFields
       end
@@ -1715,6 +1701,15 @@ begin
   dlgSave.Filter     := 'ADIF|*.adi;*.ADI';
   if dlgSave.Execute then
   begin
+
+    frmExportPref := TfrmExportPref.Create(frmMain);
+    try
+      if frmExportPref.ShowModal = mrCancel then
+        exit
+    finally
+      FreeAndNil(frmExportPref)
+    end;
+
     with TfrmExportProgress.Create(self) do
     try
       FileName   := dlgSave.FileName;
@@ -1735,6 +1730,15 @@ begin
 
   if dlgSave.Execute then
   begin
+
+    frmExportPref := TfrmExportPref.Create(frmMain);
+    try
+      if frmExportPref.ShowModal = mrCancel then
+        exit
+    finally
+      FreeAndNil(frmExportPref)
+    end;
+
     with TfrmExportProgress.Create(self) do
     try
       FileName   := dlgSave.FileName;

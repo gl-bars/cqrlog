@@ -45,6 +45,7 @@ object dmData: TdmData
     FieldDefs = <>
     BeforeOpen = mQBeforeOpen
     Transaction = trmQ
+    Options = []
     Params = <>
     ParseSQL = False
     left = 672
@@ -53,6 +54,7 @@ object dmData: TdmData
   object trmQ: TSQLTransaction
     Active = False
     Action = caNone
+    Options = []
     left = 672
     top = 80
   end
@@ -81,7 +83,9 @@ object dmData: TdmData
       '       b_end NUMERIC(10,4),'
       '       cw NUMERIC(10,4),'
       '       rtty NUMERIC(10,4),'
-      '       ssb NUMERIC(10,4)'
+      '       ssb NUMERIC(10,4),'
+      '       rx_offset numeric(10,4) default 0,'
+      '       tx_offset numeric(10,4) default 0'
       ');'
       'CREATE INDEX band ON bands(band);'
       ''
@@ -429,6 +433,7 @@ object dmData: TdmData
     FieldDefs = <>
     BeforeOpen = qLogListBeforeOpen
     Transaction = trLogList
+    Options = []
     Params = <>
     ParseSQL = False
     left = 592
@@ -437,6 +442,7 @@ object dmData: TdmData
   object trLogList: TSQLTransaction
     Active = False
     Action = caNone
+    Options = []
     left = 688
     top = 208
   end
@@ -449,6 +455,7 @@ object dmData: TdmData
     PacketRecords = 100
     FieldDefs = <>
     Transaction = trmQ
+    Options = []
     Params = <>
     ParseSQL = False
     left = 592
@@ -457,6 +464,7 @@ object dmData: TdmData
   object trSQLConsole: TSQLTransaction
     Active = False
     Action = caNone
+    Options = []
     left = 688
     top = 336
   end
@@ -468,6 +476,7 @@ object dmData: TdmData
   object qQSLMgr: TSQLQuery
     FieldDefs = <>
     Transaction = trQSLMgr
+    Options = []
     Params = <>
     ParseSQL = False
     left = 384
@@ -476,12 +485,14 @@ object dmData: TdmData
   object trQSLMgr: TSQLTransaction
     Active = False
     Action = caNone
+    Options = []
     left = 384
     top = 496
   end
   object qCallBook: TSQLQuery
     FieldDefs = <>
     Transaction = trCallBook
+    Options = []
     Params = <>
     left = 64
     top = 288
@@ -489,12 +500,14 @@ object dmData: TdmData
   object trCallBook: TSQLTransaction
     Active = False
     Action = caNone
+    Options = []
     left = 56
     top = 360
   end
   object trLongNote: TSQLTransaction
     Active = False
     Action = caNone
+    Options = []
     left = 160
     top = 360
   end
@@ -502,6 +515,7 @@ object dmData: TdmData
     FieldDefs = <>
     BeforeOpen = qLongNoteBeforeOpen
     Transaction = trLongNote
+    Options = []
     Params = <>
     left = 160
     top = 288
@@ -509,6 +523,7 @@ object dmData: TdmData
   object qProfiles: TSQLQuery
     FieldDefs = <>
     Transaction = trProfiles
+    Options = []
     Params = <>
     ParseSQL = False
     left = 64
@@ -517,12 +532,14 @@ object dmData: TdmData
   object trProfiles: TSQLTransaction
     Active = False
     Action = caNone
+    Options = []
     left = 64
     top = 235
   end
   object qIOTAList: TSQLQuery
     FieldDefs = <>
     Transaction = trIOTAList
+    Options = []
     Params = <>
     ParseSQL = False
     left = 56
@@ -531,12 +548,14 @@ object dmData: TdmData
   object trIOTAList: TSQLTransaction
     Active = False
     Action = caNone
+    Options = []
     left = 56
     top = 490
   end
   object trBands: TSQLTransaction
     Active = False
     Action = caNone
+    Options = []
     left = 136
     top = 544
   end
@@ -544,6 +563,7 @@ object dmData: TdmData
     FieldDefs = <>
     BeforeOpen = qBandsBeforeOpen
     Transaction = trBands
+    Options = []
     Params = <>
     ParseSQL = False
     left = 136
@@ -552,12 +572,14 @@ object dmData: TdmData
   object trDXClusters: TSQLTransaction
     Active = False
     Action = caNone
+    Options = []
     left = 160
     top = 192
   end
   object qDXClusters: TSQLQuery
     FieldDefs = <>
     Transaction = trDXClusters
+    Options = []
     Params = <>
     ParseSQL = False
     left = 160
@@ -566,12 +588,14 @@ object dmData: TdmData
   object trComment: TSQLTransaction
     Active = False
     Action = caNone
+    Options = []
     left = 496
     top = 496
   end
   object qComment: TSQLQuery
     FieldDefs = <>
     Transaction = trComment
+    Options = []
     Params = <>
     ParseSQL = False
     left = 492
@@ -580,12 +604,14 @@ object dmData: TdmData
   object trException: TSQLTransaction
     Active = False
     Action = caNone
+    Options = []
     left = 492
     top = 384
   end
   object qException: TSQLQuery
     FieldDefs = <>
     Transaction = trException
+    Options = []
     Params = <>
     ParseSQL = False
     left = 492
@@ -594,12 +620,14 @@ object dmData: TdmData
   object trQSOBefore: TSQLTransaction
     Active = False
     Action = caNone
+    Options = []
     left = 328
     top = 312
   end
   object qQSOBefore: TSQLQuery
     FieldDefs = <>
     Transaction = trQSOBefore
+    Options = []
     Params = <>
     ParseSQL = False
     left = 328
@@ -608,6 +636,7 @@ object dmData: TdmData
   object trQ1: TSQLTransaction
     Active = False
     Action = caNone
+    Options = []
     left = 496
     top = 144
   end
@@ -615,6 +644,7 @@ object dmData: TdmData
     FieldDefs = <>
     BeforeOpen = Q1BeforeOpen
     Transaction = trQ1
+    Options = []
     Params = <>
     ParseSQL = False
     left = 496
@@ -623,6 +653,7 @@ object dmData: TdmData
   object trQ: TSQLTransaction
     Active = False
     Action = caNone
+    Options = []
     left = 456
     top = 144
   end
@@ -630,6 +661,7 @@ object dmData: TdmData
     FieldDefs = <>
     BeforeOpen = QBeforeOpen
     Transaction = trQ
+    Options = []
     Params = <>
     ParseSQL = False
     left = 456
@@ -638,6 +670,7 @@ object dmData: TdmData
   object trCQRLOG: TSQLTransaction
     Active = False
     Action = caNone
+    Options = []
     left = 328
     top = 152
   end
@@ -646,6 +679,7 @@ object dmData: TdmData
     FieldDefs = <>
     BeforeOpen = qCQRLOGBeforeOpen
     Transaction = trCQRLOG
+    Options = []
     Params = <>
     ParseSQL = False
     left = 328
@@ -799,7 +833,7 @@ object dmData: TdmData
       ''
       '# memory pool InnoDB uses to store data dictionary information and other internal data structures (default:1M)'
       '# Deprecated in MySQL >= 5.6.3'
-      'innodb_additional_mem_pool_size=1M'
+      '#innodb_additional_mem_pool_size=1M'
       ''
       '# memory buffer InnoDB uses to cache data and indexes of its tables (default:128M)'
       '# Larger values means less I/O'
@@ -865,35 +899,41 @@ object dmData: TdmData
   end
   object qBandMapFil: TSQLQuery
     FieldDefs = <>
+    Options = []
     Params = <>
     left = 256
     top = 488
   end
   object trBandMapFil: TSQLTransaction
     Active = False
+    Options = []
     left = 256
     top = 424
   end
   object qRbnMon: TSQLQuery
     FieldDefs = <>
+    Options = []
     Params = <>
     left = 176
     top = 15
   end
   object trRbnMon: TSQLTransaction
     Active = False
+    Options = []
     left = 256
     top = 16
   end
   object qFreqMem: TSQLQuery
     FieldDefs = <>
     Transaction = trFreqMem
+    Options = []
     Params = <>
     left = 448
     top = 272
   end
   object trFreqMem: TSQLTransaction
     Active = False
+    Options = []
     left = 520
     top = 272
   end

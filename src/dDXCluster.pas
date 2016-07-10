@@ -18,7 +18,7 @@ interface
 uses
   Classes, SysUtils, LResources, Forms, Controls, Dialogs, Graphics,
   inifiles, sqldb, mysql51conn, db, mysql55conn, process, mysql56conn,
-  mysql56dyn;
+  mysql56dyn, mysql57dyn, mysql57conn;
 
 type
   TExplodeArray = Array of String;
@@ -80,7 +80,6 @@ type
     //procedure VyhodnotZnacku(znacka : String; datum : TDateTime; var pfx, country, cont, ITU, WAZ, posun, lat, long : String);
   public
     dxCallArray : Array [0..MaxCall] of String[20];
-    dbDXC       : TSQLConnection;
 
     function  LetterFromMode(mode : String) : String;
     function  DXCCInfo(adif : Word;freq,mode : String; var index : integer) : String;
@@ -841,21 +840,14 @@ var
 begin
   InitCriticalSection(csDX);
 
-  if dmData.MySQLVersion < 5.5 then
-    dbDXC := TMySQL51Connection.Create(self)
-  else  if dmData.MySQLVersion < 5.6 then
-    dbDXC := TMySQL55Connection.Create(self)
-  else
-    dbDXC := TMySQL56Connection.Create(self);
-
-  dbDXC.KeepConnection := True;
-  dbDXC.Name:='dbDXC';
+  dmData.dbDXC.KeepConnection := True;
+  dmData.dbDXC.Name:='dbDXC';
   for i:=0 to ComponentCount-1 do
   begin
     if Components[i] is TSQLQuery then
-      (Components[i] as TSQLQuery).DataBase := dbDXC;
+      (Components[i] as TSQLQuery).DataBase := dmData.dbDXC;
     if Components[i] is TSQLTransaction then
-      (Components[i] as TSQLTransaction).DataBase := dbDXC
+      (Components[i] as TSQLTransaction).DataBase := dmData.dbDXC
   end;
 
   chy1 := new(Pchyb1,init);
@@ -874,7 +866,7 @@ procedure TdmDXCluster.DataModuleDestroy(Sender: TObject);
 begin
   dispose(sez1,done);
   dispose(sez2,done);
-  dbDXC.Connected := False;
+  dmData.dbDXC.Connected := False;
   DoneCriticalsection(csDX)
 end;
 

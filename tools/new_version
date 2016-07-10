@@ -1,6 +1,6 @@
 #!/bin/bash
  
-VERSION=1.9.1
+VERSION=2.0.1
 # cqrlog version
 
 FINAL=/home/ok2cqr/projects/final_cqrlog/
@@ -32,7 +32,7 @@ debuild -i -I -S
 dpkg-buildpackage -rfakeroot -i -I
 make clean
 cd ..
-tar -cvf cqrlog_$VERSION.deb.src.tar cqrlog*.orig.tar.gz cqrlog*.debian.tar.gz cqrlog*.changes cqrlog*.dsc
+tar -cvf cqrlog_$VERSION.deb.src.tar cqrlog*.orig.tar.gz cqrlog*.debian.tar.gz cqrlog*.debian.tar.xz cqrlog*.changes cqrlog*.dsc
 gzip -v9 cqrlog_$VERSION.deb.src.tar
 
 pwd

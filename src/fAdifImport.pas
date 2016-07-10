@@ -111,7 +111,7 @@ type
     ERR_FILE : String;
     WrongRecNr : Integer;
     RecNR      : Integer;
-    GlobalProfile : Word;
+    GlobalProfile : Integer;
     NowDate : String;
     procedure WriteWrongADIF(lines : Array of String; error : String);
 
@@ -346,6 +346,8 @@ begin
     Writeln('d.TX_PWR:',d.TX_PWR);
     Writeln('MyPower: ',MyPower);
 
+    d.MODE := UpperCase(d.MODE);
+
     if not dmUtils.IsAdifOK(d.QSO_DATE,d.TIME_ON,d.TIME_OFF,d.CALL,d.FREQ,d.MODE,d.RST_SENT,
                             d.RST_RCVD,d.IOTA,d.ITUZ,d.CQZ,d.GRIDSQUARE,d.MY_GRIDSQUARE,
                             d.BAND,err) then
@@ -463,7 +465,7 @@ begin
     freq := FormatFloat('0.0000;;',StrToFloat(d.FREQ));
     band := dmUtils.GetBandFromFreq(d.FREQ);
 
-    dxcc_adif := dmDXCC.id_country(d.CALL,dmUtils.StrToDateFormat(d.QSO_DATE),dxcc,mycont,tmp,id_waz,tmp,id_itu,tmp,tmp);
+    dxcc_adif := dmDXCC.id_country(d.CALL,d.STATE,dmUtils.StrToDateFormat(d.QSO_DATE),dxcc,mycont,tmp,id_waz,tmp,id_itu,tmp,tmp);
     if d.CQZ = '' then
       d.CQZ := id_waz;
     if d.ITUZ = '' then
@@ -504,8 +506,17 @@ begin
     Q1.Params[12].AsString  := d.QSL_VIA;
     Q1.Params[13].AsString  := d.IOTA;
     Q1.Params[14].AsString  := d.TX_PWR;
-    Q1.Params[15].AsString  := d.ITUZ;
-    Q1.Params[16].AsString  := d.CQZ;
+
+    if (d.ITUZ = '') then
+      Q1.Params[15].Clear
+    else
+      Q1.Params[15].AsString  := d.ITUZ;
+
+    if (d.CQZ = '') then
+      Q1.Params[16].Clear
+    else
+      Q1.Params[16].AsString  := d.CQZ;
+
     Q1.Params[17].AsString  := d.GRIDSQUARE;
     Q1.Params[18].AsString  := d.MY_GRIDSQUARE;
     Q1.Params[19].AsString  := d.COMMENT;
@@ -680,7 +691,7 @@ begin
       tr.Commit;
     dt := dt - now;
     DecodeTime(dt,hh,m,s,ms);
-    WriteLn('It takes about ',m,' minutes and ',s,' seconds ',ms,' miliseconds');
+    WriteLn('It takes about ',m,' minutes and ',s,' seconds ',ms,' milliseconds');
     if chkLotOfQSO.Checked then
     begin
       sb.Panels[0].Text := 'Recreating indexes ...';
