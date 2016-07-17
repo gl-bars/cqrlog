@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<fpdoc-descriptions><package name="cqrlog"><module name="umysql_helper"><element name="TMysqlHelper.CreateDBUTF8"><short>Create database with UTF8 charset and collation (if it does not exist yet)</short>
+      </element>
+    </module>
+  </package>
+</fpdoc-descriptions>

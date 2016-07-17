@@ -83,7 +83,7 @@
         <MinVersion Major="1" Minor="2" Release="1" Valid="True"/>
       </Item10>
     </RequiredPackages>
-    <Units Count="97">
+    <Units Count="98">
       <Unit0>
         <Filename Value="cqrlog.lpr"/>
         <IsPartOfProject Value="True"/>
@@ -710,20 +710,22 @@
         <ComponentName Value="frmCabrilloImport"/>
         <HasResources Value="True"/>
         <ResourceBaseClass Value="Form"/>
-        <UnitName Value="fCabrilloImport"/>
       </Unit95>
       <Unit96>
         <Filename Value="uextra_util.pas"/>
         <IsPartOfProject Value="True"/>
-        <UnitName Value="uextra_util"/>
       </Unit96>
+      <Unit97>
+        <Filename Value="umysql_helper.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit97>
     </Units>
   </ProjectOptions>
   <CompilerOptions>
     <Version Value="11"/>
     <SearchPaths>
       <Libraries Value="$(LazarusDir)/lcl"/>
-      <OtherUnitFiles Value="lnet/lib;mysql"/>
+      <OtherUnitFiles Value="lnet/lib"/>
       <SrcPath Value="$(LazarusDir)/lcl;$(LazarusDir)/lcl/interfaces/$(LCLWidgetType)"/>
     </SearchPaths>
     <Parsing>

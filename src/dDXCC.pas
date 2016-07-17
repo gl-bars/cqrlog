@@ -17,7 +17,8 @@ interface
 
 uses
   Classes, SysUtils, LResources, Forms, Controls, Dialogs, sqldb,
-  mysql50conn, db, iniFiles, dateutils, FileUtil;
+  mysql50conn, db, iniFiles, dateutils, FileUtil,
+  mysql56conn, mysql56dyn; //prefer 5.6
 
 
 

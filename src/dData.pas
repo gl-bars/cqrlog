@@ -19,8 +19,9 @@ uses
   Classes, SysUtils, LResources, Forms, Controls, Dialogs, DB, FileUtil,
   memds, mysql51conn, sqldb, inifiles, stdctrls, RegExpr,
   dynlibs, lcltype, ExtCtrls, sqlscript, process, mysql51dyn, ssl_openssl_lib,
-  mysql55dyn, mysql55conn, CustApp, mysql56dyn, mysql56conn, grids, LazFileUtils,
-  mysql57dyn, mysql57conn;
+  mysql55dyn, mysql55conn, CustApp, {mysql56dyn, mysql56conn,} grids, LazFileUtils,
+  mysql57dyn, mysql57conn,
+  mysql56conn, mysql56dyn; //prefer 5.6
 
 const
   MaxCall   = 100000;
@@ -346,7 +347,7 @@ var
 implementation
 
 uses dUtils, dDXCC, fMain, fWorking, fUpgrade, fImportProgress, fNewQSO, dDXCluster, uMyIni,
-     fTRXControl, fRotControl, uVersion, dLogUpload, fDbError, LCLProc;
+     fTRXControl, fRotControl, uVersion, dLogUpload, fDbError, LCLProc, umysql_helper;
 
 procedure TdmData.CheckForDatabases;
 var
@@ -370,7 +371,7 @@ begin
   if not Exists then
   begin
     MainCon.Connected:=false;
-    MainCon.CreateDB;
+    (MainCon as TConnectionName).CreateDBUTF8;
     trmQ.StartTransaction;
     if fDebugLevel>=1 then Writeln(scCommon.Script.Text);
     scCommon.ExecuteScript;
@@ -1176,7 +1177,8 @@ begin
     {MySQLOpts[4]:='--general-log';
     MySQLOpts[5]:='--general-log-file=/tmp/libmysqld.log';}
 
-    InitialiseMySQL(lib, Length(MySQLOpts), PPChar(@MySQLOpts), nil);
+    i:=InitialiseMySQL(lib, Length(MySQLOpts), PPChar(@MySQLOpts), nil);
+    Assert(i=1, 'This should be the first instance of MySQL');
   end;
 
   try try
