@@ -19,9 +19,8 @@ uses
   Classes, SysUtils, LResources, Forms, Controls, Dialogs, DB, FileUtil,
   memds, mysql51conn, sqldb, inifiles, stdctrls, RegExpr,
   dynlibs, lcltype, ExtCtrls, sqlscript, process, mysql51dyn, ssl_openssl_lib,
-  mysql55dyn, mysql55conn, CustApp, {mysql56dyn, mysql56conn,} grids, LazFileUtils,
-  mysql57dyn, mysql57conn,
-  mysql56conn, mysql56dyn; //prefer 5.6
+  mysql55dyn, mysql55conn, CustApp, mysql56dyn, mysql56conn, grids, LazFileUtils,
+  mysql57dyn, mysql57conn;
 
 const
   MaxCall   = 100000;
@@ -371,7 +370,8 @@ begin
   if not Exists then
   begin
     MainCon.Connected:=false;
-    (MainCon as TConnectionName).CreateDBUTF8;
+    //Which TConnectionName copy is used is defined by mysqlXXconn uses order
+    TConnectionName(MainCon).CreateDBUTF8(fMySQLVersion);
     trmQ.StartTransaction;
     if fDebugLevel>=1 then Writeln(scCommon.Script.Text);
     scCommon.ExecuteScript;
@@ -1079,6 +1079,7 @@ var
   MySQLVer : String;
   param    : String;
   MySQLOpts: Array[0..3] of string;
+  InitMysqlFunc: Function (Const LibraryName : AnsiString; argc: longint; argv:PPchar; groups:PPchar) : Integer;
 begin
   InitCriticalSection(csPreviousQSO);
   cqrini       := nil;
@@ -1159,27 +1160,6 @@ begin
     lib := FindLib('/lib/','libmysqlclient.so*');
   if (lib='') then
     lib := FindLib('/usr/lib/mysql/','libmysqlclient.so*');}
-  lib := MYSQL_EMBEDDED_LIB;
-
-  fHomeDir    := GetAppConfigDir(False);
-  fDataDir    := fHomeDir+'database/';
-  fUsrHomeDir := copy(fHomeDir,1,Pos('.config',fHomeDir)-1);
-
-  PrepareDirectories;
-  PrepareMysqlConfigFile;
-
-  if fDebugLevel>=1 then Writeln('Loading libmysqlclient: ',lib);
-  if lib <> '' then begin
-    MySQLOpts[0]:=ParamStr(0);
-    MySQLOpts[1]:='--defaults-file='+fHomeDir+'database/'+'mysql.cnf';
-    MySQLOpts[2]:='--datadir='+fHomeDir+'database/';
-    MySQLOpts[3]:='--innodb_log_file_size=5M';
-    {MySQLOpts[4]:='--general-log';
-    MySQLOpts[5]:='--general-log-file=/tmp/libmysqld.log';}
-
-    i:=InitialiseMySQL(lib, Length(MySQLOpts), PPChar(@MySQLOpts), nil);
-    Assert(i=1, 'This should be the first instance of MySQL');
-  end;
 
   try try
     c := TConnectionName.Create(nil);
@@ -1217,6 +1197,39 @@ begin
     Writeln('**********************************');
     Writeln('MySQL version assigned: ',FloatToStr(fMySQLVersion));
     Writeln('**********************************')
+  end;
+
+
+  lib := MYSQL_EMBEDDED_LIB;
+
+  fHomeDir    := GetAppConfigDir(False);
+  fDataDir    := fHomeDir+'database/';
+  fUsrHomeDir := copy(fHomeDir,1,Pos('.config',fHomeDir)-1);
+
+  PrepareDirectories;
+  PrepareMysqlConfigFile;
+
+  if fDebugLevel>=1 then Writeln('Loading libmysqlclient: ',lib);
+  if lib <> '' then begin
+    //For all supported mysql versions
+    if fMySQLVersion < 5.5 then
+      InitMysqlFunc:=@mysql51dyn.InitialiseMySQL
+    else if fMySQLVersion < 5.6 then
+      InitMysqlFunc:=@mysql55dyn.InitialiseMySQL
+    else if fMySQLVersion < 5.7 then
+      InitMysqlFunc:=@mysql56dyn.InitialiseMySQL
+    else
+      InitMysqlFunc:=@mysql57dyn.InitialiseMySQL;
+
+    MySQLOpts[0]:=ParamStr(0);
+    MySQLOpts[1]:='--defaults-file='+fHomeDir+'database/'+'mysql.cnf';
+    MySQLOpts[2]:='--datadir='+fHomeDir+'database/';
+    MySQLOpts[3]:='--innodb_log_file_size=5M';
+    {MySQLOpts[4]:='--general-log';
+    MySQLOpts[5]:='--general-log-file=/tmp/libmysqld.log';}
+
+    i:=InitMysqlFunc(lib, Length(MySQLOpts), PPChar(@MySQLOpts), nil);
+    Assert(i=1, 'This should be the first instance of MySQL');
   end;
 
 
@@ -1383,7 +1396,11 @@ begin
   MainCon.Connected := False;
   DoneCriticalsection(csPreviousQSO);
   KillMySQL(False);
-  ReleaseMysql;
+  //For all supported mysql versions
+  mysql51dyn.ReleaseMysql;
+  mysql55dyn.ReleaseMysql;
+  mysql56dyn.ReleaseMysql;
+  mysql57dyn.ReleaseMysql;
 end;
 
 procedure TdmData.Q1BeforeOpen(DataSet: TDataSet);

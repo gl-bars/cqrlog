@@ -17,9 +17,8 @@ interface
 
 uses
   Classes, SysUtils, LResources, Forms, Controls, Dialogs, Graphics,
-  inifiles, sqldb, mysql51conn, db, mysql55conn, process, {mysql56conn,
-  mysql56dyn,} mysql57dyn, mysql57conn,
-  mysql56conn, mysql56dyn; //prefer 5.6
+  inifiles, sqldb, mysql51conn, db, mysql55conn, process, mysql56conn,
+  mysql56dyn, mysql57dyn, mysql57conn;
 
 type
   TExplodeArray = Array of String;

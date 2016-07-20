@@ -8,8 +8,7 @@ uses
   Classes, SysUtils, sqldb, FileUtil, LResources,
   dynlibs, lcltype, ExtCtrls, sqlscript, process, mysql51dyn, ssl_openssl_lib,
   mysql55dyn, mysql55conn, mysql51conn, db, httpsend, blcksock, synautil, Forms,
-  Graphics, {mysql56conn, mysql56dyn,} mysql57dyn, mysql57conn,
-  mysql56conn, mysql56dyn; //prefer 5.6
+  Graphics, mysql56conn, mysql56dyn, mysql57dyn, mysql57conn;
 
 const
   C_HAMQTH       = 'HamQTH';
