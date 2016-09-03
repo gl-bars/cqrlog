@@ -33,6 +33,8 @@ type
   TQSOLinesIterator=class
   private
     FCurrentIndex: integer;
+
+    function GetCurrentLine: string;
   public
     Lines: TStringList;
     Fields: TStringMap;
@@ -43,6 +45,8 @@ type
     procedure ParseCurrent;
     function MoveNext: Boolean;
     procedure Reset;
+
+    property CurrentLine: string read GetCurrentLine;
   end;
 
   { TfrmCabrilloImport }
@@ -55,6 +59,7 @@ type
     DataSource1: TDataSource;
     edtRemarks: TEdit;
     Label1: TLabel;
+    Label2: TLabel;
     labelResult: TLabel;
     Label3: TLabel;
     Label4: TLabel;
@@ -63,6 +68,8 @@ type
     Label8: TLabel;
     Label9: TLabel;
     lblCount: TLabel;
+    lblErrorLog: TLabel;
+    lblErrors: TLabel;
     lblFileName: TLabel;
     pageControlSteps: TPageControl;
     Panel1: TPanel;
@@ -78,7 +85,6 @@ type
     sheetChooseColumns: TTabSheet;
     sheetResult: TTabSheet;
     tr: TSQLTransaction;
-    procedure btnCloseClick(Sender: TObject);
     procedure buttonNextClick(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
@@ -92,6 +98,9 @@ type
     GridColumns_ColIdxName, GridColumns_ColIdxWidth: integer; //Constant grid column index
     QSOIter: TQSOLinesIterator;
     OldQSO_Count: integer;
+    WrongCabrilloLines: TStringList;
+    ERR_FILE : String;
+    WrongRecNr : Integer;
     GlobalProfile : Word;
 
     function GetCabrilloFilename: string;
@@ -110,9 +119,10 @@ type
     function GetColumnMaxLen(Index: integer): integer;
     procedure ShowCellSpinEdit(var SpinEdit: TSpinEdit; const R: TRect; ACol, ARow: integer);
     procedure DoImport;
-    procedure MakeRecord(out d:Tnejakyzaznam);
+    procedure InsertHeaderFromFile(var IntoList: TStringList);
+    function MakeRecord(out d:Tnejakyzaznam; var ErrorMessage: string): boolean;
     procedure AddNewRecord(var d: Tnejakyzaznam);
-    procedure DefaultD(out d:Tnejakyzaznam);
+    procedure ApplyLrsGridWorkaround;
 
     procedure InitQSOLinesIterator;
   public
@@ -169,6 +179,8 @@ const
   F_EXCH1 = 'exch1';
   F_EXCH2 = 'exch2';
 
+  CBR_QSO='QSO: ';
+
 resourcestring
   BUTTON_READY = 'Ready';
   IMPORT_RESULT_NEW_QSOS = 'Result: %d new QSOs';
@@ -178,6 +190,11 @@ implementation
 uses uMyIni, dDXCC;
 
 { TQSOLinesIterator }
+
+function TQSOLinesIterator.GetCurrentLine: string;
+begin
+  Result:=Lines[FCurrentIndex];
+end;
 
 constructor TQSOLinesIterator.Create;
 begin
@@ -222,6 +239,8 @@ end;
 { TfrmCabrilloImport }
 
 procedure TfrmCabrilloImport.FormCreate(Sender: TObject);
+var
+  tmp: Char;
 begin
   GridColumns_ColIdxName:=gridColumns.FixedCols;
   GridColumns_ColIdxWidth:=gridColumns.FixedCols + 1;
@@ -234,8 +253,16 @@ begin
 
   dmData.InsertProfiles(cmbProfiles,False);
   cmbProfiles.Text := dmData.GetDefaultProfileText;
+  try
+    tmp := FormatSettings.TimeSeparator;
+    FormatSettings.TimeSeparator := '_';
+    ERR_FILE := 'errors_'+TimeToStr(now)+'.log';
+  finally
+    FormatSettings.TimeSeparator := tmp;
+  end;
 
   OldQSO_Count:=GetQSOCount;
+  WrongCabrilloLines:=TStringList.Create;
 end;
 
 procedure TfrmCabrilloImport.buttonNextClick(Sender: TObject);
@@ -254,14 +281,10 @@ begin
   end;
 end;
 
-procedure TfrmCabrilloImport.btnCloseClick(Sender: TObject);
-begin
-
-end;
-
 procedure TfrmCabrilloImport.FormDestroy(Sender: TObject);
 begin
   FreeAndNil(QSOIter);
+  WrongCabrilloLines.Free;
 end;
 
 procedure TfrmCabrilloImport.FormShow(Sender: TObject);
@@ -287,6 +310,8 @@ begin
 
   pageControlSteps.ShowTabs:=false;
   dmUtils.LoadFontSettings(Self);
+
+  ApplyLrsGridWorkaround;
 end;
 
 procedure TfrmCabrilloImport.gridColumnsEditingDone(Sender: TObject);
@@ -538,9 +563,12 @@ end;
 procedure TfrmCabrilloImport.DoImport;
 var
   d: Tnejakyzaznam;
+  ErrorMessage: string;
 begin
   GlobalProfile := dmData.GetNRFromProfile(cmbProfiles.Text);
+  WrongRecNr := 0;
   InitQSOLinesIterator;
+  WrongCabrilloLines.Clear;
 
   if not tr.Active then
      tr.StartTransaction;
@@ -548,8 +576,13 @@ begin
   try
     while QSOIter.MoveNext do begin
       QSOIter.ParseCurrent;
-      MakeRecord(d);
-      AddNewRecord(d);
+      if MakeRecord(d, ErrorMessage) then
+        AddNewRecord(d) else
+      begin
+        WrongCabrilloLines.Add(CBR_QSO + QSOIter.CurrentLine);
+        WrongCabrilloLines.Add(ErrorMessage);
+        WrongCabrilloLines.Add('');
+      end;
     end;
 
     Q1.ApplyUpdates;
@@ -563,16 +596,48 @@ begin
     begin
       MessageDlg(Caption, 'Import failed!' + LineEnding + E.Message, mtError, [mbOK], 0);
       tr.Rollback;
-    end
-  end
+    end;
+  end;
+  lblErrors.Caption   := IntToStr(WrongRecNr);
+  if WrongRecNr>0 then begin
+    InsertHeaderFromFile(WrongCabrilloLines);
+    WrongCabrilloLines.SaveToFile(dmData.UsrHomeDir + ERR_FILE);
+    lblErrorLog.Caption := dmData.UsrHomeDir + ERR_FILE;
+    lblErrorLog.Visible := true;
+  end;
 end;
 
-procedure TfrmCabrilloImport.MakeRecord(out d: Tnejakyzaznam);
+procedure TfrmCabrilloImport.InsertHeaderFromFile(var IntoList: TStringList);
+var
+  Lines: TStringList;
+  i: Integer;
 begin
-  DefaultD(d);
-  //TODO: d:=Default(Tnejakyzaznam);
+  Lines:=TStringList.Create;
+  try
+    Lines.LoadFromFile(CabrilloFilename);
+    i:=0;
+    while (i<Lines.Count) and (not AnsiStartsStr(CBR_QSO, Lines[i])) do begin
+      IntoList.Insert(i, Lines[i]);
+      Inc(i);
+    end;
+    IntoList.Add('END-OF-LOG:');
+  finally
+    Lines.Free;
+  end;
+end;
+
+function TfrmCabrilloImport.MakeRecord(out d:Tnejakyzaznam; var ErrorMessage: string): boolean;
+var
+  Freq: string;
+begin
+  Result:=true;
+  d:=Default(Tnejakyzaznam);
   with QSOIter do begin
-    d.FREQ:=Fields['Freq'];
+    {Freq: insert separator:
+    1234 -> 1.234
+    12345 -> 12.345 }
+    Freq:=Fields['Freq'];
+    d.FREQ:=LeftStr(Freq, Length(Freq)-3) + FormatSettings.DecimalSeparator + RightStr(Freq, 3); // Freq/1000
     d.MODE:=Fields['Mo'];
     d.QSO_DATE:=Fields['Date'];
     d.TIME_ON:=Fields['Time'];
@@ -582,6 +647,14 @@ begin
     d.CALL:=Fields['Call_r'];
     d.RST_RCVD:=Fields['Rst_r'];
     d.EXCH2:=Fields['Exch_r'];
+  end;
+
+  if not dmUtils.IsAdifOK(d.QSO_DATE,d.TIME_ON,d.TIME_OFF,d.CALL,d.FREQ,d.MODE,d.RST_SENT,
+                            d.RST_RCVD,d.IOTA,d.ITUZ,d.CQZ,d.GRIDSQUARE,d.MY_GRIDSQUARE,
+                            d.BAND,ErrorMessage) then
+  begin
+    inc(WrongRecNr);
+    Result:=false;
   end;
 end;
 
@@ -761,36 +834,13 @@ begin
   Q1.Post;
 end;
 
-procedure TfrmCabrilloImport.DefaultD(out d:Tnejakyzaznam);
+procedure TfrmCabrilloImport.ApplyLrsGridWorkaround;
 begin
-  FillChar(d, SizeOf(d), 0);
-
-  d.QSO_DATE                := '';
-  d.TIME_ON                 := '';
-  d.TIME_OFF                := '';
-  d.CALL                    := '';
-  d.MODE                    := '';
-  d.RST_SENT                := '';
-  d.RST_RCVD                := '';
-  d.NAME                    := '';
-  d.QTH                     := '';
-  d.QSL_SENT                := '';
-  d.QSL_RCVD                := '';
-  d.QSL_VIA                 := '';
-  d.IOTA                    := '';
-  d.TX_PWR                  := '';
-  d.ITUZ                    := '';
-  d.CQZ                     := '';
-  d.GRIDSQUARE              := '';
-  d.MY_GRIDSQUARE           := '';
-  d.COMMENT                 := '';
-  d.CALL                    := '';
-  d.AWARD                   := '';
-  d.STATE                   := '';
-  d.CONT                    := '';
-
-  d.EXCH1                   := '';
-  d.EXCH2                   := '';
+  //TODO: try without workaround after lrs/LResources are removed
+  with gridColumns do
+    Options:=Options + [goAutoAddRows, goColSizing, goEditing, goRowMoving] - [goHorzLine, goRangeSelect];
+  gridHeader.Options:=gridHeader.Options + [goColSizing] - [goHorzLine];
+  gridQSOs.Options:=gridQSOs.Options + [goColSizing];
 end;
 
 procedure TfrmCabrilloImport.InitQSOLinesIterator;

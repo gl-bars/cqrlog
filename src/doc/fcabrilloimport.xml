@@ -11,6 +11,11 @@
       </element>
     <element name="TQSOLinesIterator"><short>Iterate over "QSO:" lines and extract fields</short>
       </element>
+    <element name="TQSOLinesIterator.GetCurrentLine"/><element name="TQSOLinesIterator.CurrentLine"><short>Whole raw line without 'QSO: '</short>
+      </element><element name="TfrmCabrilloImport.WrongCabrilloLines"><short>QSO lines containing errors along with error messages</short>
+      </element><element name="TfrmCabrilloImport.InsertHeaderFromFile"><short>Load header from <var>CabrilloFilename</var> and insert it into <var>IntoList</var>
+        </short>
+      </element>
     </module>
   </package>
 </fpdoc-descriptions>

@@ -9,36 +9,36 @@ object frmCabrilloImport: TfrmCabrilloImport
   OnCreate = FormCreate
   OnDestroy = FormDestroy
   OnShow = FormShow
-  LCLVersion = '1.2.4.0'
+  LCLVersion = '1.6.0.4'
   object Label1: TLabel
     Left = 6
-    Height = 17
+    Height = 15
     Top = 3
-    Width = 22
+    Width = 24
     Caption = 'File:'
     ParentColor = False
   end
   object lblFileName: TLabel
     Left = 38
-    Height = 17
+    Height = 15
     Top = 3
-    Width = 66
+    Width = 73
     Caption = 'lblFileName'
     ParentColor = False
   end
   object Label3: TLabel
-    Left = 6
-    Height = 17
+    Left = 152
+    Height = 15
     Top = 30
-    Width = 58
+    Width = 65
     Caption = 'Importing:'
     ParentColor = False
   end
   object lblCount: TLabel
-    Left = 86
-    Height = 17
+    Left = 232
+    Height = 15
     Top = 30
-    Width = 46
+    Width = 52
     Caption = 'lblCount'
     ParentColor = False
   end
@@ -59,7 +59,6 @@ object frmCabrilloImport: TfrmCabrilloImport
     Width = 75
     Caption = 'Close'
     ModalResult = 2
-    OnClick = btnCloseClick
     TabOrder = 1
   end
   object pageControlSteps: TPageControl
@@ -73,31 +72,31 @@ object frmCabrilloImport: TfrmCabrilloImport
     TabOrder = 2
     object sheetChooseColumns: TTabSheet
       Caption = 'sheetChooseColumns'
-      ClientHeight = 333
-      ClientWidth = 730
+      ClientHeight = 331
+      ClientWidth = 728
       object Panel1: TPanel
         Left = 8
-        Height = 170
+        Height = 168
         Top = 150
-        Width = 712
+        Width = 710
         Anchors = [akTop, akLeft, akRight, akBottom]
-        ClientHeight = 170
-        ClientWidth = 712
+        ClientHeight = 168
+        ClientWidth = 710
         TabOrder = 0
         object panelHeader: TPanel
           Left = 1
-          Height = 168
+          Height = 166
           Top = 1
           Width = 182
           Align = alLeft
-          ClientHeight = 168
+          ClientHeight = 166
           ClientWidth = 182
           TabOrder = 0
           object Label6: TLabel
             Left = 12
-            Height = 17
+            Height = 15
             Top = 6
-            Width = 42
+            Width = 47
             Caption = 'Header'
             ParentColor = False
           end
@@ -106,7 +105,7 @@ object frmCabrilloImport: TfrmCabrilloImport
             AnchorSideTop.Side = asrBottom
             Left = 12
             Height = 130
-            Top = 29
+            Top = 27
             Width = 158
             Anchors = [akTop, akLeft, akRight, akBottom]
             BorderSpacing.Top = 6
@@ -125,12 +124,12 @@ object frmCabrilloImport: TfrmCabrilloImport
         end
         object panelQSOs: TPanel
           Left = 188
-          Height = 168
+          Height = 166
           Top = 1
-          Width = 523
+          Width = 521
           Align = alClient
-          ClientHeight = 168
-          ClientWidth = 523
+          ClientHeight = 166
+          ClientWidth = 521
           TabOrder = 1
           object gridQSOs: TStringGrid
             AnchorSideLeft.Control = gridColumns
@@ -138,7 +137,7 @@ object frmCabrilloImport: TfrmCabrilloImport
             Left = 256
             Height = 129
             Top = 30
-            Width = 256
+            Width = 254
             Anchors = [akTop, akLeft, akRight]
             BorderSpacing.Left = 12
             FixedCols = 0
@@ -147,7 +146,7 @@ object frmCabrilloImport: TfrmCabrilloImport
           end
           object gridColumns: TStringGrid
             Left = 12
-            Height = 129
+            Height = 127
             Top = 30
             Width = 232
             Anchors = [akTop, akLeft, akBottom]
@@ -180,23 +179,23 @@ object frmCabrilloImport: TfrmCabrilloImport
           object Label8: TLabel
             AnchorSideLeft.Control = gridQSOs
             Left = 256
-            Height = 17
+            Height = 15
             Top = 6
-            Width = 44
+            Width = 48
             Caption = 'Preview'
             ParentColor = False
           end
           object Label9: TLabel
             Left = 12
-            Height = 17
+            Height = 15
             Top = 6
-            Width = 49
+            Width = 56
             Caption = 'Columns'
             ParentColor = False
           end
           object spinEditWidth: TSpinEdit
             Left = 141
-            Height = 27
+            Height = 21
             Top = 125
             Width = 50
             OnExit = spinEditWidthExit
@@ -206,37 +205,37 @@ object frmCabrilloImport: TfrmCabrilloImport
         end
         object Splitter1: TSplitter
           Left = 183
-          Height = 168
+          Height = 166
           Top = 1
           Width = 5
         end
       end
       object Label4: TLabel
         Left = 8
-        Height = 17
+        Height = 15
         Top = 8
-        Width = 52
+        Width = 59
         Caption = 'Remarks:'
         ParentColor = False
       end
       object edtRemarks: TEdit
         Left = 8
-        Height = 27
+        Height = 21
         Top = 32
         Width = 145
         TabOrder = 1
       end
       object Label5: TLabel
         Left = 8
-        Height = 17
+        Height = 15
         Top = 72
-        Width = 64
+        Width = 70
         Caption = 'QTH Profile'
         ParentColor = False
       end
       object cmbProfiles: TComboBox
         Left = 8
-        Height = 29
+        Height = 21
         Top = 96
         Width = 334
         ItemHeight = 0
@@ -246,8 +245,8 @@ object frmCabrilloImport: TfrmCabrilloImport
     end
     object sheetResult: TTabSheet
       Caption = 'sheetResult'
-      ClientHeight = 333
-      ClientWidth = 730
+      ClientHeight = 331
+      ClientWidth = 728
       object labelResult: TLabel
         Left = 8
         Height = 17
@@ -267,9 +266,36 @@ object frmCabrilloImport: TfrmCabrilloImport
     OnClick = buttonNextClick
     TabOrder = 3
   end
+  object Label2: TLabel
+    Left = 6
+    Height = 15
+    Top = 30
+    Width = 42
+    Caption = 'Errors:'
+    ParentColor = False
+  end
+  object lblErrors: TLabel
+    Left = 64
+    Height = 15
+    Top = 30
+    Width = 52
+    Alignment = taRightJustify
+    Caption = 'lblErrors'
+    ParentColor = False
+  end
+  object lblErrorLog: TLabel
+    Left = 6
+    Height = 15
+    Top = 56
+    Width = 68
+    Caption = 'lblErrorLog'
+    ParentColor = False
+    Visible = False
+  end
   object tr: TSQLTransaction
     Active = False
     Action = caNone
+    Options = []
     left = 146
     top = 212
   end
@@ -279,6 +305,7 @@ object frmCabrilloImport: TfrmCabrilloImport
     SQL.Strings = (
       'SELECT * from cqrlog_main;'
     )
+    Options = []
     Params = <>
     DataSource = DataSource1
     left = 198
@@ -287,6 +314,7 @@ object frmCabrilloImport: TfrmCabrilloImport
   object Q4: TSQLQuery
     FieldDefs = <>
     Transaction = tr
+    Options = []
     Params = <>
     left = 248
     top = 212
