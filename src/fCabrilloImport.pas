@@ -118,6 +118,7 @@ type
     procedure SetColumnTitle(Index: integer; Value: string);
     function GetColumnMaxLen(Index: integer): integer;
     procedure ShowCellSpinEdit(var SpinEdit: TSpinEdit; const R: TRect; ACol, ARow: integer);
+    procedure CheckForDuplicateColumns;
     procedure DoImport;
     procedure InsertHeaderFromFile(var IntoList: TStringList);
     function MakeRecord(out d:Tnejakyzaznam; var ErrorMessage: string): boolean;
@@ -184,6 +185,9 @@ const
 resourcestring
   BUTTON_READY = 'Ready';
   IMPORT_RESULT_NEW_QSOS = 'Result: %d new QSOs';
+  AUTODETECTING_FORMAT = 'Autodetecting Cabrillo format';
+  COL_FORMAT_ERRORS_FOUND = 'Format errors found! Please correct Columns table before importing.';
+  DUPLICATE_COLUMN = 'Duplicate column "%s"[%d]';
 
 implementation
 
@@ -220,7 +224,7 @@ begin
   N:=Length(FieldLengths);
   Assert(Fields.Count=N);
   for i:=0 to N-1 do begin
-    Fields.Data[i]:=Copy(Line, p, FieldLengths[i]);
+    Fields.Data[i]:=Trim(Copy(Line, p, FieldLengths[i]));
     p+=FieldLengths[i]+1; //+1: space
   end;
 end;
@@ -311,6 +315,7 @@ begin
   pageControlSteps.ShowTabs:=false;
   dmUtils.LoadFontSettings(Self);
 
+  CheckForDuplicateColumns;
   ApplyLrsGridWorkaround;
 end;
 
@@ -459,7 +464,8 @@ begin
   end;
   //Due to stripping of trailing space the length of the last field may vary
   if Len=1 then
-    ModifyColumnsGridLastRow('t', 1) else
+    ModifyColumnsGridLastRow('t', 1)
+  else if Len<=6 then
     ModifyColumnsGridLastRow('Exch', 6);
 end;
 
@@ -560,6 +566,35 @@ begin
   end;
 end;
 
+procedure TfrmCabrilloImport.CheckForDuplicateColumns;
+var
+  i, nCols, DupIndex: Integer;
+  arUsedColumns: array of string;
+  c, ErrorMsg: string;
+begin
+  DupIndex:=-1;
+  ErrorMsg:=COL_FORMAT_ERRORS_FOUND + LineEnding;
+
+  nCols:=GetColumnsCount;
+  SetLength(arUsedColumns, nCols);
+  for i:=0 to nCols-1 do
+    arUsedColumns[i]:='';
+
+  for i:=0 to nCols-1 do begin
+    c:=GetColumnTitle(i);
+    if AnsiIndexStr(c, arUsedColumns)>0 then begin
+      ErrorMsg += Format(DUPLICATE_COLUMN, [c, GetColumnMaxLen(i)]) + LineEnding;
+      if DupIndex<0 then DupIndex:=i; //assign only for the first duplicate found
+    end;
+    arUsedColumns[i]:=c;
+  end;
+
+  if DupIndex>=0 then begin
+    gridColumns.Row:=gridColumns.FixedRows+DupIndex;
+    MessageDlg(AUTODETECTING_FORMAT, ErrorMsg, mtWarning, [mbOK], 0);
+  end;
+end;
+
 procedure TfrmCabrilloImport.DoImport;
 var
   d: Tnejakyzaznam;
@@ -629,6 +664,7 @@ end;
 function TfrmCabrilloImport.MakeRecord(out d:Tnejakyzaznam; var ErrorMessage: string): boolean;
 var
   Freq: string;
+  Index: integer;
 begin
   Result:=true;
   d:=Default(Tnejakyzaznam);
@@ -643,10 +679,12 @@ begin
     d.TIME_ON:=Fields['Time'];
     //'Call_s'
     d.RST_SENT:=Fields['Rst_s'];
-    d.EXCH1:=Fields['Exch_s'];
+    if Fields.Find('Exch_s', Index) then
+      d.EXCH1:=Fields['Exch_s'];
     d.CALL:=Fields['Call_r'];
     d.RST_RCVD:=Fields['Rst_r'];
-    d.EXCH2:=Fields['Exch_r'];
+    if Fields.Find('Exch_r', Index) then
+      d.EXCH2:=Fields['Exch_r'];
   end;
 
   if not dmUtils.IsAdifOK(d.QSO_DATE,d.TIME_ON,d.TIME_OFF,d.CALL,d.FREQ,d.MODE,d.RST_SENT,
@@ -850,6 +888,7 @@ begin
   nCols:=GetColumnsCount;
   SetLength(QSOIter.FieldLengths, nCols);
 
+  QSOIter.Fields.Clear;
   for i:=0 to nCols-1 do begin
     QSOIter.Fields[GetColumnTitle(i)]:=''; //create keys with empty data
     QSOIter.FieldLengths[i]:=GetColumnMaxLen(i);
