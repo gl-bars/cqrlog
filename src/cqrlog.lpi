@@ -83,7 +83,7 @@
         <MinVersion Major="1" Minor="2" Release="1" Valid="True"/>
       </Item10>
     </RequiredPackages>
-    <Units Count="98">
+    <Units Count="99">
       <Unit0>
         <Filename Value="cqrlog.lpr"/>
         <IsPartOfProject Value="True"/>
@@ -719,6 +719,10 @@
         <Filename Value="umysql_helper.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit97>
+      <Unit98>
+        <Filename Value="uCabrilloImport.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit98>
     </Units>
   </ProjectOptions>
   <CompilerOptions>

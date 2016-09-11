@@ -20,38 +20,15 @@ interface
 uses
   Classes, SysUtils, sqldb, db, FileUtil, LResources, Forms, Controls, Graphics,
   Dialogs, StdCtrls, ComCtrls, ExtCtrls, Grids, ButtonPanel, strutils, LCLProc,
-  Spin, DBGrids, fgl, variants, LCLType,
-  dData, dUtils, fAdifImport, types;
+  Spin, DBGrids, variants, LCLType,
+  dData, dUtils, fAdifImport, uCabrilloImport, types;
 
 type
-  TStringMap = specialize TFPGMap<string, string>;
-
   EUserAborted = class(Exception);
-
-  { TQSOLinesIterator }
-
-  TQSOLinesIterator=class
-  private
-    FCurrentIndex: integer;
-
-    function GetCurrentLine: string;
-  public
-    Lines: TStringList;
-    Fields: TStringMap;
-    FieldLengths: array of integer;
-
-    constructor Create;
-    destructor Destroy; override;
-    procedure ParseCurrent;
-    function MoveNext: Boolean;
-    procedure Reset;
-
-    property CurrentLine: string read GetCurrentLine;
-  end;
 
   { TfrmCabrilloImport }
 
-  TfrmCabrilloImport = class(TForm)
+  TfrmCabrilloImport = class(TForm, ICabrilloGrid)
     btnClose: TButton;
     btnImport: TButton;
     buttonNext: TButton;
@@ -96,7 +73,6 @@ type
   private
     { private declarations }
     GridColumns_ColIdxName, GridColumns_ColIdxWidth: integer; //Constant grid column index
-    QSOIter: TQSOLinesIterator;
     OldQSO_Count: integer;
     WrongCabrilloLines: TStringList;
     ERR_FILE : String;
@@ -107,9 +83,6 @@ type
 
     procedure LoadCabrilloLines(const Lines: TStringList);
     procedure AddToHeaderGrid(Param, Value: string);
-    procedure AddToColumnsGrid(Field: string; MaxLength: integer);
-    procedure ModifyColumnsGridLastRow(Field: string; MaxLength: integer);
-    procedure GuessQSORows;
     procedure GridSetSentRcvd;
     procedure ReloadQSOGrid;
     //Working with columns grid
@@ -132,6 +105,8 @@ type
     procedure ClearGridRows(var Grid: TStringGrid);
     procedure AddRowToGrid(var Grid: TStringGrid);
     function GetQSOCount: integer;
+    procedure AddToColumnsGrid(Field: string; MaxLength: integer);
+    procedure ModifyColumnsGridLastRow(Field: string; MaxLength: integer);
 
     property CabrilloFilename: string read GetCabrilloFilename;
   end;
@@ -193,53 +168,6 @@ implementation
 
 uses uMyIni, dDXCC;
 
-{ TQSOLinesIterator }
-
-function TQSOLinesIterator.GetCurrentLine: string;
-begin
-  Result:=Lines[FCurrentIndex];
-end;
-
-constructor TQSOLinesIterator.Create;
-begin
-  Lines:=TStringList.Create;
-  Fields:=TStringMap.Create;
-  Reset;
-end;
-
-destructor TQSOLinesIterator.Destroy;
-begin
-  Lines.Free;
-  Fields.Free;
-  //inherited Destroy;
-end;
-
-procedure TQSOLinesIterator.ParseCurrent;
-var
-  p, i, N: Integer;
-  Line: String;
-begin
-  Line:=Lines[FCurrentIndex];
-  p:=1;
-  N:=Length(FieldLengths);
-  Assert(Fields.Count=N);
-  for i:=0 to N-1 do begin
-    Fields.Data[i]:=Trim(Copy(Line, p, FieldLengths[i]));
-    p+=FieldLengths[i]+1; //+1: space
-  end;
-end;
-
-function TQSOLinesIterator.MoveNext: Boolean;
-begin
-  Inc(FCurrentIndex);
-  Result:=(FCurrentIndex<Lines.Count);
-end;
-
-procedure TQSOLinesIterator.Reset;
-begin
-  FCurrentIndex:=-1;
-end;
-
 { TfrmCabrilloImport }
 
 procedure TfrmCabrilloImport.FormCreate(Sender: TObject);
@@ -250,6 +178,7 @@ begin
   GridColumns_ColIdxWidth:=gridColumns.FixedCols + 1;
 
   QSOIter:=TQSOLinesIterator.Create;
+  CabrilloGrid:=Self;
 
   Q1.DataBase:=dmData.MainCon;
   Q4.DataBase := dmData.MainCon;
@@ -402,71 +331,6 @@ begin
     Cells[GridColumns_ColIdxName , RowCount-1]:=Field;
     Cells[GridColumns_ColIdxWidth, RowCount-1]:=IntToStr(MaxLength);
   end;
-end;
-
-procedure TfrmCabrilloImport.GuessQSORows;
-
-  function CopyLField(S: String; StartPos: integer): string;
-  var
-    p: Integer;
-  begin
-    p:=StartPos;
-    //Left-aligned field data
-    while (p<Length(S)) and (S[p]<>' ') do
-      Inc(p);
-    //Padding space
-    while (p<Length(S)) and (S[p]=' ') do
-      Inc(p);
-    if p<Length(S) then //not the last field
-      p-=2;
-    Result:=Copy(S, StartPos, p-StartPos+1);
-  end;
-
-  function GuessFieldName(Len: integer): string;
-  begin
-    case Len of
-    1: Result:='t';
-    2: Result:='Mo';
-    3: Result:='Rst';
-    4: Result:='Time';
-    6: Result:='Exch';
-    10: Result:='Date';
-    13: Result:='Call';
-    else Result:='';
-    end;
-  end;
-
-const
-  FREQ_LEN=5;
-var
-  s, Field: String;
-  p, Len: integer;
-begin
-  Assert(QSOIter.Lines.Count>0, 'QSOIter.Lines must be non-empty');
-
-  s:=QSOIter.Lines[0];
-  p:=1;
-  Len:=0;
-
-  if s[p+FREQ_LEN]=' ' then begin
-    p+=FREQ_LEN;
-    AddToColumnsGrid('Freq', FREQ_LEN);
-  end;
-
-  while p<Length(s) do begin
-    while (p <= Length(s)) and (s[p]=' ') do
-      Inc(p); //skip space between fields
-    Field:=CopyLField(s, p);
-    Assert(Length(Field)>0, 'Field cannot be empty');
-    Len:=Length(Field);
-    p+=Len;
-    AddToColumnsGrid(GuessFieldName(Len), Len);
-  end;
-  //Due to stripping of trailing space the length of the last field may vary
-  if Len=1 then
-    ModifyColumnsGridLastRow('t', 1)
-  else if Len<=6 then
-    ModifyColumnsGridLastRow('Exch', 6);
 end;
 
 procedure TfrmCabrilloImport.GridSetSentRcvd;

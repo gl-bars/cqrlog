@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<fpdoc-descriptions><package name="cqrlog"><module name="uCabrilloImport"><element name="ICabrilloGrid"><short>Operations on Columns StringGrid</short>
+      </element><element name="TQSOLinesIterator.Lines"><short>Raw QSO strings loaded from Cabrillo log (without "QSO: ")</short>
+      </element><element name="TQSOLinesIterator"><short>Iterate over "QSO:" lines and extract fields</short>
+      </element><element name="TQSOLinesIterator.CurrentLine"><short>Whole raw line without 'QSO: '</short>
+      </element>
+    </module>
+  </package>
+</fpdoc-descriptions>

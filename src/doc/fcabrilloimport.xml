@@ -7,12 +7,8 @@
     <element name="TfrmCabrilloImport.AddRowToGrid"><short>Add empty row to grid (unless the last row is already empty)</short>
       </element>
     <element name="TfrmCabrilloImport.GridSetSentRcvd"><short>Postprocessing: add _s(ent) or _r(eceived) to the detected columns</short>
-      </element><element name="TQSOLinesIterator.Lines"><short>Raw QSO strings loaded from Cabrillo log (without "QSO: ")</short>
       </element>
-    <element name="TQSOLinesIterator"><short>Iterate over "QSO:" lines and extract fields</short>
-      </element>
-    <element name="TQSOLinesIterator.GetCurrentLine"/><element name="TQSOLinesIterator.CurrentLine"><short>Whole raw line without 'QSO: '</short>
-      </element><element name="TfrmCabrilloImport.WrongCabrilloLines"><short>QSO lines containing errors along with error messages</short>
+    <element name="TfrmCabrilloImport.WrongCabrilloLines"><short>QSO lines containing errors along with error messages</short>
       </element><element name="TfrmCabrilloImport.InsertHeaderFromFile"><short>Load header from <var>CabrilloFilename</var> and insert it into <var>IntoList</var>
         </short>
       </element>
