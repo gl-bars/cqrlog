@@ -32,11 +32,16 @@ type
     btnClose: TButton;
     btnImport: TButton;
     buttonNext: TButton;
+    checkBoxReplacePHWith: TCheckBox;
     cmbProfiles: TComboBox;
     DataSource1: TDataSource;
+    editFreqMultiplier: TEdit;
+    editReplacePHWith: TEdit;
     edtRemarks: TEdit;
+    groupCorrections: TGroupBox;
     Label1: TLabel;
     Label2: TLabel;
+    labelFreqMultiplier: TLabel;
     labelResult: TLabel;
     Label3: TLabel;
     Label4: TLabel;
@@ -63,6 +68,7 @@ type
     sheetResult: TTabSheet;
     tr: TSQLTransaction;
     procedure buttonNextClick(Sender: TObject);
+    procedure checkBoxReplacePHWithChange(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
     procedure FormShow(Sender: TObject);
@@ -74,6 +80,8 @@ type
     { private declarations }
     GridColumns_ColIdxName, GridColumns_ColIdxWidth: integer; //Constant grid column index
     OldQSO_Count: integer;
+    FreqMultiplier: double;
+    ReplaceModePH: boolean;
     WrongCabrilloLines: TStringList;
     ERR_FILE : String;
     WrongRecNr : Integer;
@@ -85,6 +93,7 @@ type
     procedure AddToHeaderGrid(Param, Value: string);
     procedure GridSetSentRcvd;
     procedure ReloadQSOGrid;
+    procedure CheckIfCorrectionsNeeded;
     //Working with columns grid
     function GetColumnsCount: integer;
     function GetColumnTitle(Index: integer): string;
@@ -92,6 +101,7 @@ type
     function GetColumnMaxLen(Index: integer): integer;
     procedure ShowCellSpinEdit(var SpinEdit: TSpinEdit; const R: TRect; ACol, ARow: integer);
     procedure CheckForDuplicateColumns;
+    function CheckForMandatoryFields: boolean;
     procedure DoImport;
     procedure InsertHeaderFromFile(var IntoList: TStringList);
     function MakeRecord(out d:Tnejakyzaznam; var ErrorMessage: string): boolean;
@@ -99,6 +109,7 @@ type
     procedure ApplyLrsGridWorkaround;
 
     procedure InitQSOLinesIterator;
+    function ReadQSOFields: boolean;
   public
     { public declarations }
 
@@ -162,11 +173,14 @@ resourcestring
   IMPORT_RESULT_NEW_QSOS = 'Result: %d new QSOs';
   AUTODETECTING_FORMAT = 'Autodetecting Cabrillo format';
   COL_FORMAT_ERRORS_FOUND = 'Format errors found! Please correct Columns table before importing.';
+  MANDATORY_FIELDS_MISSING = 'Following mandatory fields are missing: %s'+LineEnding+'Please add them to Columns table and try again';
   DUPLICATE_COLUMN = 'Duplicate column "%s"[%d]';
+  FREQ_MULT_NOT_VALID_FLOAT = 'Error: "%s" is not a valid float value. Correct Freq multiplier and try again';
+  WRONG_QSO_FREQ = 'Wrong QSO freq: %s';
 
 implementation
 
-uses uMyIni, dDXCC;
+uses uMyIni, dDXCC, uextra_util;
 
 { TfrmCabrilloImport }
 
@@ -202,6 +216,7 @@ procedure TfrmCabrilloImport.buttonNextClick(Sender: TObject);
 begin
   case pageControlSteps.ActivePageIndex of
     0: begin
+      if not ReadQSOFields then exit;
       DoImport;
       labelResult.Caption:=Format(IMPORT_RESULT_NEW_QSOS, [GetQSOCount - OldQSO_Count]);
       pageControlSteps.ActivePageIndex:=pageControlSteps.ActivePageIndex + 1;
@@ -212,6 +227,11 @@ begin
       Close;
     end;
   end;
+end;
+
+procedure TfrmCabrilloImport.checkBoxReplacePHWithChange(Sender: TObject);
+begin
+  editReplacePHWith.Enabled:=checkBoxReplacePHWith.Checked;
 end;
 
 procedure TfrmCabrilloImport.FormDestroy(Sender: TObject);
@@ -240,6 +260,7 @@ begin
   GuessQSORows;
   GridSetSentRcvd;
   ReloadQSOGrid;
+  CheckIfCorrectionsNeeded;
 
   pageControlSteps.ShowTabs:=false;
   dmUtils.LoadFontSettings(Self);
@@ -387,6 +408,29 @@ begin
   end;
 end;
 
+procedure TfrmCabrilloImport.CheckIfCorrectionsNeeded;
+var
+  i, nCols: Integer;
+  j: integer;
+begin
+  //Replace mode PH
+  nCols:=GetColumnsCount;
+  for i:=0 to nCols-1 do begin
+    if GetColumnTitle(i)='Mo' then BEGIN
+      with gridQSOs do begin
+        for j:=FixedRows to RowCount-1 do begin
+          if Cells[i, j]='PH' then BEGIN
+            checkBoxReplacePHWith.Checked:=true;
+            editReplacePHWith.Text:='FM';
+            break;
+          END;
+        end;
+      end;
+      break;
+    END;
+  end;
+end;
+
 function TfrmCabrilloImport.GetColumnsCount: integer;
 begin
   with gridColumns do begin
@@ -459,6 +503,30 @@ begin
   end;
 end;
 
+function TfrmCabrilloImport.CheckForMandatoryFields: boolean;
+const
+  MANDATORY_FIELDS: array [0..4] of string=('Freq', 'Mo', 'Date', 'Time', 'Call_r');
+var
+  F: string;
+  MissingFields: TStringList;
+begin
+  MissingFields:=TStringList.Create;
+  try
+    for F in MANDATORY_FIELDS do begin
+      if not QSOIter.Fields.IndexOf(F)>=0 then
+        MissingFields.Add(F);
+    end;
+
+    Result:=(MissingFields.Count=0);
+    if not Result then begin
+      MissingFields.Delimiter:=',';
+      MessageDlg(Caption, Format(MANDATORY_FIELDS_MISSING, [MissingFields.DelimitedText]), mtWarning, [mbOk], 0);
+    end;
+  finally
+    MissingFields.Free;
+  end;
+end;
+
 procedure TfrmCabrilloImport.DoImport;
 var
   d: Tnejakyzaznam;
@@ -466,7 +534,6 @@ var
 begin
   GlobalProfile := dmData.GetNRFromProfile(cmbProfiles.Text);
   WrongRecNr := 0;
-  InitQSOLinesIterator;
   WrongCabrilloLines.Clear;
 
   if not tr.Active then
@@ -527,27 +594,33 @@ end;
 
 function TfrmCabrilloImport.MakeRecord(out d:Tnejakyzaznam; var ErrorMessage: string): boolean;
 var
-  Freq: string;
-  Index: integer;
+  Freq: double;
+  Mode: string;
 begin
   Result:=true;
   d:=Default(Tnejakyzaznam);
   with QSOIter do begin
-    {Freq: insert separator:
-    1234 -> 1.234
-    12345 -> 12.345 }
-    Freq:=Fields['Freq'];
-    d.FREQ:=LeftStr(Freq, Length(Freq)-3) + FormatSettings.DecimalSeparator + RightStr(Freq, 3); // Freq/1000
-    d.MODE:=Fields['Mo'];
+    Mode:=Fields['Mo'];
+    if ReplaceModePH and (Mode='PH') then
+      Mode:=editReplacePHWith.Text;
+
+    //Apply Freq multiplier
+    if not TryStrToFloat(NormalizeDecimalSeparator(Fields['Freq']), Freq) then begin
+      ErrorMessage:=Format(WRONG_QSO_FREQ, [Fields['Freq']]);
+      inc(WrongRecNr);
+      exit(false);
+    end;
+    d.FREQ:=FloatToStr(Freq * FreqMultiplier);
+    d.MODE:=Mode;
     d.QSO_DATE:=Fields['Date'];
     d.TIME_ON:=Fields['Time'];
     //'Call_s'
     d.RST_SENT:=Fields['Rst_s'];
-    if Fields.Find('Exch_s', Index) then
+    if Fields.IndexOf('Exch_s')>=0 then
       d.EXCH1:=Fields['Exch_s'];
     d.CALL:=Fields['Call_r'];
     d.RST_RCVD:=Fields['Rst_r'];
-    if Fields.Find('Exch_r', Index) then
+    if Fields.IndexOf('Exch_r')>=0 then
       d.EXCH2:=Fields['Exch_r'];
   end;
 
@@ -566,6 +639,7 @@ const
 var
   freq, band: String;
   profile    : String;
+  dxcc_adif  : Integer;
 
   procedure FormatFields;
   var
@@ -579,7 +653,6 @@ var
     pNote : String;
     dxcc,id_waz,id_itu : String;
     tmp,mycont : String;
-    dxcc_adif  : Integer;
     len        : Integer=0;
   begin
     MyPower := cqrini.ReadString('NewQSO','PWR','5 W');
@@ -718,6 +791,7 @@ begin
     FieldValues[F_LOC]      := d.GRIDSQUARE;
     FieldValues[F_MY_LOC]   := d.MY_GRIDSQUARE;
     FieldValues[F_REMARKS]  := d.COMMENT;
+    FieldValues[F_ADIF]     := dxcc_adif;
     FieldValues[F_IDCALL]   := dmUtils.GetIDCall(d.CALL);
     FieldValues[F_AWARD]    := d.AWARD;
     FieldValues[F_BAND]     := band;
@@ -757,6 +831,21 @@ begin
     QSOIter.Fields[GetColumnTitle(i)]:=''; //create keys with empty data
     QSOIter.FieldLengths[i]:=GetColumnMaxLen(i);
   end;
+end;
+
+function TfrmCabrilloImport.ReadQSOFields: boolean;
+begin
+  InitQSOLinesIterator;
+  if not CheckForMandatoryFields then
+    exit(false);
+
+  if not TryStrToFloat(editFreqMultiplier.Text, FreqMultiplier) then begin
+    MessageDlg(Caption, Format(FREQ_MULT_NOT_VALID_FLOAT, [editFreqMultiplier.Text]), mtWarning, [mbOK], 0);
+    exit(false);
+  end;
+  ReplaceModePH:=checkBoxReplacePHWith.Checked;
+
+  Result:=true;
 end;
 
 procedure TfrmCabrilloImport.ClearGridRows(var Grid: TStringGrid);

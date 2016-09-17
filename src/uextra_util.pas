@@ -15,6 +15,7 @@ uses
   Classes, SysUtils, fpjsonrtti;
 
 function StreamObjectToJson(const o: TObject): string;
+function NormalizeDecimalSeparator(s: string): string;
 
 
 implementation
@@ -29,6 +30,19 @@ begin
     Result := Streamer.ObjectToJSONString(o);
   finally
     Streamer.Free;
+  end;
+end;
+
+function NormalizeDecimalSeparator(s: string): string;
+var
+  sep: char;
+  p: integer;
+begin
+  Result:=s;
+  for sep in ['.', ','] do begin
+    p:=Pos(sep, Result);
+    if p>0 then
+      Result[p]:=FormatSettings.DecimalSeparator;
   end;
 end;
 

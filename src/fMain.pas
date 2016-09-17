@@ -1321,7 +1321,7 @@ end;
 
 procedure TfrmMain.acImportCabrilloExecute(Sender: TObject);
 begin
-  dlgOpen.Filter     := 'Cabrillo|*.log;*.cbr';
+  dlgOpen.Filter     := 'Cabrillo|*.log;*.LOG;*.cbr';
   dlgOpen.DefaultExt := '.log';
   if dlgOpen.Execute then
   begin

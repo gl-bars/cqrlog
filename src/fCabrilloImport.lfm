@@ -57,6 +57,7 @@ object frmCabrilloImport: TfrmCabrilloImport
     Height = 25
     Top = 464
     Width = 75
+    Anchors = [akLeft, akBottom]
     Caption = 'Close'
     ModalResult = 2
     TabOrder = 1
@@ -67,7 +68,7 @@ object frmCabrilloImport: TfrmCabrilloImport
     Top = 80
     Width = 736
     ActivePage = sheetChooseColumns
-    Anchors = [akTop, akLeft, akRight]
+    Anchors = [akTop, akLeft, akRight, akBottom]
     TabIndex = 0
     TabOrder = 2
     object sheetChooseColumns: TTabSheet
@@ -138,7 +139,7 @@ object frmCabrilloImport: TfrmCabrilloImport
             Height = 129
             Top = 30
             Width = 254
-            Anchors = [akTop, akLeft, akRight]
+            Anchors = [akTop, akLeft, akRight, akBottom]
             BorderSpacing.Left = 12
             FixedCols = 0
             Options = [goFixedVertLine, goFixedHorzLine, goVertLine, goHorzLine, goColSizing, goEditing, goSmoothScroll]
@@ -242,6 +243,67 @@ object frmCabrilloImport: TfrmCabrilloImport
         TabOrder = 2
         Text = 'cmbProfiles'
       end
+      object groupCorrections: TGroupBox
+        Left = 356
+        Height = 109
+        Top = 8
+        Width = 362
+        Anchors = [akTop, akLeft, akRight]
+        Caption = 'Corrections'
+        ClientHeight = 78
+        ClientWidth = 358
+        TabOrder = 3
+        object labelFreqMultiplier: TLabel
+          AnchorSideTop.Control = editFreqMultiplier
+          AnchorSideTop.Side = asrCenter
+          Left = 6
+          Height = 15
+          Top = 9
+          Width = 94
+          Caption = 'Freq multiplier:'
+          ParentColor = False
+        end
+        object editFreqMultiplier: TEdit
+          AnchorSideLeft.Control = editReplacePHWith
+          Left = 187
+          Height = 21
+          Hint = '12345 * 0.001 = 12.345'
+          Top = 6
+          Width = 80
+          ParentShowHint = False
+          ShowHint = True
+          TabOrder = 0
+          Text = '0.001'
+        end
+        object checkBoxReplacePHWith: TCheckBox
+          AnchorSideTop.Control = editReplacePHWith
+          AnchorSideTop.Side = asrCenter
+          Left = 6
+          Height = 26
+          Top = 36
+          Width = 169
+          Caption = 'Replace mode PH with'
+          OnChange = checkBoxReplacePHWithChange
+          TabOrder = 1
+        end
+        object editReplacePHWith: TEdit
+          AnchorSideLeft.Control = checkBoxReplacePHWith
+          AnchorSideLeft.Side = asrBottom
+          AnchorSideTop.Control = editFreqMultiplier
+          AnchorSideTop.Side = asrBottom
+          Left = 187
+          Height = 21
+          Hint = 'E.g. SSB or FM'
+          Top = 39
+          Width = 80
+          BorderSpacing.Left = 12
+          BorderSpacing.Top = 12
+          Enabled = False
+          ParentShowHint = False
+          ShowHint = True
+          TabOrder = 2
+        end
+      end
     end
     object sheetResult: TTabSheet
       Caption = 'sheetResult'
@@ -262,6 +324,7 @@ object frmCabrilloImport: TfrmCabrilloImport
     Height = 25
     Top = 464
     Width = 75
+    Anchors = [akLeft, akBottom]
     Caption = 'Next'
     OnClick = buttonNextClick
     TabOrder = 3
