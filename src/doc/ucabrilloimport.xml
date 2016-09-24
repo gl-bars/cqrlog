@@ -4,6 +4,11 @@
       </element><element name="TQSOLinesIterator"><short>Iterate over "QSO:" lines and extract fields</short>
       </element><element name="TQSOLinesIterator.CurrentLine"><short>Whole raw line without 'QSO: '</short>
       </element>
+    <element name="TColumnsList.LoadFromColumnsString"><short>Parse columns string into array</short>
+      </element><element name="TColumnsList.LoadFromColumnsString.ErrorText"><short>Erroneous part of the string</short>
+      </element><element name="TColumnsList.SaveToColumnsString"><short>Generate columns string from array</short>
+      </element><element name="TColumnsList.SetColumnTitle"><short>Set Columns[Index].Name</short>
+      </element>
     </module>
   </package>
 </fpdoc-descriptions>

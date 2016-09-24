@@ -18,17 +18,17 @@ unit fCabrilloImport;
 interface
 
 uses
-  Classes, SysUtils, sqldb, db, FileUtil, LResources, Forms, Controls, Graphics,
-  Dialogs, StdCtrls, ComCtrls, ExtCtrls, Grids, ButtonPanel, strutils, LCLProc,
-  Spin, DBGrids, variants, LCLType,
-  dData, dUtils, fAdifImport, uCabrilloImport, types;
+  Classes, SysUtils, sqldb, db, FileUtil, SynEdit, SynHighlighterAny,
+  LResources, Forms, Controls, Graphics, Dialogs, StdCtrls, ComCtrls, ExtCtrls,
+  Grids, ButtonPanel, strutils, LCLProc, Spin, DBGrids, variants, LCLType,
+  dData, dUtils, fAdifImport, uCabrilloImport, types, math;
 
 type
   EUserAborted = class(Exception);
 
   { TfrmCabrilloImport }
 
-  TfrmCabrilloImport = class(TForm, ICabrilloGrid)
+  TfrmCabrilloImport = class(TForm)
     btnClose: TButton;
     btnImport: TButton;
     buttonNext: TButton;
@@ -59,27 +59,27 @@ type
     panelQSOs: TPanel;
     Q1: TSQLQuery;
     Q4: TSQLQuery;
-    spinEditWidth: TSpinEdit;
     Splitter1: TSplitter;
     gridHeader: TStringGrid;
     gridQSOs: TStringGrid;
-    gridColumns: TStringGrid;
     sheetChooseColumns: TTabSheet;
     sheetResult: TTabSheet;
+    SynAnySyn1: TSynAnySyn;
+    synEditColumns: TSynEdit;
+    TimerParseCols: TTimer;
     tr: TSQLTransaction;
     procedure buttonNextClick(Sender: TObject);
     procedure checkBoxReplacePHWithChange(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
     procedure FormShow(Sender: TObject);
-    procedure gridColumnsEditingDone(Sender: TObject);
-    procedure gridColumnsSelectCell(Sender: TObject; aCol, aRow: Integer;
-      var CanSelect: Boolean);
-    procedure spinEditWidthExit(Sender: TObject);
+    procedure synEditColumnsChange(Sender: TObject);
+    procedure TimerParseColsTimer(Sender: TObject);
   private
     { private declarations }
-    GridColumns_ColIdxName, GridColumns_ColIdxWidth: integer; //Constant grid column index
+    ColumnsList: TColumnsList;
     OldQSO_Count: integer;
+    TimerCount: integer;
     FreqMultiplier: double;
     ReplaceModePH: boolean;
     WrongCabrilloLines: TStringList;
@@ -94,14 +94,9 @@ type
     procedure GridSetSentRcvd;
     procedure ReloadQSOGrid;
     procedure CheckIfCorrectionsNeeded;
-    //Working with columns grid
-    function GetColumnsCount: integer;
-    function GetColumnTitle(Index: integer): string;
-    procedure SetColumnTitle(Index: integer; Value: string);
-    function GetColumnMaxLen(Index: integer): integer;
-    procedure ShowCellSpinEdit(var SpinEdit: TSpinEdit; const R: TRect; ACol, ARow: integer);
-    procedure CheckForDuplicateColumns;
+    function CheckForDuplicateColumns: boolean;
     function CheckForMandatoryFields: boolean;
+    function ParseColumnsString: boolean;
     procedure DoImport;
     procedure InsertHeaderFromFile(var IntoList: TStringList);
     function MakeRecord(out d:Tnejakyzaznam; var ErrorMessage: string): boolean;
@@ -116,8 +111,6 @@ type
     procedure ClearGridRows(var Grid: TStringGrid);
     procedure AddRowToGrid(var Grid: TStringGrid);
     function GetQSOCount: integer;
-    procedure AddToColumnsGrid(Field: string; MaxLength: integer);
-    procedure ModifyColumnsGridLastRow(Field: string; MaxLength: integer);
 
     property CabrilloFilename: string read GetCabrilloFilename;
   end;
@@ -171,12 +164,12 @@ const
 resourcestring
   BUTTON_READY = 'Ready';
   IMPORT_RESULT_NEW_QSOS = 'Result: %d new QSOs';
-  AUTODETECTING_FORMAT = 'Autodetecting Cabrillo format';
-  COL_FORMAT_ERRORS_FOUND = 'Format errors found! Please correct Columns table before importing.';
-  MANDATORY_FIELDS_MISSING = 'Following mandatory fields are missing: %s'+LineEnding+'Please add them to Columns table and try again';
+  COL_FORMAT_ERRORS_FOUND = 'Format errors found! Please correct Columns string before importing.';
+  MANDATORY_FIELDS_MISSING = 'Following mandatory fields are missing: %s'+LineEnding+'Please add them to Columns string and try again';
   DUPLICATE_COLUMN = 'Duplicate column "%s"[%d]';
   FREQ_MULT_NOT_VALID_FLOAT = 'Error: "%s" is not a valid float value. Correct Freq multiplier and try again';
   WRONG_QSO_FREQ = 'Wrong QSO freq: %s';
+  ERROR_PARSING_TEXT = 'Error parsing "%s"';
 
 implementation
 
@@ -188,11 +181,10 @@ procedure TfrmCabrilloImport.FormCreate(Sender: TObject);
 var
   tmp: Char;
 begin
-  GridColumns_ColIdxName:=gridColumns.FixedCols;
-  GridColumns_ColIdxWidth:=gridColumns.FixedCols + 1;
+  ColumnsList:=TColumnsList.Create;
 
   QSOIter:=TQSOLinesIterator.Create;
-  CabrilloGrid:=Self;
+  CabrilloGrid:=ColumnsList;
 
   Q1.DataBase:=dmData.MainCon;
   Q4.DataBase := dmData.MainCon;
@@ -236,6 +228,7 @@ end;
 
 procedure TfrmCabrilloImport.FormDestroy(Sender: TObject);
 begin
+  FreeAndNil(ColumnsList);
   FreeAndNil(QSOIter);
   WrongCabrilloLines.Free;
 end;
@@ -256,10 +249,12 @@ begin
     Lines.Free;
   end;
 
-  ClearGridRows(gridColumns);
+  ColumnsList.ClearColumns;
   GuessQSORows;
   GridSetSentRcvd;
+  synEditColumns.Text:=ColumnsList.SaveToColumnsString;
   ReloadQSOGrid;
+  gridQSOs.AutoSizeColumns;
   CheckIfCorrectionsNeeded;
 
   pageControlSteps.ShowTabs:=false;
@@ -269,36 +264,19 @@ begin
   ApplyLrsGridWorkaround;
 end;
 
-procedure TfrmCabrilloImport.gridColumnsEditingDone(Sender: TObject);
+procedure TfrmCabrilloImport.synEditColumnsChange(Sender: TObject);
 begin
-  ReloadQSOGrid;
+  TimerCount:=0;
+  TimerParseCols.Enabled:=true;
 end;
 
-procedure TfrmCabrilloImport.gridColumnsSelectCell(Sender: TObject; aCol,
-  aRow: Integer; var CanSelect: Boolean);
-var
-  R: TRect;
+procedure TfrmCabrilloImport.TimerParseColsTimer(Sender: TObject);
 begin
-  spinEditWidth.Visible:=false;
-  if (aRow>=gridColumns.FixedRows) and (aCol=GridColumns_ColIdxWidth) then begin
-    with gridColumns do begin
-      R := CellRect(ACol, ARow);
-      R.Left := R.Left + Left;
-      R.Right := R.Right + Left;
-      R.Top := R.Top + Top;
-      R.Bottom := R.Bottom + Top;
-    end;
-    ShowCellSpinEdit(spinEditWidth, R, aCol, aRow);
-  end;
-end;
-
-procedure TfrmCabrilloImport.spinEditWidthExit(Sender: TObject);
-begin
-  with gridColumns do begin
-    if Col=GridColumns_ColIdxWidth then begin
-      Cells[Col, Row]:=IntToStr(spinEditWidth.Value);
+  Inc(TimerCount);
+  if TimerCount>=10 then begin
+    TimerParseCols.Enabled:=false;
+    if ParseColumnsString then
       ReloadQSOGrid;
-    end;
   end;
 end;
 
@@ -337,23 +315,6 @@ begin
   end;
 end;
 
-procedure TfrmCabrilloImport.AddToColumnsGrid(Field: string; MaxLength: integer);
-begin
-  with gridColumns do begin
-    AddRowToGrid(gridColumns);
-    Cells[GridColumns_ColIdxName , RowCount-1]:=Field;
-    Cells[GridColumns_ColIdxWidth, RowCount-1]:=IntToStr(MaxLength);
-  end;
-end;
-
-procedure TfrmCabrilloImport.ModifyColumnsGridLastRow(Field: string; MaxLength: integer);
-begin
-  with gridColumns do begin
-    Cells[GridColumns_ColIdxName , RowCount-1]:=Field;
-    Cells[GridColumns_ColIdxWidth, RowCount-1]:=IntToStr(MaxLength);
-  end;
-end;
-
 procedure TfrmCabrilloImport.GridSetSentRcvd;
 const
   COLUMNS: array [0..2] of string = ('Call', 'Rst', 'Exch');
@@ -365,12 +326,12 @@ begin
   for i:=Low(arColumnsUsed) to High(arColumnsUsed) do
     arColumnsUsed[i]:=0;
 
-  nCols:=GetColumnsCount;
+  nCols:=ColumnsList.ColumnsCount;
   for i:=0 to nCols-1 do begin
-    Title:=GetColumnTitle(i);
+    Title:=ColumnsList.Columns[i].Name;
     Index:=AnsiIndexStr(Title, COLUMNS);
     if Index>=0 then begin
-      SetColumnTitle(i, Title + IfThen(arColumnsUsed[Index]=0, '_s', '_r'));
+      ColumnsList.SetColumnTitle(i, Title + IfThen(arColumnsUsed[Index]=0, '_s', '_r'));
       Inc(arColumnsUsed[Index]);
     end;
   end;
@@ -388,12 +349,12 @@ begin
   with gridQSOs do begin
     BeginUpdate;
     ClearGridRows(gridQSOs);
-    nCols:=GetColumnsCount;
+    nCols:=ColumnsList.ColumnsCount;
     SetLength(arFieldLengths, nCols);
     ColCount:=FixedCols + nCols;
     for i:=0 to nCols-1 do begin
-      Cells[FixedCols+i, 0]:=GetColumnTitle(i);
-      arFieldLengths[i]:=GetColumnMaxLen(i);
+      Cells[FixedCols+i, 0]:=ColumnsList.Columns[i].Name;
+      arFieldLengths[i]:=ColumnsList.Columns[i].MaxLength;
     end;
 
     for q:=0 to QSOIter.Lines.Count-1 do begin
@@ -414,9 +375,9 @@ var
   j: integer;
 begin
   //Replace mode PH
-  nCols:=GetColumnsCount;
+  nCols:=ColumnsList.ColumnsCount;
   for i:=0 to nCols-1 do begin
-    if GetColumnTitle(i)='Mo' then BEGIN
+    if ColumnsList.Columns[i].Name='Mo' then BEGIN
       with gridQSOs do begin
         for j:=FixedRows to RowCount-1 do begin
           if Cells[i, j]='PH' then BEGIN
@@ -431,75 +392,41 @@ begin
   end;
 end;
 
-function TfrmCabrilloImport.GetColumnsCount: integer;
-begin
-  with gridColumns do begin
-    Result:=RowCount - FixedRows;
-
-    if Length(Cells[GridColumns_ColIdxName, RowCount-1])=0 then
-      Dec(Result); //minus new row (goAutoAddRows)
-  end;
-end;
-
-function TfrmCabrilloImport.GetColumnTitle(Index: integer): string;
-begin
-  with gridColumns do
-    Result:=Cells[GridColumns_ColIdxName, FixedRows + Index];
-end;
-
-procedure TfrmCabrilloImport.SetColumnTitle(Index: integer; Value: string);
-begin
-  with gridColumns do
-    Cells[GridColumns_ColIdxName, FixedRows + Index]:=Value;
-end;
-
-function TfrmCabrilloImport.GetColumnMaxLen(Index: integer): integer;
-begin
-  with gridColumns do
-    Result:=StrToIntDef(Cells[GridColumns_ColIdxWidth, FixedRows + Index], 0);
-end;
-
-procedure TfrmCabrilloImport.ShowCellSpinEdit(var SpinEdit: TSpinEdit;
-  const R: TRect; ACol, ARow: integer);
-begin
-  with SpinEdit do begin
-    Left := R.Left + 1;
-    Top := R.Top + 1;
-    Width := (R.Right + 1) - R.Left;
-    Height := (R.Bottom + 1) - R.Top;
-
-    Value:=StrToIntDef(gridColumns.Cells[ACol, ARow], 0);
-    Visible := True;
-    SetFocus;
-  end;
-end;
-
-procedure TfrmCabrilloImport.CheckForDuplicateColumns;
+function TfrmCabrilloImport.CheckForDuplicateColumns: boolean;
 var
   i, nCols, DupIndex: Integer;
+  DupPos: array [1..2] of integer;
   arUsedColumns: array of string;
   c, ErrorMsg: string;
 begin
+  Result:=true;
   DupIndex:=-1;
   ErrorMsg:=COL_FORMAT_ERRORS_FOUND + LineEnding;
 
-  nCols:=GetColumnsCount;
+  nCols:=ColumnsList.ColumnsCount;
   SetLength(arUsedColumns, nCols);
   for i:=0 to nCols-1 do
     arUsedColumns[i]:='';
 
   for i:=0 to nCols-1 do begin
-    c:=GetColumnTitle(i);
+    c:=ColumnsList.Columns[i].Name;
     if AnsiIndexStr(c, arUsedColumns)>0 then begin
-      ErrorMsg += Format(DUPLICATE_COLUMN, [c, GetColumnMaxLen(i)]) + LineEnding;
+      ErrorMsg += Format(DUPLICATE_COLUMN, [c, ColumnsList.Columns[i].MaxLength]) + LineEnding;
       if DupIndex<0 then DupIndex:=i; //assign only for the first duplicate found
     end;
     arUsedColumns[i]:=c;
   end;
 
   if DupIndex>=0 then begin
-    gridColumns.Row:=gridColumns.FixedRows+DupIndex;
-    MessageDlg(AUTODETECTING_FORMAT, ErrorMsg, mtWarning, [mbOK], 0);
+    //Highlight the duplicate in SynEdit
+    c:=ColumnsList.Columns[DupIndex].Name + ':' + IntToStr(ColumnsList.Columns[DupIndex].MaxLength);
+    DupPos[1]:=Pos(c, synEditColumns.Text);
+    DupPos[2]:=PosEx(c, synEditColumns.Text, DupPos[1]+1); //2nd entry
+    i:=ifthen(DupPos[2]>0, DupPos[2], DupPos[1]);
+    synEditColumns.SelStart:=i;
+    synEditColumns.SelEnd:=i+Length(c);
+    MessageDlg(Caption, ErrorMsg, mtWarning, [mbOK], 0);
+    Result:=false;
   end;
 end;
 
@@ -525,6 +452,15 @@ begin
   finally
     MissingFields.Free;
   end;
+end;
+
+function TfrmCabrilloImport.ParseColumnsString: boolean;
+var
+  Err: string;
+begin
+  Result:=ColumnsList.LoadFromColumnsString(synEditColumns.Text, Err);
+  if not Result then
+    MessageDlg(Caption, Format(ERROR_PARSING_TEXT, [Err]), mtWarning, [mbOK], 0);
 end;
 
 procedure TfrmCabrilloImport.DoImport;
@@ -566,6 +502,7 @@ begin
   end;
   lblErrors.Caption   := IntToStr(WrongRecNr);
   if WrongRecNr>0 then begin
+    lblErrors.Font.Color := clRed;
     InsertHeaderFromFile(WrongCabrilloLines);
     WrongCabrilloLines.SaveToFile(dmData.UsrHomeDir + ERR_FILE);
     lblErrorLog.Caption := dmData.UsrHomeDir + ERR_FILE;
@@ -615,11 +552,13 @@ begin
     d.QSO_DATE:=Fields['Date'];
     d.TIME_ON:=Fields['Time'];
     //'Call_s'
-    d.RST_SENT:=Fields['Rst_s'];
+    if Fields.IndexOf('Rst_r')>=0 then
+      d.RST_SENT:=Fields['Rst_r'];
     if Fields.IndexOf('Exch_s')>=0 then
       d.EXCH1:=Fields['Exch_s'];
     d.CALL:=Fields['Call_r'];
-    d.RST_RCVD:=Fields['Rst_r'];
+    if Fields.IndexOf('Rst_r')>=0 then
+      d.RST_RCVD:=Fields['Rst_r'];
     if Fields.IndexOf('Exch_r')>=0 then
       d.EXCH2:=Fields['Exch_r'];
   end;
@@ -813,8 +752,6 @@ end;
 procedure TfrmCabrilloImport.ApplyLrsGridWorkaround;
 begin
   //TODO: try without workaround after lrs/LResources are removed
-  with gridColumns do
-    Options:=Options + [goAutoAddRows, goColSizing, goEditing, goRowMoving] - [goHorzLine, goRangeSelect];
   gridHeader.Options:=gridHeader.Options + [goColSizing] - [goHorzLine];
   gridQSOs.Options:=gridQSOs.Options + [goColSizing];
 end;
@@ -823,20 +760,21 @@ procedure TfrmCabrilloImport.InitQSOLinesIterator;
 var
   i, nCols: Integer;
 begin
-  nCols:=GetColumnsCount;
+  nCols:=ColumnsList.ColumnsCount;
   SetLength(QSOIter.FieldLengths, nCols);
 
   QSOIter.Fields.Clear;
   for i:=0 to nCols-1 do begin
-    QSOIter.Fields[GetColumnTitle(i)]:=''; //create keys with empty data
-    QSOIter.FieldLengths[i]:=GetColumnMaxLen(i);
+    QSOIter.Fields[ColumnsList.Columns[i].Name]:=''; //create keys with empty data
+    QSOIter.FieldLengths[i]:=ColumnsList.Columns[i].MaxLength;
   end;
 end;
 
 function TfrmCabrilloImport.ReadQSOFields: boolean;
 begin
+  if not ParseColumnsString then exit(false);
   InitQSOLinesIterator;
-  if not CheckForMandatoryFields then
+  if not (CheckForDuplicateColumns and CheckForMandatoryFields) then
     exit(false);
 
   if not TryStrToFloat(editFreqMultiplier.Text, FreqMultiplier) then begin
