@@ -20,12 +20,15 @@ type
     Label1: TLabel;
     Label2: TLabel;
     Label3: TLabel;
+    Label4: TLabel;
+    lblLinkEx: TLabel;
     Label5: TLabel;
     lblLink: TLabel;
     lblVerze: TLabel;
     procedure btnChangelogClick(Sender: TObject);
     procedure FormShow(Sender: TObject);
     procedure lblLinkClick(Sender: TObject);
+    procedure lblLinkExClick(Sender: TObject);
     procedure lblLinkMouseEnter(Sender: TObject);
   private
     { private declarations }
@@ -51,6 +54,11 @@ end;
 procedure TfrmAbout.lblLinkClick(Sender: TObject);
 begin
   openURl(lblLink.Caption)
+end;
+
+procedure TfrmAbout.lblLinkExClick(Sender: TObject);
+begin
+  openURl((Sender as TLabel).Caption);
 end;
 
 procedure TfrmAbout.btnChangelogClick(Sender: TObject);

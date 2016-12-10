@@ -188,6 +188,7 @@ type
     procedure KillMySQL(const OnStart : Boolean = True);
     procedure UpgradeMainDatabase(old_version : Integer);
     procedure UpgradeCommonDatabase(old_version : Integer);
+    procedure UpgradeMainDatabaseEx;
     procedure PrepareMysqlConfigFile;
     procedure DeleteOldConfigFiles;
     procedure PrepareEmptyLogUploadStatusTables(lQ : TSQLQuery;lTr : TSQLTransaction);
@@ -762,6 +763,7 @@ begin
     Q.Close();
     trQ.Rollback
   end;
+  UpgradeMainDatabaseEx;
 
   dmUtils.TimeOffset     := cqrini.ReadFloat('Program','offset',0);
   dmUtils.GrayLineOffset := cqrini.ReadFloat('Program','GraylineOffset',0);
@@ -3170,6 +3172,34 @@ begin
         trQ1.Commit
     end
   end
+end;
+
+procedure TdmData.UpgradeMainDatabaseEx;
+var
+  AddExchFields: Boolean;
+begin
+  Assert(not trCQRLOG.Active, 'trCQRLOG is in use');
+  Assert(not qCQRLOG.Active, 'qCQRLOG is in use');
+
+  trCQRLOG.StartTransaction;
+  //Check if exch1, exch2 exist
+  try
+    qCQRLOG.SQL.Add('SELECT * FROM cqrlog_main LIMIT 1;');
+    qCQRLOG.Open;
+    AddExchFields:=(qCQRLOG.FindField('exch1') = nil) or (qCQRLOG.FindField('exch2') = nil);
+  finally
+    qCQRLOG.Close;
+    qCQRLOG.SQL.Clear;
+  end;
+  //Create exch1, exch2
+  if AddExchFields then begin
+    qCQRLOG.SQL.Add('ALTER TABLE cqrlog_main ADD exch1 VARCHAR(20) DEFAULT NULL,');
+    qCQRLOG.SQL.Add(                        'ADD exch2 VARCHAR(20) DEFAULT NULL;');
+    qCQRLOG.ExecSQL;
+    trCQRLOG.Commit;
+    qCQRLOG.SQL.Clear;
+  end else
+    trCQRLOG.Rollback;
 end;
 
 procedure TdmData.UpgradeMainDatabase(old_version : Integer);
