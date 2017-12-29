@@ -19,7 +19,7 @@ uses
   Classes, SysUtils, LResources, Forms, Controls, Dialogs, StdCtrls, iniFiles,
   DBGrids, aziloc, azidis3, process, DB, sqldb, Grids, Buttons, spin, colorbox,
   Menus, Graphics, Math, LazHelpHTML, lNet, DateUtils, fileutil, httpsend,
-  XMLRead, DOM, sqlscript, BaseUnix, Unix;
+  XMLRead, DOM, sqlscript, BaseUnix, Unix, LazFileUtils;
 
 type
   TExplodeArray = array of string;
@@ -38,19 +38,19 @@ const
     ':', '|', '-', '=', '+', '@', '#', '*', '%', '_', '(', ')', '$', '<', '>'];
   empty_freq = '0.00000';
   empty_azimuth = '0.0';
-  cMaxModes = 39;
+  cMaxModes = 44; //was 39 //was 42
   cModes: array [0..cMaxModes] of string =
     ('CW', 'SSB', 'AM', 'FM', 'RTTY', 'SSTV', 'PACTOR', 'PSK', 'ATV', 'CLOVER', 'GTOR', 'MTOR',
     'PSK31', 'HELL', 'MT63',
     'QRSS', 'CWQ', 'BPSK31', 'MFSK', 'JT44', 'FSK44', 'WSJT', 'AMTOR',
     'THROB', 'BPSK63', 'PACKET',
-    'OLIVIA', 'MFSK16', 'JT6M', 'JT65', 'JT65A', 'JT65B', 'JT65C',
-    'JT9', 'FSK441', 'PSK125',
+    'OLIVIA', 'MFSK16', 'JT4','JT6M', 'JT65', 'JT65A', 'JT65B', 'JT65C',
+    'JT9', 'QRA64', 'ISCAT', 'MSK144', 'FT8', 'FSK441', 'PSK125',
     'PSK63', 'WSPR', 'PSK250', 'ROS');
   cMaxBandsCount = 27; //26 bands
 
   cDefaultFreq =
-    '0.136|1.800|3.500|3.700|7.000|10.100|14.000|14.200|18.100|21.000|21.200|24.890|28.000|28.500|50.000|70.0875|'
+    '0.136|0.472|1.800|3.500|3.700|5.351|7.000|10.100|14.000|14.200|18.100|21.000|21.200|24.890|28.000|28.500|50.000|70.0875|'
     +
     '70.0500|144.000|145.275|430.000|902.0|1250.0|2400.0|3450.0|5670.0|10250.0|24100.0|47100.0|78000.0|';
   cBands: array[0..25] of string[10] =
@@ -64,7 +64,7 @@ const
     ('1800.0', '3500.0', '7000.0', '10100.0', '14000.0', '21000.0', '28000.0');
 
   C_RBN_CONT  = 'AF,AN,AS,EU,NA,SA,OC';
-  C_RBN_BANDS = '160M,80M,40M,30M,20M,17M,15M,12M,10M,6M,2M';
+  C_RBN_BANDS = '630M,160M,80M,40M,30M,20M,17M,15M,12M,10M,6M,2M';
   C_RBN_MODES = 'CW,RTTY,PSK31';
 
 
@@ -262,6 +262,7 @@ var
   dmUtils: TdmUtils;
 
 implementation
+  {$R *.lfm}
 
 { TdmUtils }
 uses dData, dDXCC, fEnterFreq, fTRXControl, uMyini;
@@ -363,6 +364,11 @@ begin
     if ((Dec >= 133) and (Dec <= 139)) then
     begin
       Result := '2190M';
+      exit;
+    end;
+    if ((Dec >= 472) and (Dec <= 479)) then
+    begin
+      Result := '630M';
       exit;
     end;
   end;
@@ -753,7 +759,8 @@ end;
 procedure TdmUtils.FileCopy(const FileFrom, FileTo: string);
 var
   FromF, ToF: file;
-  NumRead, NumWritten: word;
+  NumRead : Word = 0;
+  NumWritten: Word = 0;
   Buffer: array[1..2048] of byte;
 begin
   AssignFile(FromF, FileFrom);
@@ -1161,6 +1168,11 @@ begin
     Result := '0.139';
     exit;
   end;
+  if band = '630M' then
+  begin
+    Result := '0.472';
+    exit;
+  end;
   if band = '160M' then
   begin
     if (mode = 'CW') then
@@ -1565,12 +1577,16 @@ begin
           Result := 'RTTY'
         else
         begin
-          if tmp > 10 then
+          if (tmp > 5) and (tmp < 6) then
             Result := 'USB'
-          else
-            Result := 'LSB';
-        end;
-      end;
+          else begin
+            if tmp > 10 then
+              Result := 'USB'
+            else
+              Result := 'LSB'
+          end
+        end
+      end
     end
   finally
     dmData.qBands.Close;
@@ -2633,6 +2649,7 @@ begin
     Result := text;
 
   rst_sh := StringReplace(rst_s,'9','N',[rfReplaceAll, rfIgnoreCase]);
+  rst_sh := StringReplace(rst_sh,'0','T',[rfReplaceAll, rfIgnoreCase]);//replace zeros, too
 
   Result := StringReplace(Result,'%mc',mycall,[rfReplaceAll, rfIgnoreCase]);
   Result := StringReplace(Result,'%mn',myname,[rfReplaceAll, rfIgnoreCase]);
@@ -3045,7 +3062,10 @@ begin
         zip := GetTagValue(m.Text, '<zip>');
         address := GetTagValue(m.Text, '<fname>') + ' ' + GetTagValue(m.Text, '<name>') +
           LineEnding + GetTagValue(m.Text, '<addr1>') + LineEnding +
-          GetTagValue(m.Text, '<addr2>') + ' ' + zip + ' ' + state;
+          GetTagValue(m.Text, '<addr2>');
+        if (state <> '') then
+          address := address + ', ' + state;
+        address := address + ' ' + zip;
         county := GetTagValue(m.Text, '<county>');
         grid := UpperCase(GetTagValue(m.Text, '<grid>'));
         qsl := GetTagValue(m.Text, '<qslmgr>');
@@ -3079,9 +3099,9 @@ begin
   end;
   if dmData.DebugLevel >= 1 then
   begin
-    //Writeln('Section:',section);
-    //Writeln('Saving window size a position (',a.Name,') (height|width|top|left):',
-    //        a.height,'|',a.Width,'|',a.top,'|',a.left)
+    Writeln('Section:',section);
+    Writeln('Saving window size a position (',a.Name,') (height|width|top|left):',
+            a.height,'|',a.Width,'|',a.top,'|',a.left)
   end;
 end;
 
@@ -3761,7 +3781,10 @@ begin
         tmp := GetTagValue(m.Text, '<adr_street3>');
         if tmp <> '' then
           address := address + tmp + LineEnding;
-        address := address + GetTagValue(m.Text, '<adr_city>') + ' ' + zip + ' ' + state;
+        address := address + GetTagValue(m.Text, '<adr_city>');
+        if (state <> '') then
+          address := address + ', ' + state;
+        address := address + ' ' + zip;
         county := GetTagValue(m.Text, '<us_county>');
         grid := UpperCase(GetTagValue(m.Text, '<grid>'));
         qsl := GetTagValue(m.Text, '<qsl_via>');
@@ -3895,11 +3918,11 @@ begin
 
   case cqrini.ReadInteger(section, 'Parity', 0) of
     0: arg := '';
-    1: arg := 'parity=None';
-    2: arg := 'parity=Odd';
-    3: arg := 'parity=Even';
-    4: arg := 'parity=Mark';
-    5: arg := 'parity=Space'
+    1: arg := 'serial_parity=None';
+    2: arg := 'serial_parity=Odd';
+    3: arg := 'serial_parity=Even';
+    4: arg := 'serial_parity=Mark';
+    5: arg := 'serial_parity=Space'
     else
       arg := ''
   end; //case
@@ -4000,11 +4023,11 @@ begin
 
   case cqrini.ReadInteger(section, 'Parity', 0) of
     0: arg := '';
-    1: arg := 'parity=None';
-    2: arg := 'parity=Odd';
-    3: arg := 'parity=Even';
-    4: arg := 'parity=Mark';
-    5: arg := 'parity=Space'
+    1: arg := 'serial_parity=None';
+    2: arg := 'serial_parity=Odd';
+    3: arg := 'serial_parity=Even';
+    4: arg := 'serial_parity=Mark';
+    5: arg := 'serial_parity=Space'
     else
       arg := ''
   end; //case
@@ -4325,9 +4348,6 @@ begin
   for i:=0 to Length(aColumns)-1 do
     aColumns[i].Exists := False
 end;
-
-initialization
-  {$I dUtils.lrs}
 
 
 end.

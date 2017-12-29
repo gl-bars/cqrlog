@@ -88,6 +88,7 @@ var
 
 
 implementation
+{$R *.lfm}
 
 uses dData, dUtils, fNewLog;
 
@@ -555,9 +556,6 @@ begin
     dmData.qLogList.Locate('log_nr',LastLog,[])
   end
 end;
-
-initialization
-  {$I fDBConnect.lrs}
 
 end.
 

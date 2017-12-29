@@ -130,6 +130,7 @@ var
   frmAdifImport: TfrmAdifImport;
 
 implementation
+{$R *.lfm}
 
 uses dData, dUtils, dDXCC, fMain, uMyIni, uVersion;
 
@@ -333,6 +334,8 @@ begin
 
     d.IOTA  := Trim(d.IOTA);
     d.IOTA  := UpperCase(d.IOTA);
+    d.NAME  := Copy(d.NAME, 1 ,40);
+    d.QTH   := Copy(d.QTH, 1, 60);
 
     d.QSL_VIA := UpperCase(d.QSL_VIA);
     if Pos('QSL VIA',d.QSL_VIA) > 0 then
@@ -754,12 +757,12 @@ begin
   else begin
     AssignFile(f,dmData.UsrHomeDir + ERR_FILE);
     Rewrite(f);
-    Writeln(f,'<ADIF_VER:5>2.2.1');
     Writeln(f,'ADIF export from CQRLOG for Linux version ' + dmData.VersionString);
-    Writeln(f,'Copyright (C) ',YearOf(now),' by Petr, OK2CQR and Martin, OK1RR');
+    Writeln(f,'Copyright (C) ',YearOf(now),' by Petr, OK7AN and Martin, OK1RR');
     Writeln(f,'Internet: http://www.cqrlog.com');
     Writeln(f,'');
     Writeln(f,'ERROR QSOs FROM ADIF IMPORT');
+    Writeln(f,'<ADIF_VER:5>2.2.1');
     Writeln(f, '<PROGRAMID:6>CQRLOG');
     Writeln(f, '<PROGRAMVERSION:',Length(cVERSION),'>',cVERSION);
     Writeln(f,'');
@@ -772,10 +775,6 @@ begin
     CloseFile(f)
   end
 end;
-
-
-initialization
-{$I fAdifImport.lrs}
 
 end.
 

@@ -1,0 +1,375 @@
+object frmMonWsjtx: TfrmMonWsjtx
+  Left = 508
+  Height = 388
+  Top = 269
+  Width = 590
+  Caption = 'Wsjt-x CQ-monitor'
+  ClientHeight = 388
+  ClientWidth = 590
+  OnClose = FormClose
+  OnCreate = FormCreate
+  OnHide = FormHide
+  OnShow = FormShow
+  LCLVersion = '1.6.4.0'
+  object lblBand: TLabel
+    AnchorSideLeft.Control = Owner
+    AnchorSideTop.Control = Owner
+    Left = 50
+    Height = 15
+    Top = 10
+    Width = 33
+    BorderSpacing.Left = 50
+    BorderSpacing.Top = 10
+    BorderSpacing.Bottom = 5
+    Caption = 'Band'
+    ParentColor = False
+  end
+  object lblMode: TLabel
+    AnchorSideTop.Control = Owner
+    AnchorSideRight.Control = Owner
+    AnchorSideRight.Side = asrBottom
+    Left = 505
+    Height = 15
+    Top = 10
+    Width = 35
+    Anchors = [akTop, akRight]
+    BorderSpacing.Top = 10
+    BorderSpacing.Right = 50
+    BorderSpacing.Bottom = 5
+    Caption = 'Mode'
+    ParentColor = False
+  end
+  object WsjtxMemo: TRichMemo
+    AnchorSideLeft.Control = Owner
+    AnchorSideTop.Control = Owner
+    Left = 2
+    Height = 307
+    Top = 30
+    Width = 586
+    Align = alClient
+    BorderSpacing.Left = 2
+    BorderSpacing.Top = 30
+    BorderSpacing.Right = 2
+    BorderSpacing.Bottom = 51
+    Font.Height = -13
+    Font.Name = 'Monospace'
+    HideSelection = False
+    OnChange = WsjtxMemoChange
+    OnDblClick = WsjtxMemoDblClick
+    ParentFont = False
+    PopupMenu = popColors
+    ReadOnly = True
+    ScrollBars = ssAutoBoth
+    TabOrder = 0
+    WordWrap = False
+    ZoomFactor = 1
+  end
+  object chkHistory: TCheckBox
+    AnchorSideLeft.Control = Owner
+    AnchorSideLeft.Side = asrCenter
+    AnchorSideTop.Control = Owner
+    AnchorSideRight.Side = asrBottom
+    Left = 250
+    Height = 23
+    Top = 6
+    Width = 91
+    BorderSpacing.Top = 6
+    Caption = 'no history'
+    OnChange = chkHistoryChange
+    TabOrder = 1
+  end
+  object noTxt: TCheckBox
+    AnchorSideLeft.Control = chkHistory
+    AnchorSideLeft.Side = asrBottom
+    AnchorSideTop.Control = Owner
+    Left = 345
+    Height = 23
+    Top = 6
+    Width = 63
+    BorderSpacing.Left = 4
+    BorderSpacing.Top = 6
+    Caption = 'noTxt'
+    OnChange = noTxtChange
+    TabOrder = 2
+  end
+  object pnlAlert: TPanel
+    AnchorSideLeft.Control = Owner
+    AnchorSideTop.Side = asrBottom
+    AnchorSideRight.Control = Owner
+    AnchorSideRight.Side = asrBottom
+    AnchorSideBottom.Control = pnlFollow
+    Left = 2
+    Height = 45
+    Top = 294
+    Width = 586
+    Anchors = [akLeft, akRight, akBottom]
+    BorderSpacing.Left = 2
+    BorderSpacing.Right = 2
+    BorderSpacing.Bottom = 2
+    ClientHeight = 45
+    ClientWidth = 586
+    TabOrder = 3
+    object tbmyAll: TToggleBox
+      AnchorSideLeft.Side = asrBottom
+      AnchorSideTop.Control = pnlAlert
+      AnchorSideTop.Side = asrCenter
+      AnchorSideRight.Side = asrCenter
+      AnchorSideBottom.Side = asrBottom
+      Left = 49
+      Height = 32
+      Top = 6
+      Width = 45
+      Caption = 'All'
+      Font.Color = clRed
+      OnChange = tbmyAllChange
+      ParentFont = False
+      TabOrder = 0
+    end
+    object tbTCAlert: TToggleBox
+      AnchorSideLeft.Side = asrBottom
+      AnchorSideTop.Control = pnlAlert
+      AnchorSideTop.Side = asrCenter
+      AnchorSideRight.Control = EditAlert
+      AnchorSideBottom.Side = asrCenter
+      Left = 190
+      Height = 32
+      Top = 6
+      Width = 50
+      Anchors = [akTop, akRight]
+      BorderSpacing.Right = 3
+      Caption = 'Text'
+      Font.Height = -13
+      Font.Name = 'Sans'
+      OnChange = tbTCAlertChange
+      ParentFont = False
+      TabOrder = 1
+    end
+    object EditAlert: TEdit
+      AnchorSideLeft.Control = pnlAlert
+      AnchorSideLeft.Side = asrCenter
+      AnchorSideTop.Control = pnlAlert
+      AnchorSideTop.Side = asrCenter
+      AnchorSideBottom.Side = asrBottom
+      Left = 243
+      Height = 32
+      Top = 6
+      Width = 100
+      BorderSpacing.Bottom = 4
+      OnEnter = EditAlertEnter
+      OnExit = EditAlertExit
+      TabOrder = 2
+    end
+    object tbLocAlert: TToggleBox
+      AnchorSideLeft.Side = asrBottom
+      AnchorSideTop.Control = pnlAlert
+      AnchorSideTop.Side = asrCenter
+      AnchorSideRight.Control = pnlAlert
+      AnchorSideRight.Side = asrBottom
+      AnchorSideBottom.Side = asrBottom
+      Left = 537
+      Height = 32
+      Top = 6
+      Width = 45
+      Anchors = [akTop, akRight]
+      BorderSpacing.Right = 3
+      Caption = 'Loc'
+      Font.Color = clRed
+      OnChange = tbLocAlertChange
+      ParentFont = False
+      TabOrder = 3
+    end
+    object tbAlert: TToggleBox
+      AnchorSideLeft.Control = EditAlert
+      AnchorSideLeft.Side = asrBottom
+      AnchorSideTop.Control = pnlAlert
+      AnchorSideTop.Side = asrCenter
+      AnchorSideRight.Side = asrCenter
+      AnchorSideBottom.Side = asrBottom
+      Left = 346
+      Height = 32
+      Top = 6
+      Width = 50
+      BorderSpacing.Left = 3
+      Caption = 'Alert'
+      Font.Color = clRed
+      OnChange = tbAlertChange
+      ParentFont = False
+      TabOrder = 4
+    end
+    object tbmyAlrt: TToggleBox
+      AnchorSideLeft.Control = pnlAlert
+      AnchorSideTop.Control = pnlAlert
+      AnchorSideTop.Side = asrCenter
+      AnchorSideRight.Side = asrCenter
+      AnchorSideBottom.Side = asrBottom
+      Left = 4
+      Height = 32
+      Top = 6
+      Width = 45
+      BorderSpacing.Left = 3
+      Caption = 'My'
+      Font.Color = clRed
+      OnChange = tbmyAlrtChange
+      ParentFont = False
+      TabOrder = 5
+    end
+  end
+  object pnlFollow: TPanel
+    AnchorSideLeft.Control = Owner
+    AnchorSideTop.Side = asrBottom
+    AnchorSideRight.Control = Owner
+    AnchorSideRight.Side = asrBottom
+    AnchorSideBottom.Control = Owner
+    AnchorSideBottom.Side = asrBottom
+    Left = 2
+    Height = 45
+    Top = 341
+    Width = 586
+    Anchors = [akLeft, akRight, akBottom]
+    BorderSpacing.Left = 2
+    BorderSpacing.Right = 2
+    BorderSpacing.Bottom = 2
+    ClientHeight = 45
+    ClientWidth = 586
+    TabOrder = 4
+    Visible = False
+    object edtFollow: TEdit
+      AnchorSideLeft.Control = edtFollowCall
+      AnchorSideLeft.Side = asrBottom
+      AnchorSideTop.Control = pnlFollow
+      AnchorSideTop.Side = asrCenter
+      AnchorSideRight.Control = pnlFollow
+      AnchorSideRight.Side = asrBottom
+      Left = 155
+      Height = 32
+      Top = 6
+      Width = 427
+      Align = alCustom
+      Anchors = [akTop, akLeft, akRight]
+      BorderSpacing.Left = 3
+      BorderSpacing.Right = 3
+      ReadOnly = True
+      TabOrder = 1
+    end
+    object edtFollowCall: TEdit
+      AnchorSideLeft.Control = tbFollow
+      AnchorSideLeft.Side = asrBottom
+      AnchorSideTop.Control = pnlFollow
+      AnchorSideTop.Side = asrCenter
+      AnchorSideBottom.Side = asrBottom
+      Left = 72
+      Height = 32
+      Top = 6
+      Width = 80
+      BorderSpacing.Left = 3
+      OnEnter = edtFollowCallEnter
+      OnExit = edtFollowCallExit
+      TabOrder = 0
+    end
+    object tbFollow: TToggleBox
+      AnchorSideLeft.Control = pnlFollow
+      AnchorSideTop.Control = pnlFollow
+      AnchorSideTop.Side = asrCenter
+      AnchorSideRight.Side = asrCenter
+      AnchorSideBottom.Side = asrBottom
+      Left = 4
+      Height = 32
+      Top = 6
+      Width = 65
+      BorderSpacing.Left = 3
+      Caption = 'Follow'
+      Font.Color = clRed
+      OnChange = tbFollowChange
+      ParentFont = False
+      TabOrder = 2
+    end
+  end
+  object cbflw: TCheckBox
+    AnchorSideTop.Control = Owner
+    AnchorSideRight.Control = chkHistory
+    Left = 199
+    Height = 23
+    Top = 6
+    Width = 45
+    Anchors = [akTop, akRight]
+    BorderSpacing.Top = 6
+    BorderSpacing.Right = 6
+    Caption = 'flw'
+    OnChange = cbflwChange
+    TabOrder = 5
+  end
+  object popColors: TPopupMenu
+    left = 104
+    top = 88
+    object cmHead: TMenuItem
+      Caption = 'Set color of:'
+      object cmNever: TMenuItem
+        Caption = 'Qso never'
+        OnClick = cmNeverClick
+      end
+      object cmBand: TMenuItem
+        Caption = 'Qso other mode'
+        OnClick = cmBandClick
+      end
+      object cmAny: TMenuItem
+        Caption = 'Qso other band'
+        OnClick = cmAnyClick
+      end
+      object cmHere: TMenuItem
+        Caption = 'Qso before'
+        OnClick = cmHereClick
+      end
+      object cmCqDx: TMenuItem
+        Caption = 'CQ ext'
+        OnClick = cmCqDxClick
+      end
+    end
+    object cmFont: TMenuItem
+      Caption = 'Set Font'
+      OnClick = cmFontClick
+    end
+  end
+  object popColorDlg: TColorDialog
+    Width = 572
+    Height = 315
+    Title = 'Choose color'
+    Color = clBlack
+    CustomColors.Strings = (
+      'ColorA=000000'
+      'ColorB=000080'
+      'ColorC=008000'
+      'ColorD=008080'
+      'ColorE=800000'
+      'ColorF=800080'
+      'ColorG=808000'
+      'ColorH=808080'
+      'ColorI=C0C0C0'
+      'ColorJ=0000FF'
+      'ColorK=00FF00'
+      'ColorL=00FFFF'
+      'ColorM=FF0000'
+      'ColorN=FF00FF'
+      'ColorO=FFFF00'
+      'ColorP=FFFFFF'
+      'ColorQ=C0DCC0'
+      'ColorR=F0CAA6'
+      'ColorS=F0FBFF'
+      'ColorT=A4A0A0'
+    )
+    left = 296
+    top = 133
+  end
+  object popFontDlg: TFontDialog
+    Title = 'Choose font'
+    MinFontSize = 0
+    MaxFontSize = 0
+    left = 387
+    top = 106
+  end
+  object tmrFollow: TTimer
+    Enabled = False
+    OnTimer = tmrFollowTimer
+    left = 155
+    top = 378
+  end
+end

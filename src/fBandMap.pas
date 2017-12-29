@@ -6,7 +6,7 @@ interface
 
 uses
   Classes, SysUtils, FileUtil, Forms, Controls, Graphics, Dialogs, ExtCtrls,
-  jakozememo,lclproc, Math, lcltype, ComCtrls, ActnList;
+  uColorMemo,lclproc, Math, lcltype, ComCtrls, ActnList;
 
 type
   TBandMapClick = procedure(Sender:TObject;Call,Mode : String; Freq : Currency) of object;
@@ -77,7 +77,7 @@ type
     procedure FormKeyUp(Sender: TObject; var Key: Word; Shift: TShiftState);
     procedure FormShow(Sender: TObject);
   private
-    BandMap  : TJakoMemo;
+    BandMap  : TColorMemo;
     BandMapItemsCount : Word;
     BandMapCrit : TRTLCriticalSection;
     RunXplanetExport : Integer;
@@ -154,6 +154,7 @@ var
   frmBandMap: TfrmBandMap;
 
 implementation
+{$R *.lfm}
 
 uses dUtils, uMyIni, dData, fNewQSO, fBandMapFilter;
 
@@ -208,7 +209,7 @@ end;
 
 procedure TfrmBandMap.ClearAll;
 begin
-  BandMap.smaz_vse
+  BandMap.RemoveAllLines
 end;
 
 function TfrmBandMap.FormatItem(freq : Double; Call, SplitInfo : String; fromNewQSO : Boolean) : String;
@@ -227,7 +228,7 @@ begin
   if Active then exit; //do not refresh the window when is activated (user is scrolling)
   FBandFilter := UpperCase(FBandFilter);
   FModeFilter := UpperCase(FModeFilter);
-  BandMap.zakaz_kresleni(True);
+  BandMap.DisableAutoRepaint(True);
   ClearAll;
   try
     for i:=1 to MAX_ITEMS do
@@ -265,7 +266,7 @@ begin
         s := CURRENT_STATION_CHAR + BandMapItems[i].TextValue
       else
         s := ' ' + BandMapItems[i].TextValue;
-      BandMap.pridej_vetu(s,BandMapItems[i].Color,BandMapItems[i].BgColor,BandMapItems[i].Position)
+      BandMap.AddLine(s,BandMapItems[i].Color,BandMapItems[i].BgColor,BandMapItems[i].Position)
     end;
 
     if  RunXplanetExport > 10 then //data for xplanet couln't be exported on every bandmap reload
@@ -276,7 +277,7 @@ begin
     end;
     inc(RunXplanetExport)
   finally
-    BandMap.zakaz_kresleni(False)
+    BandMap.DisableAutoRepaint(False)
   end
 end;
 
@@ -343,7 +344,8 @@ var
   s : String;
   c : TColor;
 begin
-  if BandMap.cti_vetu(s,c,c,i,ItemPos) then
+  Result := 0;
+  if BandMap.ReadLine(s,c,c,i,ItemPos) then
   begin
     s := copy(s,2,Length(s)-1);
     if dmData.DebugLevel>=1 then Writeln('GetIndexFromPosition, looking for:',s);
@@ -356,8 +358,6 @@ begin
       end
     end
   end
-  else
-    Result := 0
 end;
 
 function TBandMapThread.ItemExists(call,band,mode: String) : Integer;
@@ -583,12 +583,12 @@ var
 begin
   InitCriticalSection(BandMapCrit);
   RunXplanetExport    := 1;
-  BandMap             := Tjakomemo.Create(pnlBandMap);
+  BandMap             := TColorMemo.Create(pnlBandMap);
   BandMap.parent      := pnlBandMap;
-  BandMap.autoscroll  := True;
+  BandMap.AutoScroll  := True;
   BandMap.Align       := alClient;
-  BandMap.oncdblclick := @BandMapDbClick;
-  BandMap.nastav_jazyk(1);
+  BandMap.oncDblClick := @BandMapDbClick;
+  BandMap.setLanguage(1);
   for i:=1 to MAX_ITEMS do
       BandMapItems[i].Freq:=0;
   BandMapItemsCount := 0;
@@ -629,7 +629,7 @@ begin
   try
     f.Name := cqrini.ReadString('BandMap','BandFont','Monospace');
     f.Size := cqrini.ReadInteger('BandMap','FontSize',8);
-    BandMap.nastav_font(f)
+    BandMap.SetFont(f)
   finally
     f.Free
   end
@@ -694,7 +694,7 @@ var
   s : String;
 begin
   if not FileExists(FileName) then exit;
-  BandMap.zakaz_kresleni(True);
+  BandMap.DisableAutoRepaint(True);
   AssignFile(f,FileName);
   EnterCriticalSection(BandMapCrit);
   try
@@ -733,7 +733,7 @@ begin
     end
   finally
     CloseFile(f);
-    BandMap.zakaz_kresleni(False);
+    BandMap.DisableAutoRepaint(False);
     LeaveCriticalSection(BandMapCrit)
   end
 end;
@@ -826,8 +826,6 @@ begin
   frmBandMap.OnlyLoTW := cqrini.ReadBool('BandMapFilter','OnlyLoTW',False);
   frmBandMap.OnlyEQSL := cqrini.ReadBool('BandMapFilter','OnlyeQSL',False)
 end;
-
-{$R *.lfm}
 
 end.
 

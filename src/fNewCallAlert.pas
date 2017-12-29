@@ -21,6 +21,7 @@ type
     Label1: TLabel;
     Label2: TLabel;
     Label3: TLabel;
+    Memo1 : TMemo;
     procedure Button1Click(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure FormShow(Sender: TObject);
@@ -34,6 +35,7 @@ var
   frmNewCallAlert: TfrmNewCallAlert;
 
 implementation
+{$R *.lfm}
 
 uses dUtils;
 
@@ -62,9 +64,6 @@ procedure TfrmNewCallAlert.FormShow(Sender: TObject);
 begin
   edtCall.SetFocus
 end;
-
-initialization
-  {$I fNewCallAlert.lrs}
 
 end.
 

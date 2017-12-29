@@ -47,6 +47,7 @@ var
   frmGroupEdit: TfrmGroupEdit;
 
 implementation
+{$R *.lfm}
 
 { TfrmGroupEdit }
 uses dUtils, dData, dDXCC, fMain;
@@ -340,13 +341,13 @@ begin
            sql := 'iota='+QuotedStr(UpperCase(cmbValue.Text))
          end;
     22 : begin
-           if (cmbValue.Text='') and (Application.MessageBox('Dou you really want to clear Remarks field?',
+           if (cmbValue.Text='') and (Application.MessageBox('Dou you really want to clear Comment to QSO field?',
               'Question ...',mb_YesNo+mb_IconQuestion)=idNo) then
            begin
              cmbValue.SetFocus;
              exit
            end;
-           sql := 'remarks='+QuotedStr(UpperCase(cmbValue.Text))
+           sql := 'remarks='+QuotedStr(cmbValue.Text)
         end;
    23 : begin
           if (cmbValue.Text <> '') then
@@ -489,9 +490,6 @@ begin
     frmMain.acRefresh.Execute
   end;
 end;
-
-initialization
-  {$I fGroupEdit.lrs}
 
 end.
 

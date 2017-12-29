@@ -6,7 +6,7 @@ interface
 
 uses
   Classes,SysUtils,FileUtil,LResources,Forms,Controls,Graphics,Dialogs,StdCtrls,
-  ComCtrls,ExtCtrls, LCLType;
+  ComCtrls,ExtCtrls, LCLType, LazFileUtils;
 
 type
 
@@ -54,6 +54,7 @@ var
   frmSOTAExport : TfrmSOTAExport;
 
 implementation
+{$R *.lfm}
 
 uses dData,dUtils, uMyIni;
 
@@ -222,7 +223,7 @@ begin
   except
     on E : Exception do
     begin
-      Application.MessageBox(Pchar('An error occured during export:'+LineEnding+E.Message),'Error ...',
+      Application.MessageBox(Pchar('An error occurred during export:'+LineEnding+E.Message),'Error ...',
                              mb_OK+mb_IconError)
     end
   end
@@ -248,11 +249,6 @@ procedure TfrmSOTAExport.edtSotaEnter(Sender : TObject);
 begin
   rbSotaEdt.Checked := True
 end;
-
-
-
-initialization
-  {$I fSOTAExport.lrs}
 
 end.
 

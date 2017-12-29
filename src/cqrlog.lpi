@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CONFIG>
   <ProjectOptions>
-    <Version Value="9"/>
+    <Version Value="10"/>
     <General>
       <Flags>
         <LRSInOutputDirectory Value="False"/>
@@ -11,13 +11,16 @@
       <AutoCreateForms Value="False"/>
       <Title Value="cqrlog"/>
       <Icon Value="0"/>
+      <Resources Count="1">
+        <Resource_0 FileName="../images/world_borders.png" Type="RCDATA" ResourceName="WORLD_BORDERS"/>
+      </Resources>
     </General>
     <LazDoc Paths="doc"/>
     <VersionInfo>
       <AutoIncrementBuild Value="True"/>
       <MinorVersionNr Value="3"/>
       <RevisionNr Value="1"/>
-      <BuildNr Value="2096"/>
+      <BuildNr Value="2178"/>
       <StringTable ProductVersion="0.3.1.2026"/>
     </VersionInfo>
     <BuildModes Count="1">
@@ -25,7 +28,7 @@
     </BuildModes>
     <PublishOptions>
       <Version Value="2"/>
-      <IgnoreBinaries Value="False"/>
+      <DestinationDirectory Value="/home/saku/lazarus/cqrlog_work/cqrlog-devel/src/pub"/>
       <IncludeFileFilter Value="*.(pas|pp|inc|lfm|lpr|lrs|lpi|lpk|sh|xml)"/>
       <ExcludeFileFilter Value="*.(bak|ppu|ppw|o|so);*~;backup"/>
     </PublishOptions>
@@ -83,7 +86,7 @@
         <MinVersion Major="1" Minor="2" Release="1" Valid="True"/>
       </Item10>
     </RequiredPackages>
-    <Units Count="99">
+    <Units Count="104">
       <Unit0>
         <Filename Value="cqrlog.lpr"/>
         <IsPartOfProject Value="True"/>
@@ -227,6 +230,7 @@
         <Filename Value="fSplash.pas"/>
         <IsPartOfProject Value="True"/>
         <ComponentName Value="frmSplash"/>
+        <HasResources Value="True"/>
         <ResourceBaseClass Value="Form"/>
       </Unit21>
       <Unit22>
@@ -278,6 +282,7 @@
         <Filename Value="fWorking.pas"/>
         <IsPartOfProject Value="True"/>
         <ComponentName Value="frmWorking"/>
+        <HasResources Value="True"/>
         <ResourceBaseClass Value="Form"/>
       </Unit29>
       <Unit30>
@@ -395,6 +400,7 @@
         <Filename Value="fGroupEdit.pas"/>
         <IsPartOfProject Value="True"/>
         <ComponentName Value="frmGroupEdit"/>
+        <HasResources Value="True"/>
         <ResourceBaseClass Value="Form"/>
       </Unit47>
       <Unit48>
@@ -491,6 +497,7 @@
         <Filename Value="fNewLog.pas"/>
         <IsPartOfProject Value="True"/>
         <ComponentName Value="frmNewLog"/>
+        <HasResources Value="True"/>
         <ResourceBaseClass Value="Form"/>
       </Unit63>
       <Unit64>
@@ -664,73 +671,104 @@
         <HasResources Value="True"/>
       </Unit88>
       <Unit89>
-        <Filename Value="fdberror.pas"/>
-        <IsPartOfProject Value="True"/>
-        <ComponentName Value="frmDbError"/>
-        <ResourceBaseClass Value="Form"/>
-        <UnitName Value="fDbError"/>
-      </Unit89>
-      <Unit90>
         <Filename Value="fCommentToCall.pas"/>
         <IsPartOfProject Value="True"/>
         <ComponentName Value="frmCommentToCall"/>
         <HasResources Value="True"/>
         <ResourceBaseClass Value="Form"/>
-      </Unit90>
-      <Unit91>
+      </Unit89>
+      <Unit90>
         <Filename Value="fNewCommentToCall.pas"/>
         <IsPartOfProject Value="True"/>
         <ComponentName Value="frmNewCommentToCall"/>
         <HasResources Value="True"/>
         <ResourceBaseClass Value="Form"/>
-      </Unit91>
-      <Unit92>
+      </Unit90>
+      <Unit91>
         <Filename Value="fFindCommentToCall.pas"/>
         <IsPartOfProject Value="True"/>
         <ComponentName Value="frmFindCommentToCall"/>
         <HasResources Value="True"/>
         <ResourceBaseClass Value="Form"/>
-      </Unit92>
-      <Unit93>
+      </Unit91>
+      <Unit92>
         <Filename Value="frExportPref.pas"/>
         <IsPartOfProject Value="True"/>
         <ComponentName Value="fraExportPref"/>
         <HasResources Value="True"/>
         <ResourceBaseClass Value="Frame"/>
-      </Unit93>
-      <Unit94>
+      </Unit92>
+      <Unit93>
         <Filename Value="fExportPref.pas"/>
         <IsPartOfProject Value="True"/>
         <ComponentName Value="frmExportPref"/>
         <ResourceBaseClass Value="Form"/>
+      </Unit93>
+      <Unit94>
+        <Filename Value="fWorkedGrids.pas"/>
+        <IsPartOfProject Value="True"/>
+        <ComponentName Value="frmWorkedGrids"/>
+        <HasResources Value="True"/>
+        <ResourceBaseClass Value="Form"/>
       </Unit94>
       <Unit95>
+        <Filename Value="fPropDK0WCY.pas"/>
+        <IsPartOfProject Value="True"/>
+        <ComponentName Value="frmPropDK0WCY"/>
+        <HasResources Value="True"/>
+        <ResourceBaseClass Value="Form"/>
+      </Unit95>
+      <Unit96>
+        <Filename Value="fContest.pas"/>
+        <IsPartOfProject Value="True"/>
+        <ComponentName Value="frmContest"/>
+        <HasResources Value="True"/>
+        <ResourceBaseClass Value="Form"/>
+      </Unit96>
+      <Unit97>
+        <Filename Value="fMonWsjtx.pas"/>
+        <IsPartOfProject Value="True"/>
+        <ComponentName Value="frmMonWsjtx"/>
+        <HasResources Value="True"/>
+        <ResourceBaseClass Value="Form"/>
+      </Unit97>
+      <Unit98>
+        <Filename Value="fXfldigi.pas"/>
+        <IsPartOfProject Value="True"/>
+        <ComponentName Value="frmxfldigi"/>
+        <HasResources Value="True"/>
+        <ResourceBaseClass Value="Form"/>
+      </Unit98>
+      <Unit99>
+        <Filename Value="uColorMemo.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit99>
+      <Unit100>
         <Filename Value="fCabrilloImport.pas"/>
         <IsPartOfProject Value="True"/>
         <ComponentName Value="frmCabrilloImport"/>
         <HasResources Value="True"/>
         <ResourceBaseClass Value="Form"/>
-      </Unit95>
-      <Unit96>
+      </Unit100>
+      <Unit101>
         <Filename Value="uextra_util.pas"/>
         <IsPartOfProject Value="True"/>
-      </Unit96>
-      <Unit97>
+      </Unit101>
+      <Unit102>
         <Filename Value="umysql_helper.pas"/>
         <IsPartOfProject Value="True"/>
-      </Unit97>
-      <Unit98>
+      </Unit102>
+      <Unit103>
         <Filename Value="uCabrilloImport.pas"/>
         <IsPartOfProject Value="True"/>
-      </Unit98>
+      </Unit103>
     </Units>
   </ProjectOptions>
   <CompilerOptions>
     <Version Value="11"/>
     <SearchPaths>
       <Libraries Value="$(LazarusDir)/lcl"/>
-      <OtherUnitFiles Value="lnet/lib"/>
-      <SrcPath Value="$(LazarusDir)/lcl;$(LazarusDir)/lcl/interfaces/$(LCLWidgetType)"/>
+      <OtherUnitFiles Value="lnet/lib;richmemo;richmemo/gtk2;synapse"/>
     </SearchPaths>
     <Parsing>
       <SyntaxOptions>
@@ -739,9 +777,14 @@
     </Parsing>
     <CodeGeneration>
       <Optimizations>
-        <OptimizationLevel Value="3"/>
+        <OptimizationLevel Value="2"/>
       </Optimizations>
     </CodeGeneration>
+    <Linking>
+      <Debugging>
+        <DebugInfoType Value="dsDwarf2Set"/>
+      </Debugging>
+    </Linking>
     <Other>
       <Verbosity>
         <ShowNotes Value="False"/>
@@ -752,14 +795,4 @@
       <CreateMakefileOnBuild Value="True"/>
     </Other>
   </CompilerOptions>
-  <Debugging>
-    <Exceptions Count="2">
-      <Item1>
-        <Name Value="ECodetoolError"/>
-      </Item1>
-      <Item2>
-        <Name Value="EFOpenError"/>
-      </Item2>
-    </Exceptions>
-  </Debugging>
 </CONFIG>

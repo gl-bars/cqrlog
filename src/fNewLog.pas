@@ -32,6 +32,7 @@ var
   frmNewLog: TfrmNewLog;
 
 implementation
+{$R *.lfm}
 
 uses dUtils, dData;
 
@@ -41,9 +42,9 @@ procedure TfrmNewLog.FormShow(Sender: TObject);
 begin
   //dmUtils.LoadWindowPos(self);
   if edtLogNR.Enabled then
-    edtLogNR.SetFocus
-  else
-    edtLogName.SetFocus
+    edtLogNR.Text := IntToStr(dmData.GetNewLogNumber);
+
+  edtLogName.SetFocus
 end;
 
 procedure TfrmNewLog.FormClose(Sender: TObject; var CloseAction: TCloseAction);
@@ -70,9 +71,6 @@ begin
   end;
   ModalResult := mrOK
 end;
-
-initialization
-  {$I fNewLog.lrs}
 
 end.
 

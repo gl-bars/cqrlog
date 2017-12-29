@@ -20,12 +20,11 @@ uses
   memds, mysql51conn, sqldb, inifiles, stdctrls, RegExpr,
   dynlibs, lcltype, ExtCtrls, sqlscript, process, mysql51dyn, ssl_openssl_lib,
   mysql55dyn, mysql55conn, CustApp, mysql56dyn, mysql56conn, grids, LazFileUtils,
-  mysql57dyn, mysql57conn;
+  mysql57dyn, mysql57conn, uMyFindFile, Graphics;
 
 const
-  MaxCall   = 1000000;
   cDB_LIMIT = 500;
-  cDB_MAIN_VER = 11;
+  cDB_MAIN_VER = 13;
   cDB_COMN_VER = 4;
   cDB_PING_INT = 300;  //ping interval for database connection in seconds
                        //program crashed after long time of inactivity
@@ -82,6 +81,8 @@ type
     dsrLogList: TDatasource;
     dsrmQ: TDatasource;
     mQ: TSQLQuery;
+    Q2: TSQLQuery;
+    trQ2: TSQLTransaction;
     qSQLConsole: TSQLQuery;
     scCommon: TSQLScript;
     scLog: TSQLScript;
@@ -106,6 +107,10 @@ type
     qBandMapFil: TSQLQuery;
     qRbnMon: TSQLQuery;
     qFreqMem: TSQLQuery;
+    trW: TSQLTransaction;
+    W1: TSQLQuery;
+    trW1: TSQLTransaction;
+    W: TSQLQuery;
     trFreqMem: TSQLTransaction;
     trRbnMon: TSQLTransaction;
     trBandMapFil: TSQLTransaction;
@@ -136,6 +141,7 @@ type
     procedure DataModuleCreate(Sender: TObject);
     procedure DataModuleDestroy(Sender: TObject);
     procedure Q1BeforeOpen(DataSet: TDataSet);
+    procedure Q2BeforeOpen(DataSet: TDataSet);
     procedure qBandsBeforeOpen(DataSet: TDataSet);
     procedure QBeforeOpen(DataSet: TDataSet);
     procedure mQBeforeOpen(DataSet: TDataSet);
@@ -147,6 +153,8 @@ type
     procedure scViewsException(Sender: TObject; Statement: TStrings;
       TheException: Exception; var Continue: boolean);
     procedure tmrDBPingTimer(Sender: TObject);
+    procedure W1BeforeOpen(DataSet: TDataSet);
+    procedure WBeforeOpen(DataSet: TDataSet);
   private
     fDBName  : String;
     fHomeDir : String;
@@ -175,7 +183,10 @@ type
     function  FindLib(const Path,LibName : String) : String;
     function  GetMysqldPath : String;
     function  TableExists(TableName : String) : Boolean;
+    function  GetMySQLLib : String;
+    function  GetDebugLevel : Integer;
 
+    procedure CreateDBConnections;
     procedure CreateViews;
     procedure PrepareBandDatabase;
     procedure PrepareDXClusterDatabase;
@@ -201,7 +212,7 @@ type
     dbDXC        : TSQLConnection;
 
     eQSLUsers : Array of ShortString;
-    CallArray : Array [0..MaxCall] of String[20];
+    CallArray : Array of String[20];
     IsFilter  : Boolean;
     IsSFilter : Boolean; //Search filter
     //search function uses filter function but user doesn't need to know about it
@@ -218,7 +229,9 @@ type
     Zip2  : TZipCode;
     Zip3  : TZipCode;
 
-    //tstini : TMyIni;
+    UseQSOColor  : Boolean;
+    QSOColor     : TColor;
+    QSOColorDate : TDateTime;
 
     property DBName  : String read fDbName;
     property HomeDir : String read fHomeDir write fHomeDir; //~/.config/cqrlog
@@ -280,6 +293,7 @@ type
     function  RbnMonDXCCInfo(adif : Word; band, mode : String;DxccWithLoTW:Boolean;  var index : integer) : String;
     function  RbnCallExistsInLog(callsign,band,mode,LastDate,LastTime : String) : Boolean;
     function  CallNoteExists(Callsign : String) : Boolean;
+    function  GetNewLogNumber : Integer;
 
     procedure SaveQSO(date : TDateTime; time_on,time_off,call : String; freq : Currency;mode,rst_s,
                       rst_r, stn_name,qth,qsl_s,qsl_r,qsl_via,iota,pwr : String; itu,waz : Integer;
@@ -333,9 +347,9 @@ type
     procedure GetPreviousFreqFromMem(var freq : Double; var mode : String; var bandwidth : Integer);
     procedure GetNextFreqFromMem(var freq : Double; var mode : String; var bandwidth : Integer);
     procedure OpenFreqMemories(mode : String);
-    procedure CheckApparmorConfig;
     procedure SaveBandChanges(band : String; BandBegin, BandEnd, BandCW, BandRTTY, BandSSB, RXOffset, TXOffset : Currency);
     procedure GetRXTXOffset(Freq : Currency; var RXOffset,TXOffset : Currency);
+    procedure LoadQSODateColorSettings;
   end;
 
 var
@@ -345,6 +359,8 @@ var
 
 
 implementation
+
+  {$R *.lfm}
 
 uses dUtils, dDXCC, fMain, fWorking, fUpgrade, fImportProgress, fNewQSO, dDXCluster, uMyIni,
      fTRXControl, fRotControl, uVersion, dLogUpload, fDbError, LCLProc, umysql_helper;
@@ -788,7 +804,9 @@ begin
   OpenFreqMemories('');
 
   LoadClubsSettings;
-  LoadZipSettings
+  LoadZipSettings;
+
+  LoadQSODateColorSettings
 end;
 
 procedure TdmData.SaveConfigFile;
@@ -1051,14 +1069,22 @@ end;
 
 function TdmData.FindLib(const Path,LibName : String) : String;
 var
-  res       : Byte;
-  SearchRec : TSearchRec;
+  l : TStringList;
 begin
-  Result := '';
+  l:= FindAllFiles(Path, LibName, False);
+  if (l.Count=0) then
+  begin
+    Result := ''
+  end
+  else begin
+    Result := l.Strings[0]
+  end;
+  {
   res := FindFirst(Path + LibName, faAnyFile, SearchRec);
   try
     while Res = 0 do
     begin
+      Writeln(Path + SearchRec.Name);
       if FileExistsUTF8(Path + SearchRec.Name) then
       begin
         Result := (Path + SearchRec.Name);
@@ -1069,6 +1095,7 @@ begin
   finally
     FindClose(SearchRec)
   end
+ end; }
 end;
 
 procedure TdmData.DataModuleCreate(Sender: TObject);
@@ -1086,25 +1113,10 @@ begin
   InitCriticalSection(csPreviousQSO);
   cqrini       := nil;
   IsSFilter    := False;
+  fDLLSSLName  := '';
+  fDLLUtilName := '';
 
-  fDebugLevel:=0;
-
-  if ParamCount>0 then
-  begin
-    param := LowerCase(ParamStr(1));
-    if Pos('debug',param) > 0 then
-    begin
-      if Pos('=',param) > 0 then
-      begin
-        if TryStrToInt(copy(param,Pos('=',param)+1,2),i) then
-          fDebugLevel:=i
-        else
-          fDebugLevel:=1
-      end
-      else
-        fDebugLevel := 1
-    end
-  end;
+  fDebugLevel := GetDebugLevel;
 
   Writeln('');
   Writeln('**** DEBUG LEVEL ',fDebugLevel,' ****');
@@ -1112,57 +1124,14 @@ begin
     Writeln('**** CHANGE WITH --debug=1 PARAMETER ****');
   Writeln('');
 
-  fDLLSSLName  := '';
-  fDLLUtilName := '';
+  if fDebugLevel>0 then
+  begin
+    Writeln('SSL libraries:');
+    Writeln('   ',DLLSSLName);
+    Writeln('   ',DLLUtilName)
+  end;
 
-  lib :=  FindLib('/usr/lib64/','libssl.so*');
-  if (lib = '') then
-    lib := FindLib('/lib64/','libssl.so*');
-  if (lib='') then
-    lib := FindLib('/usr/lib/x86_64-linux-gnu/','libssl.so*');
-  if (lib='') then
-    lib := FindLib('/usr/lib/i386-linux-gnu/','libssl.so*');
-  if (lib = '') then
-    lib :=  FindLib('/usr/lib/','libssl.so*');
-  if (lib = '') then
-    lib := FindLib('/lib/','libssl.so*');
-
-  if fDebugLevel>=1 then Writeln('Loading libssl: ',lib);
-  if lib <> '' then
-    fDLLSSLName := lib;
-
-  lib := FindLib('/usr/lib64/','libcrypto.so*');
-  if (lib = '') then
-    lib := FindLib('/lib64/','libcrypto.so*');
-  if (lib='') then
-    lib := FindLib('/usr/lib/x86_64-linux-gnu/','libcrypto.so*');
-  if (lib='') then
-    lib := FindLib('/usr/lib/i386-linux-gnu/','libcrypto.so*');
-  if (lib = '') then
-    lib :=  FindLib('/usr/lib/','libcrypto.so*');
-  if (lib = '') then
-    lib := FindLib('/lib/','libcrypto.so*');
-
-  if fDebugLevel>=1 then Writeln('Loading libcrypto: ',lib);
-  if lib <> '' then
-    fDLLUtilName := lib;
-
-  {lib := FindLib('/usr/lib64/','libmysqlclient.so*');
-  if (lib = '') then
-    lib := FindLib('/lib64/','libmysqlclient.so*');
-  if (lib='') then
-    lib := FindLib('/usr/lib/x86_64-linux-gnu/','libmysqlclient.so*');
-  if (lib='') then
-    lib := FindLib('/usr/lib/i386-linux-gnu/','libmysqlclient.so*');
-  if (lib='') then
-    lib := FindLib('/usr/lib64/mysql/','libmysqlclient.so*');
-  if (lib = '') then
-    lib :=  FindLib('/usr/lib/','libmysqlclient.so*');
-  if (lib = '') then
-    lib := FindLib('/lib/','libmysqlclient.so*');
-  if (lib='') then
-    lib := FindLib('/usr/lib/mysql/','libmysqlclient.so*');}
-
+  lib := MYSQL_EMBEDDED_LIB;
   try try
     c := TConnectionName.Create(nil);
     MySQLVer := copy(c.ClientInfo,1,3);
@@ -1201,9 +1170,6 @@ begin
     Writeln('**********************************')
   end;
 
-
-  lib := MYSQL_EMBEDDED_LIB;
-
   fHomeDir    := GetAppConfigDir(False);
   fDataDir    := fHomeDir+'database/';
   fUsrHomeDir := copy(fHomeDir,1,Pos('.config',fHomeDir)-1);
@@ -1234,40 +1200,8 @@ begin
     Assert(i=1, 'This should be the first instance of MySQL');
   end;
 
+  CreateDBConnections;
 
-  if fMySQLVersion < 5.5 then
-  begin
-    MainCon      := TMySQL51Connection.Create(self);
-    BandMapCon   := TMySQL51Connection.Create(self);
-    RbnMonCon    := TMySQL51Connection.Create(self);
-    LogUploadCon := TMySQL51Connection.Create(self);
-    dbDXC        := TMySQL51Connection.Create(self)
-  end
-  else  if fMySQLVersion < 5.6 then
-  begin
-    MainCon      := TMySQL55Connection.Create(self);
-    BandMapCon   := TMySQL55Connection.Create(self);
-    RbnMonCon    := TMySQL55Connection.Create(self);
-    LogUploadCon := TMySQL55Connection.Create(self);
-    dbDXC        := TMySQL55Connection.Create(self)
-  end
-  else begin
-    if fMySQLVersion < 5.7 then
-    begin
-      MainCon      := TMySQL56Connection.Create(self);
-      BandMapCon   := TMySQL56Connection.Create(self);
-      RbnMonCon    := TMySQL56Connection.Create(self);
-      LogUploadCon := TMySQL56Connection.Create(self);
-      dbDXC        := TMySQL56Connection.Create(self)
-    end
-    else begin
-      MainCon      := TMySQL57Connection.Create(self);
-      BandMapCon   := TMySQL57Connection.Create(self);
-      RbnMonCon    := TMySQL57Connection.Create(self);
-      LogUploadCon := TMySQL57Connection.Create(self);
-      dbDXC        := TMySQL57Connection.Create(self)
-    end
-  end;
 
   MainCon.KeepConnection := True;
   MainCon.Name:='MainCon';
@@ -1292,12 +1226,6 @@ begin
   qRbnMon.Transaction      := trRbnMon;
   qRbnMon.DataBase         := RbnMonCon;
   trRbnMon.DataBase        := RbnMonCon;
-
-  DLLSSLName  := dmData.cDLLSSLName;
-  DLLUtilName := dmData.cDLLUtilName;
-
-  //^^this ugly hack is because FreePascal doesn't have anything like
-  // ./configure and I have to specify all dyn libs by hand
 
   FormatSettings.ShortDateFormat := 'yyyy-mm-dd';
 
@@ -1332,57 +1260,6 @@ begin
     Writeln('*')
   end;
 
-  {
-
-  if FileExistsUTF8('/usr/bin/mysqld') then
-    mysqld := '/usr/bin/mysqld';
-  if FileExistsUTF8('/usr/bin/mysqld_safe') then //Fedora
-    mysqld := '/usr/bin/mysqld_safe';
-  if FileExistsUTF8('/usr/sbin/mysqld') then //openSUSE
-    mysqld := '/usr/sbin/mysqld';
-  if mysqld = '' then  //don't know where mysqld is, so hopefully will be in  $PATH
-    mysqld := 'mysqld';
-
-  if FileExistsUTF8('/etc/apparmor.d/usr.sbin.mysqld') then
-  begin
-    l := TStringList.Create;
-    try
-      l.LoadFromFile('/etc/apparmor.d/usr.sbin.mysqld');
-      l.Text := UpperCase(l.Text);
-      if Pos(UpperCase('@{HOME}/.config/cqrlog/database/** rwk,'),l.Text) = 0 then
-      begin
-        info := 'It looks like apparmor is running in your system. CQRLOG needs to add this :'+
-                LineEnding+
-                '@{HOME}/.config/cqrlog/database/** rwk,'+
-                LineEnding+
-                'into /etc/apparmor.d/usr.sbin.mysqld'+
-                LineEnding+
-                LineEnding+
-                'You can do that by running /usr/share/cqrlog/cqrlog-apparmor-fix or you can add the line '+
-                'and restart apparmor manually.'+
-                LineEnding+
-                LineEnding+
-                'Click OK to continue (program may not work correctly) or Cancel and modify the file '+
-                'first.';
-         if Application.MessageBox(PChar(info),'Information ...',mb_OKCancel+mb_IconInformation) = idCancel then
-           Application.Terminate
-      end
-    finally
-      l.Free
-    end
-  end;
-
-  MySQLProcess := TProcess.Create(nil);
-  MySQLProcess.CommandLine := mysqld+' --defaults-file='+fHomeDir+'database/'+'my.cnf'+
-                              ' --default-storage-engine=MyISAM --datadir='+fHomeDir+'database/'+
-                              ' --socket='+fHomeDir+'database/sock'+
-                              ' --skip-grant-tables --port=64000 --key_buffer_size=32M'+
-                              ' --key_buffer_size=4096K';
-  if fDebugLevel>=1 then WriteLn(MySQLProcess.CommandLine);
-  MySQLProcess.Execute;
-  }
-  //StartMysqldProcess;
-
   tmrDBPing.Interval := CDB_PING_INT*1000;
   tmrDBPing.Enabled  := True
 end;
@@ -1408,6 +1285,11 @@ end;
 procedure TdmData.Q1BeforeOpen(DataSet: TDataSet);
 begin
   if fDebugLevel >=1 then Writeln(Q1.SQL.Text)
+end;
+
+procedure TdmData.Q2BeforeOpen(DataSet: TDataSet);
+begin
+   if fDebugLevel >=1 then Writeln(Q2.SQL.Text)
 end;
 
 procedure TdmData.qBandsBeforeOpen(DataSet: TDataSet);
@@ -1438,6 +1320,14 @@ end;
 procedure TdmData.qLongNoteBeforeOpen(DataSet: TDataSet);
 begin
   if fDebugLevel >=1 then Writeln(qLongNote.SQL.Text)
+end;
+procedure TdmData.W1BeforeOpen(DataSet: TDataSet);
+begin
+   if fDebugLevel >=1 then Writeln(W1.SQL.Text)
+end;
+procedure TdmData.WBeforeOpen(DataSet: TDataSet);
+begin
+   if fDebugLevel >=1 then Writeln(W.SQL.Text)
 end;
 
 procedure TdmData.scLogException(Sender: TObject; Statement: TStrings;
@@ -1498,6 +1388,7 @@ begin
   end
 }
 end;
+
 
 procedure TdmData.SaveQSO(date : TDateTime; time_on,time_off,call : String; freq : Currency;mode,rst_s,
                  rst_r, stn_name,qth,qsl_s,qsl_r,qsl_via,iota,pwr : String; itu,waz : Integer;
@@ -1618,32 +1509,55 @@ begin
 end;
 
 procedure TdmData.SaveComment(call,text : String);
+const
+  C_SEL = 'select id_notes from notes where callsign = %s limit 1';
+  C_DEL = 'delete from notes where callsign = %s';
+  C_INS = 'insert into notes (callsign, longremarks) values (%s, %s)';
+  C_UPD = 'update notes set longremarks = %s where callsign = %s';
 begin
   text := Trim(text);
   if fDebugLevel >=1 then Writeln('Note:',text);
-  if (text = '') then
-    exit;
   qComment.Close;
   if trComment.Active then trComment.Rollback;
-  trComment.StartTransaction;
-  qComment.SQL.Text := 'SELECT id_notes FROM notes WHERE callsign = ' + QuotedStr(call) + ' LIMIT 1';
-  qComment.Open;
-  if qComment.Fields[0].IsNull then
-  begin
-    qComment.Close;
-    qComment.SQL.Text := 'INSERT INTO notes (callsign,longremarks) VALUES (' + QuotedStr(call) +
-                         ',' + QuotedStr(text) + ')';
-    if fDebugLevel >=1 then  Writeln(qComment.SQL.Text);
-    qComment.ExecSQL;
-    trComment.Commit
+
+  try try
+    trComment.StartTransaction;
+    qComment.SQL.Text := Format(C_SEL, [QuotedStr(call)]);
+    qComment.Open;
+
+    if (text = '') and (qComment.Fields[0].IsNull) then
+      exit; //nothing to save
+
+    if (text = '') and (not qComment.Fields[0].IsNull) then
+    begin                //user deleted the note
+      qComment.Close;
+      qComment.SQL.Text := Format(C_DEL, [QuotedStr(call)]);
+      qComment.ExecSQL;
+      exit
+    end;
+
+    if qComment.Fields[0].IsNull then
+    begin
+      qComment.Close;
+      qComment.SQL.Text := Format(C_INS, [QuotedStr(call), QuotedStr(text)]);
+      qComment.ExecSQL
+    end
+    else begin
+      qComment.Close;
+      qComment.SQL.Text := Format(C_UPD, [QuotedStr(text), QuotedStr(call)]);
+      qComment.ExecSQL
+    end
+  except
+    on E : Exception do
+    begin
+      ShowMessage('Error saving comment to QSO.'+LineEnding+E.Message);
+      trComment.Rollback
+    end
   end
-  else begin
-    qComment.Close;
-    qComment.SQL.Text := 'UPDATE notes SET longremarks = ' + QuotedStr(text) +
-                         ' WHERE callsign = ' + QuotedStr(call);
-    if fDebugLevel >=1 then writeln(qComment.SQL.Text);
-    qComment.ExecSQL;
-    trComment.Commit
+  finally
+    if trComment.Active then
+      trComment.Commit;
+    qComment.Close
   end
 end;
 
@@ -2838,20 +2752,27 @@ begin
 end;
 {$ENDIF}
 procedure TdmData.LoadLoTWCalls;
+
+  procedure GrowArray(NextIndex: integer);
+  begin
+    if NextIndex >= Length(CallArray) then
+      SetLength(CallArray, Length(CallArray) * 2);
+  end;
+
 var
   i : Integer;
   f : TextFile;
   a : String;
 begin
-  for i:=0 to MaxCall-1 do
-    CallArray[i] := '';
+  SetLength(CallArray, 1);
+  i := 0;
   if FileExists(fHomeDir+'lotw1.txt') then
   begin
     AssignFile(f,fHomeDir+'lotw1.txt');
     Reset(f);
-    i := 0;
     while not Eof(f) do
     begin
+      GrowArray(i);
       Readln(f,a);
       CallArray[i] := a;
       inc(i)
@@ -2859,6 +2780,7 @@ begin
     if fDebugLevel>=1 then Writeln('Loaded ',i,' LoTW users');
     CloseFile(f)
   end;
+  SetLength(CallArray, i); //Shrink the array
 end;
 
 procedure TdmData.LoadMasterSCP;
@@ -2918,7 +2840,7 @@ begin
   if call = '' then
     exit;
   call := dmUtils.GetIDCall(UpperCase(call));
-  for i:=0 to MaxCall-1 do
+  for i:=0 to High(CallArray) do
   begin
     if CallArray[i] = '' then
       Break;
@@ -2927,7 +2849,7 @@ begin
     begin
       if CallArray[i] = call then
       begin
-        if fDebugLevel>=1 then Writeln('Nalezeno - '+CallArray[i]);
+        if fDebugLevel>=1 then Writeln('Found - ' + CallArray[i]);
         Result := True;
         Break
       end
@@ -2935,7 +2857,7 @@ begin
     else begin
       if h > Ord(Call[1]) then
       begin
-        if fDebugLevel>=1 then Writeln('NEnalezeno - '+CallArray[i]);
+        if fDebugLevel>=1 then Writeln('NOT found - ' + CallArray[i]);
         Break
       end
     end
@@ -3434,6 +3356,18 @@ begin
         trQ1.Commit
       end;
 
+      if old_version < 12 then
+      begin
+        trQ1.StartTransaction;
+        Q1.SQL.Text := 'alter table cqrlog_main change loc loc varchar(10) default ' + QuotedStr('');
+        if fDebugLevel>=1 then Writeln(Q1.SQL.Text);
+        Q1.ExecSQL;
+        Q1.SQL.Text := 'alter table cqrlog_main change my_loc my_loc varchar(10) default ' + QuotedStr('');
+        if fDebugLevel>=1 then Writeln(Q1.SQL.Text);
+        Q1.ExecSQL;
+        trQ1.Commit
+      end;
+
       trQ1.StartTransaction;
       Q1.SQL.Text := 'drop view view_cqrlog_main_by_callsign';
       if fDebugLevel>=1 then Writeln(Q1.SQL.Text);
@@ -3441,6 +3375,13 @@ begin
       Q1.SQL.Text := 'drop view view_cqrlog_main_by_qsodate';
       if fDebugLevel>=1 then Writeln(Q1.SQL.Text);
       Q1.ExecSQL;
+      if old_version >= 13 then
+      begin
+        trQ1.StartTransaction;
+        Q1.SQL.Text := 'drop view view_cqrlog_main_by_qsodate_asc';
+        if fDebugLevel>=1 then Writeln(Q1.SQL.Text);
+        Q1.ExecSQL;
+      end;
       trQ1.Commit;
 
       CreateViews;
@@ -4363,57 +4304,6 @@ begin
   GetCurrentFreqFromMem(freq,mode,bandwidth)
 end;
 
-procedure TdmData.CheckApparmorConfig;
-
-  function IsModified(FileName : String) : Boolean;
-  var
-    l : TStringList;
-  begin
-    Result := False;
-    l := TStringList.Create;
-    try
-      l.LoadFromFile(FileName);
-      l.Text := UpperCase(l.Text);
-      if Pos(UpperCase('@{HOME}/.config/cqrlog/database/** rwk,'),l.Text) = 0 then
-        Result := True
-    finally
-      l.Free
-    end
-  end;
-
-var
-  ShowInfo : Boolean = False;
-  MsgText  : String = '';
-begin
-  Writeln('Checking apparmor configuration');
-
-  if FileExistsUTF8('/etc/apparmor.d/usr.sbin.mysqld') then
-  begin
-    ShowInfo := IsModified('/etc/apparmor.d/usr.sbin.mysqld')
-  end;
-
-  if FileExistsUTF8('/etc/apparmor.d/local/usr.sbin.mysqld') then //debian
-  begin
-    ShowInfo := IsModified('/etc/apparmor.d/usr.sbin.mysqld')
-  end;
-
-
-  MsgText := 'It looks like apparmor is running in your system. CQRLOG needs to add this :'+
-             LineEnding+
-             '@{HOME}/.config/cqrlog/database/** rwk,'+
-             LineEnding+
-             'into /etc/apparmor.d/usr.sbin.mysqld'+
-             LineEnding+
-             LineEnding+
-             'You can do that by running /usr/share/cqrlog/cqrlog-apparmor-fix or you can add the line '+
-             'and restart apparmor manually.'+
-             LineEnding+
-             LineEnding+
-             'Click OK to continue (program may not work correctly) or Cancel and modify the file '+
-             'first.';
-  if Application.MessageBox(PChar(MsgText),'Information ...',mb_OKCancel+mb_IconInformation) = idCancel then
-    Application.Terminate
-end;
 
 procedure TdmData.SaveBandChanges(band : String; BandBegin, BandEnd, BandCW, BandRTTY, BandSSB, RXOffset, TXOffset : Currency);
 const
@@ -4485,8 +4375,157 @@ begin
   end
 end;
 
-initialization
-  {$I dData.lrs}
+procedure TdmData.CreateDBConnections;
+begin
+  if fMySQLVersion < 5.5 then
+  begin
+    MainCon      := TMySQL51Connection.Create(self);
+    BandMapCon   := TMySQL51Connection.Create(self);
+    RbnMonCon    := TMySQL51Connection.Create(self);
+    LogUploadCon := TMySQL51Connection.Create(self);
+    dbDXC        := TMySQL51Connection.Create(self)
+  end
+  else  if fMySQLVersion < 5.6 then
+  begin
+    MainCon      := TMySQL55Connection.Create(self);
+    BandMapCon   := TMySQL55Connection.Create(self);
+    RbnMonCon    := TMySQL55Connection.Create(self);
+    LogUploadCon := TMySQL55Connection.Create(self);
+    dbDXC        := TMySQL55Connection.Create(self)
+  end
+  else begin
+    if fMySQLVersion < 5.7 then
+    begin
+      MainCon      := TMySQL56Connection.Create(self);
+      BandMapCon   := TMySQL56Connection.Create(self);
+      RbnMonCon    := TMySQL56Connection.Create(self);
+      LogUploadCon := TMySQL56Connection.Create(self);
+      dbDXC        := TMySQL56Connection.Create(self)
+    end
+    else begin
+      MainCon      := TMySQL57Connection.Create(self);
+      BandMapCon   := TMySQL57Connection.Create(self);
+      RbnMonCon    := TMySQL57Connection.Create(self);
+      LogUploadCon := TMySQL57Connection.Create(self);
+      dbDXC        := TMySQL57Connection.Create(self)
+    end
+  end
+end;
+
+function TdmData.GetMySQLLib : String;
+var
+  lib : String;
+  Paths : TStringList;
+begin
+  Result := '';
+  Paths := TStringList.Create;
+  try
+    Paths.Add('/usr/lib64/');
+    Paths.Add('/lib64/');
+    Paths.Add('/usr/lib/x86_64-linux-gnu/');
+    Paths.Add('/usr/lib64/mysql/');
+    Paths.Add('/lib/x86_64-linux-gnu/');
+
+    Paths.Add('/usr/lib/i386-linux-gnu/');
+    Paths.Add('/lib/i386-linux-gnu/');
+    Paths.Add('/usr/lib/');
+    Paths.Add('/lib/');
+    Paths.Add('/usr/lib/mysql/');
+
+    Result := MyFindFile('libmariadbclient.so*', Paths);
+    if (Result='') then
+    begin
+      Result := MyFindFile('libmysqlclient.so*', Paths)
+    end
+  finally
+    FreeAndNil(Paths)
+  end
+end;
+
+function TdmData.GetDebugLevel : Integer;
+var
+  param : String;
+  i : Integer;
+begin
+  Result := 0;
+
+  if ParamCount>0 then
+  begin
+    param := LowerCase(ParamStr(1));
+    if Pos('debug',param) > 0 then
+    begin
+      if Pos('=',param) > 0 then
+      begin
+        if TryStrToInt(copy(param,Pos('=',param)+1,2),i) then
+          Result := i
+        else
+          Result := 1
+      end
+      else
+        Result := 1
+    end
+  end
+end;
+
+function TdmData.GetNewLogNumber : Integer;
+const
+  C_SEL = 'select log_nr from cqrlog_common.log_list order by log_nr';
+var
+  t  : TSQLQuery;
+  tr : TSQLTransaction;
+  i  : Integer = 1;
+begin
+  Result := 0;
+  t := TSQLQuery.Create(nil);
+  tr := TSQLTransaction.Create(nil);
+  try
+    t.Transaction := tr;
+    tr.DataBase   := MainCon;
+    t.DataBase    := MainCon;
+
+    t.SQL.Text := C_SEL;
+    if fDebugLevel>=1 then Writeln(t.SQL.Text);
+    t.Open;
+
+    t.First;
+    while not t.EOF do
+    begin
+      if (i = t.Fields[0].AsInteger) then
+      begin
+        inc(i)
+      end
+      else begin
+        break
+      end;
+
+      t.Next
+    end;
+
+    Result := i
+  finally
+    t.Close;
+    tr.Rollback;
+    FreeAndNil(t);
+    FreeAndNil(tr)
+  end
+end;
+
+procedure TdmData.LoadQSODateColorSettings;
+begin
+  UseQSOColor  := cqrini.ReadBool('Program', 'QSODiffColor', False);
+  QSOColor     := cqrini.ReadInteger('Program', 'QSOColor', clBlack);
+
+  if UseQSOColor then
+  begin
+    if dmUtils.IsDateOK(cqrini.ReadString('Program', 'QSOColorDate', '')) then
+      QSOColorDate := dmUtils.StrToDateFormat(cqrini.ReadString('Program', 'QSOColorDate', ''))
+    else
+      QSOColorDate := dmUtils.StrToDateFormat('2050-12-31')
+  end
+  else
+    QSOColorDate := now
+end;
+
 
 end.
 

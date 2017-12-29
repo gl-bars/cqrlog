@@ -1,0 +1,248 @@
+object frmContest: TfrmContest
+  Left = 474
+  Height = 111
+  Top = 429
+  Width = 696
+  HelpType = htKeyword
+  HelpKeyword = 'help/contest.html'
+  Caption = 'Contest'
+  ClientHeight = 111
+  ClientWidth = 696
+  OnClose = FormClose
+  OnCreate = FormCreate
+  OnHide = FormHide
+  OnKeyDown = FormKeyDown
+  OnShow = FormShow
+  LCLVersion = '1.6.4.0'
+  object edtCall: TEdit
+    Left = 10
+    Height = 32
+    Top = 27
+    Width = 140
+    AutoSelect = False
+    CharCase = ecUppercase
+    OnExit = edtCallExit
+    OnKeyDown = edtCallKeyDown
+    OnKeyPress = edtCallKeyPress
+    TabOrder = 0
+  end
+  object edtRSTs: TEdit
+    Left = 151
+    Height = 32
+    Top = 27
+    Width = 50
+    OnKeyDown = edtCallKeyDown
+    TabOrder = 5
+  end
+  object edtSTX: TEdit
+    Left = 202
+    Height = 32
+    Top = 27
+    Width = 50
+    OnExit = edtSTXExit
+    OnKeyDown = edtCallKeyDown
+    OnKeyPress = edtSTXKeyPress
+    TabOrder = 6
+  end
+  object edtSTX2: TEdit
+    Left = 253
+    Height = 32
+    Top = 27
+    Width = 100
+    OnExit = edtSTX2Exit
+    OnKeyDown = edtCallKeyDown
+    TabOrder = 7
+  end
+  object edtRSTr: TEdit
+    Left = 370
+    Height = 32
+    Top = 27
+    Width = 50
+    OnKeyDown = edtCallKeyDown
+    TabOrder = 4
+  end
+  object edtSRX: TEdit
+    Left = 421
+    Height = 32
+    Top = 27
+    Width = 50
+    OnExit = edtSRXExit
+    OnKeyDown = edtCallKeyDown
+    OnKeyPress = edtSTXKeyPress
+    TabOrder = 1
+  end
+  object btSave: TButton
+    Left = 592
+    Height = 30
+    Top = 8
+    Width = 80
+    Caption = 'Save QSO'
+    OnClick = btSaveClick
+    TabOrder = 3
+  end
+  object edtSRX2: TEdit
+    Left = 472
+    Height = 32
+    Top = 27
+    Width = 100
+    OnKeyDown = edtCallKeyDown
+    TabOrder = 2
+  end
+  object lblCall: TLabel
+    Left = 16
+    Height = 15
+    Top = 10
+    Width = 25
+    Caption = 'Call'
+    ParentColor = False
+  end
+  object lblRSTs: TLabel
+    Left = 160
+    Height = 15
+    Top = 10
+    Width = 36
+    Caption = 'RST s'
+    ParentColor = False
+  end
+  object lblMSGs: TLabel
+    Left = 256
+    Height = 15
+    Top = 10
+    Width = 40
+    Caption = 'MSG s'
+    ParentColor = False
+  end
+  object lblRSTr: TLabel
+    Left = 376
+    Height = 15
+    Top = 10
+    Width = 34
+    Caption = 'RST r'
+    ParentColor = False
+  end
+  object lblNRr: TLabel
+    Left = 424
+    Height = 15
+    Top = 10
+    Width = 28
+    Caption = 'NR r'
+    ParentColor = False
+  end
+  object lblMSGr: TLabel
+    Left = 480
+    Height = 15
+    Top = 10
+    Width = 38
+    Caption = 'MSG r'
+    ParentColor = False
+  end
+  object chNRInc: TCheckBox
+    Left = 202
+    Height = 23
+    Top = 56
+    Width = 45
+    Caption = 'Inc'
+    OnClick = chNRIncClick
+    TabOrder = 8
+  end
+  object lblNRs: TLabel
+    Left = 208
+    Height = 15
+    Top = 10
+    Width = 30
+    Caption = 'NR s'
+    ParentColor = False
+  end
+  object chLoc: TCheckBox
+    Left = 472
+    Height = 23
+    Top = 56
+    Width = 100
+    Caption = 'MSG is LOC'
+    TabOrder = 9
+  end
+  object chSpace: TCheckBox
+    Left = 16
+    Height = 23
+    Top = 56
+    Width = 111
+    Caption = 'SPACE is TAB'
+    TabOrder = 10
+  end
+  object chNoNr: TCheckBox
+    Left = 424
+    Height = 23
+    Top = 56
+    Width = 44
+    Caption = 'No'
+    OnChange = chNoNrChange
+    TabOrder = 11
+  end
+  object chTrueRST: TCheckBox
+    Left = 153
+    Height = 23
+    Top = 56
+    Width = 45
+    Caption = 'Tru'
+    OnChange = chTrueRSTChange
+    TabOrder = 12
+  end
+  object Button1: TButton
+    Left = 592
+    Height = 30
+    Top = 48
+    Width = 80
+    Caption = 'Clear all'
+    OnClick = Button1Click
+    TabOrder = 13
+  end
+  object btnHelp: TSpeedButton
+    Left = 672
+    Height = 22
+    Hint = 'Help'
+    Top = 89
+    Width = 23
+    Anchors = [akRight, akBottom]
+    Glyph.Data = {
+      F6030000424DF6030000000000003600000028000000100000000F0000000100
+      200000000000C003000064000000640000000000000000000000FFFFFF00FFFF
+      FF0095564AFB89463BFF8A4437FF8B4437FF8C4538FF8D4639FF8E4739FF8F48
+      3AFF90493BFF914A3CFF924B3DFF985346F8FFFFFF00FFFFFF00FFFFFF00FFFF
+      FF00784641F5DBDCDCFFD4DCDCFFD4DCDCFFD4DCDCFFD3DCDCFFD3DCDCFFD3DC
+      DCFFD3DCDCFFD3DCDCFFD6DCDCFFB0928B8BFFFFFF00FFFFFF00FFFFFF00FFFF
+      FF0096574BF589463BFF8A4437FF8B4437FF8C4538FF8D4639FF8E4739FF8F48
+      3AFF90493BFF914A3CFF924B3DFF9A5547F0FFFFFF00FFFFFF00FFFFFF00FFFF
+      FF00AF7467F5AD7568FFB0705EFFB27160FFB47462FFB36E5CFFB56F5DFFBB78
+      66FFBD7B68FFBF7D6BFFC17F6BFFB87563F7FFFFFF00FFFFFF00FFFFFF00FFFF
+      FF00B4776AF5AE7568FFB37362FFB57462FFB4705DFFDDBEB4FFE7D1CCFFBB79
+      66FFBF7D69FFC17F6CFFC3816DFFBA7664F7FFFFFF00FFFFFF00FFFFFF00FFFF
+      FF00DAB2AAFAAF7668FFB97865FFBB7967FFB76F5AFFFDFAFAFFFFFFFFFFC485
+      73FFC3826EFFC68470FFC88672FFBD7966E1FFFFFF00FFFFFF00FFFFFF00FFFF
+      FF00AD7062F5B87D70FFBE7D69FFC07E6BFFBF7A66FFDFBCB1FFD9B5ACFFC67F
+      68FFCA8873FFCC8A75FFCE8C76FFBF7D69E2FFFFFF00FFFFFF00FFFFFF00FFFF
+      FF00B17668F5BC8373FFC3826FFFC5836FFFC27A64FFFDFBFAFFFFFFFFFFC07B
+      68FFCF8B73FFD18F79FFD3917BFFC37F6CE2FFFFFF00FFFFFF00FFFFFF00FFFF
+      FF00B27769F5C08676FFCA8773FFC88470FFCA846EFFE7C7BCFFFFFFFFFFFBF8
+      F7FFCF9888FFD69178FFD8967FFFC6846FE2FFFFFF00FFFFFF00FFFFFF00FFFF
+      FF00B2796AF5C58A7BFFCC866FFFE0B8ABFFC8856FFFCF876FFFE3B7A8FFFEFB
+      FAFFFFFFFFFFD19A89FFDE9A81FFCB8772E2FFFFFF00FFFFFF00FFFFFF00FFFF
+      FF00B07465F5C88C7AFFDFAC9CFFFFFFFFFFF8F2F0FFD28970FFD6896DFFEBC2
+      B6FFFFFFFFFFEED8D1FFE19B82FFCE8B76E2FFFFFF00FFFFFF00FFFFFF00FFFF
+      FF00DDB6AFFACB8E7BFFD58B73FFFBF4F1FFFFFFFFFFF9F5F3FFF9EAE5FFFFFF
+      FFFFFFFFFFFFE8B8A4FFEAA48AFFCE8A74E7FFFFFF00FFFFFF00FFFFFF00FFFF
+      FF00B27667F5D29784FFDE9B82FFDD9981FFEFCABBFFFBF1EEFFFBEFEBFFF9E9
+      E3FFEDB6A2FFEAA589FFEFAC91FFCE8B75E7FFFFFF00FFFFFF00FFFFFF00FFFF
+      FF00B67A6CF5D79B88FFE5A088FFE5A288FFE6A086FFE79F84FFE8A185FFEAA4
+      88FFEEAA8EFFF0AE93FFF4B297FFCE8C76E7FFFFFF00FFFFFF00FFFFFF00FFFF
+      FF00E2A289A4D0927FD7D49078DAD39079DAD5927BDAD7947CDAD8947DDADB96
+      7FDADB9880DADC9A81DAE19F86DBD4937CAEFFFFFF00FFFFFF00
+    }
+    OnClick = btnHelpClick
+  end
+  object tmrESC2: TTimer
+    Enabled = False
+    OnTimer = tmrESC2Timer
+    left = 472
+    top = 24
+  end
+end

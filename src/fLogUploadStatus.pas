@@ -6,7 +6,7 @@ interface
 
 uses
   Classes, SysUtils, FileUtil, LResources, Forms, Controls, Graphics, Dialogs,
-  Menus, ActnList, ExtCtrls, jakozememo, lcltype,  dLogUpload, lclintf, lmessages;
+  Menus, ActnList, ExtCtrls, uColorMemo, lcltype,  dLogUpload, lclintf, lmessages;
 
 type
 
@@ -32,7 +32,7 @@ type
     procedure FormShow(Sender: TObject);
   private
     mFont     : TFont;
-    mStatus   : TJakoMemo;
+    mStatus   : TColorMemo;
     procedure LoadFonts;
     procedure UploadDataToOnlineLogs(where : TWhereToUpload; ToAll : Boolean = False);
   public
@@ -68,6 +68,7 @@ var
   frmLogUploadStatus: TfrmLogUploadStatus;
 
 implementation
+{$R *.lfm}
 
 uses dData, dUtils, uMyIni, fNewQSO;
 
@@ -169,7 +170,7 @@ begin
         Command := dmLogUpload.Q.FieldByName('cmd').AsString;
         if (Command<>'INSERT') and (Command<>'UPDATE') and (Command<>'DELETE') then
         begin
-          Writeln('Uknown command:',Command);
+          Writeln('Unknown command:',Command);
           dmLogUpload.Q.Next;
           Continue
         end;
@@ -329,14 +330,14 @@ begin
   if (SyncUpdate<>'') then
   begin
     //cti_vetu(var te:string;var bpi,bpo:Tcolor;var pom:longint;kam:longint):boolean;
-    mStatus.cti_vetu(item,c,c,tmp,mStatus.posledniveta);
+    mStatus.ReadLine(item,c,c,tmp,mStatus.LastLineNumber);
     item := item + ' ... ' + SyncUpdate;
     Writeln('Item:',item);
     //prepis_vetu(te:string;bpi,bpo:Tcolor;pom:longint;kam:longint;msk:longint):boolean;
-    mStatus.prepis_vetu(item,SyncColor,clWhite,0,mStatus.posledniveta,0)
+    mStatus.ReplaceLine(item,SyncColor,clWhite,0,mStatus.LastLineNumber,0)
   end
   else
-    mStatus.pridej_vetu(SyncMsg,SyncColor,clWhite,0);
+    mStatus.AddLine(SyncMsg,SyncColor,clWhite,0);
 
   if (Pos('Done ...',SyncMsg)>0) or (Pos('All QSO already uploaded',SyncMsg)>0) then
   begin
@@ -347,7 +348,7 @@ end;
 
 procedure TfrmLogUploadStatus.acClearMessagesExecute(Sender: TObject);
 begin
-  mStatus.smaz_vse
+  mStatus.RemoveAllLines
 end;
 
 procedure TfrmLogUploadStatus.acFontSettingsExecute(Sender: TObject);
@@ -393,9 +394,9 @@ end;
 procedure TfrmLogUploadStatus.FormShow(Sender: TObject);
 begin
   mFont              := TFont.Create;
-  mStatus            := Tjakomemo.Create(pnlLogStatus);
+  mStatus            := TColorMemo.Create(pnlLogStatus);
   mStatus.parent     := pnlLogStatus;
-  mStatus.autoscroll := True;
+  mStatus.AutoScroll := True;
   mStatus.Align      := alClient;
   dmUtils.LoadWindowPos(frmLogUploadStatus);
   LoadFonts
@@ -406,7 +407,7 @@ begin
   dmUtils.LoadFontSettings(self);
   mFont.Name := cqrini.ReadString('LogUploadStatus','FontName','Monospace');
   mFont.Size := cqrini.ReadInteger('LogUploadStatus','FontSize',8);
-  mStatus.nastav_font(mFont)
+  mStatus.SetFont(mFont)
 end;
 
 procedure TfrmLogUploadStatus.UploadDataToOnlineLogs(where : TWhereToUpload; ToAll : Boolean = False);
@@ -448,9 +449,6 @@ begin
   UploadDataToOnlineLogs(upClubLog, True);
   UploadDataToOnlineLogs(upHrdLog, True)
 end;
-
-initialization
-  {$I fLogUploadStatus.lrs}
 
 end.
 

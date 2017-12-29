@@ -17,38 +17,58 @@ interface
 
 uses
   Classes, SysUtils, LResources, Forms, Controls, Graphics, Dialogs, inifiles,
-  ExtCtrls, ComCtrls, StdCtrls, Buttons, httpsend, jakozememo,
-  db, lcltype, dynlibs, lNetComponents, lnet;
+  ExtCtrls, ComCtrls, StdCtrls, Buttons, httpsend, uColorMemo,
+  db, lcltype, Menus, ActnList, Spin, dynlibs, lNetComponents, lnet;
 
 type
   { TfrmDXCluster }
 
   TfrmDXCluster = class(TForm)
+    acPreferences : TActionList;
+    acFont : TAction;
+    acCallAlert : TAction;
+    acProgPref : TAction;
+    acChatSize: TAction;
     btnClear: TButton;
     btnFont: TButton;
-    btnFont1: TButton;
     btnHelp: TButton;
     btnSelect: TButton;
     btnTelConnect: TButton;
     btnWebConnect: TButton;
     Button1: TButton;
     Button2: TButton;
+    btnPreferences : TButton;
     dlgDXfnt: TFontDialog;
     edtCommand: TEdit;
     edtTelAddress: TEdit;
     Label1: TLabel;
     lblInfo: TLabel;
+    MenuItem1 : TMenuItem;
+    MenuItem2 : TMenuItem;
+    MenuItem3 : TMenuItem;
+    MenuItem4 : TMenuItem;
+    MenuItem5 : TMenuItem;
+    MenuItem6: TMenuItem;
+    mnuCallalert : TMenuItem;
     Panel1: TPanel;
     Panel2: TPanel;
+    pnlChat: TPanel;
     Panel4: TPanel;
     pgDXCluster: TPageControl;
     pnlTelnet: TPanel;
     pnlWeb: TPanel;
+    popPreferences : TPopupMenu;
     tabTelnet: TTabSheet;
     tabWeb: TTabSheet;
     tmrAutoConnect: TTimer;
     tmrSpots: TTimer;
+    trChatSize: TTrackBar;
+    procedure acCallAlertExecute(Sender : TObject);
+    procedure acChatSizeExecute(Sender: TObject);
+    procedure acFontExecute(Sender : TObject);
+    procedure acProgPrefExecute(Sender : TObject);
     procedure Button2Click(Sender: TObject);
+    procedure btnPreferencesClick(Sender : TObject);
     procedure FormActivate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
     procedure btnHelpClick(Sender: TObject);
@@ -57,13 +77,15 @@ type
     procedure FormKeyUp(Sender: TObject; var Key: Word; Shift: TShiftState);
     procedure FormShow(Sender: TObject);
     procedure btnClearClick(Sender: TObject);
-    procedure btnFontClick(Sender: TObject);
     procedure btnSelectClick(Sender: TObject);
     procedure btnTelConnectClick(Sender: TObject);
     procedure btnWebConnectClick(Sender: TObject);
     procedure edtCommandKeyPress(Sender: TObject; var Key: char);
-    procedure tmrAutoConnectTimer(Sender: TObject);
+    procedure mnuCallalertClick(Sender : TObject);
+   procedure tmrAutoConnectTimer(Sender: TObject);
     procedure tmrSpotsTimer(Sender: TObject);
+    procedure trChatSizeChange(Sender: TObject);
+    procedure trChatSizeClick(Sender: TObject);
   private
     telDesc    : String;
     telAddr    : String;
@@ -110,20 +132,27 @@ type
     giWAZ     : String;
     giITU     : String;
 
+    HistCmd      : array [0..4] of string;
+    HistPtr      : integer;
+
     procedure WebDbClick(where:longint;mb:TmouseButton;ms:TShiftState);
     procedure TelDbClick(where:longint;mb:TmouseButton;ms:TShiftState);
     procedure ConnectToWeb;
     procedure ConnectToTelnet;
     procedure SynWeb;
     procedure SynTelnet;
+    procedure SynChat;
     procedure lConnect(aSocket: TLSocket);
     procedure lDisconnect(aSocket: TLSocket);
     procedure lReceive(aSocket: TLSocket);
+    procedure ChangeCallAlertCaption;
 
     function  ShowSpot(spot : String; var sColor : Integer; var Country : String; FromTelnet : Boolean = True) : Boolean;
     function  GetFreq(spot : String) : String;
     function  GetCall(spot : String; web : Boolean = False) : String;
     function  GetSplit(spot : String) :String;
+    procedure StoreLastCmd(LastCmd:string);
+    function  GetHistCmd:string;
   public
     ConWeb    : Boolean;
     ConTelnet : Boolean;
@@ -150,21 +179,25 @@ type
 var
   frmDXCluster : TfrmDXCluster;
   Spots        : TStringList;
-  WebSpots     : Tjakomemo;
-  TelSpots     : Tjakomemo;
+  Chats        : TStringList;
+  WebSpots     : TColorMemo;
+  TelSpots     : TColorMemo;
+  ChatSpots    : TColorMemo;
   mindex       : Integer;
   ThInfo       : String;
   ThSpot       : String;
   ThColor      : Integer;
   ThBckColor   : Integer;
+  ThChat       : String;
+  ChBckColor   : Integer;
   TelThread    : TTelThread;
 
 implementation
-
+{$R *.lfm}
 { TfrmDXCluster }
 
 uses dUtils, fDXClusterList, dData, dDXCluster, fMain, fTRXControl, fNewQSO, fBandMap,
-     uMyIni;
+     uMyIni, fPreferences;
 
 procedure TfrmDXCluster.ConnectToWeb;
 var
@@ -237,6 +270,32 @@ begin
     btnTelConnect.Click;
   tmrSpots.Enabled := False;
 end;
+procedure TfrmDXCluster.StoreLastCmd(LastCmd:string);  //scroll &store last typed line
+
+begin
+  HistPtr:=4;
+  Repeat
+        Begin
+         HistCmd[HistPtr] := HistCmd[HistPtr-1];
+          if dmData.DebugLevel>=1 then writeln('[',HistPtr,']' ,HistCmd[HistPtr]);
+         dec(HistPtr);
+        end;
+  until HistPtr = 0;
+  HistCmd[HistPtr] := LastCmd;
+
+  if dmData.DebugLevel>=1 then  writeln('[',HistPtr,']' ,HistCmd[HistPtr]);
+
+end;
+function TfrmDXCluster.GetHistCmd:string;  //return line that ptr points & inc ptr(go round if not empty);
+begin
+  Result:= HistCmd[HistPtr];
+  if (HistPtr < 4) and ( HistCmd[HistPtr+1]<>'') then
+     inc (HistPtr)
+    else
+     HistPtr:=0;
+end;
+
+
 
 procedure TfrmDXCluster.btnHelpClick(Sender: TObject);
 begin
@@ -283,6 +342,54 @@ begin
   }
 end;
 
+procedure TfrmDXCluster.btnPreferencesClick(Sender : TObject);
+var
+  p : TPoint;
+begin
+  mnuCallalert.Checked := cqrini.ReadBool('DXCluster', 'AlertEnabled', False);
+  ChangeCallAlertCaption;
+
+  p.x := 10;
+  p.y := 10;
+  p := btnPreferences.ClientToScreen(p);
+  popPreferences.PopUp(p.x, p.y)
+end;
+
+procedure TfrmDXCluster.acProgPrefExecute(Sender : TObject);
+begin
+  frmNewQSO.acPreferences.Execute
+end;
+
+procedure TfrmDXCluster.acFontExecute(Sender : TObject);
+begin
+  dlgDXfnt.Font.Name := cqrini.ReadString('DXCluster','Font','DejaVu Sans Mono');
+  dlgDXfnt.Font.Size := cqrini.ReadInteger('DXCluster','FontSize',12);
+  if dlgDXfnt.Execute then
+  begin
+    cqrini.WriteString('DXCluster','Font',dlgDXfnt.Font.Name);
+    cqrini.WriteInteger('DXCluster','FontSize',dlgDXfnt.Font.Size);
+    WebSpots.SetFont(dlgDXfnt.Font);
+    TelSpots.SetFont(dlgDXfnt.Font);
+    ChatSpots.SetFont(dlgDXfnt.Font)
+  end
+end;
+
+procedure TfrmDXCluster.acCallAlertExecute(Sender : TObject);
+begin
+  frmPreferences.btnAlertCallsignsClick(nil)
+end;
+
+procedure TfrmDXCluster.acChatSizeExecute(Sender: TObject);
+begin
+       trChatSize.Max :=   pnlTelnet.Height -20;
+       trChatSize.Position := pnlChat.Height;
+       trChatSize.Visible :=true;
+       trChatSize.Cursor := crSizeWE;
+       edtCommand.Visible := false;
+       label1.Caption := 'ChatSize';
+       if dmData.DebugLevel >=1 then Writeln('Chat sizing AC');
+end;
+
 procedure TfrmDXCluster.FormCreate(Sender: TObject);
 begin
   InitCriticalSection(csTelnet);
@@ -297,29 +404,47 @@ begin
   lTelnet.OnDisconnect := @lDisconnect;
   lTelnet.OnReceive    := @lReceive;
 
-  WebSpots             := Tjakomemo.Create(pnlWeb);
+  WebSpots             := TColorMemo.Create(pnlWeb);
   WebSpots.parent      := pnlWeb;
-  WebSpots.autoscroll  := True;
-  WebSpots.oncdblclick := @WebDbClick;
+  WebSpots.AutoScroll  := True;
+  WebSpots.oncDblClick := @WebDbClick;
   WebSpots.Align       := alClient;
-  WebSpots.nastav_jazyk(1);
+  WebSpots.setLanguage(1);
 
 
-  TelSpots             := Tjakomemo.Create(pnlTelnet);
+  TelSpots             := TColorMemo.Create(pnlTelnet);
   TelSpots.parent      := pnlTelnet;
-  TelSpots.autoscroll  := True;
-  TelSpots.oncdblclick := @TelDbClick;
+  TelSpots.AutoScroll  := True;
+  TelSpots.oncDblClick := @TelDbClick;
   TelSpots.Align       := alClient;
-  TelSpots.nastav_jazyk(1);
+  TelSpots.setLanguage(1);
+
+  ChBckColor  := $00D3F3F8;
+  pnlChat.Color := ChBckColor;
+  ChatSpots             := TColorMemo.Create(pnlChat);
+  ChatSpots.parent      := pnlChat;
+  ChatSpots.autoscroll  := True;
+  ChatSpots.Align       := alClient;
+  ChatSpots.setLanguage(1);
 
   Spots := TStringList.Create;
   Spots.Clear;
+  Chats := TStringList.Create;
+  Chats.Clear;
+
   Running := False;
   mindex  := 1;
 
   TelThread := TTelThread.Create(True);
   TelThread.FreeOnTerminate := True;
-  TelThread.Start
+  TelThread.Start;
+  HistPtr:=5;               //initialize command history to be clean
+  repeat
+        Begin
+          dec(HistPtr);
+          HistCmd[HistPtr]:=''
+        end;
+  until HistPtr =0;
 end;
 
 procedure TfrmDXCluster.FormKeyUp(Sender: TObject; var Key: Word;
@@ -343,7 +468,7 @@ var
   stmp : String = '';
   i    : Integer = 0;
 begin
-  WebSpots.cti_vetu(spot,tmp,tmp,tmp,where);
+  WebSpots.ReadLine(spot,tmp,tmp,tmp,where);
   spot := copy(spot,i+6,Length(spot)-i-5);
   spot := Trim(spot);
   freq := GetFreq(spot);
@@ -375,7 +500,7 @@ var
   i    : Integer = 0;
   f    : Currency;
 begin
-  TelSpots.cti_vetu(spot,tmp,tmp,tmp,where);
+  TelSpots.ReadLine(spot,tmp,tmp,tmp,where);
   if TryStrToCurr(copy(spot,1,Pos(' ',spot)-1),f)  then
   begin
     freq := copy(spot,1,Pos(' ',spot)-1);
@@ -411,8 +536,9 @@ begin
   try
     f.Name    := cqrini.ReadString('DXCluster','Font','DejaVu Sans Mono');
     f.Size    := cqrini.ReadInteger('DXCluster','FontSize',12);
-    WebSpots.nastav_font(f);
-    TelSpots.nastav_font(f)
+    WebSpots.SetFont(f);
+    TelSpots.SetFont(f) ;
+    ChatSpots.SetFont(f)
   finally
     f.Free
   end;
@@ -427,26 +553,17 @@ begin
   telPass := cqrini.ReadString('DXCluster','Pass','');
   edtTelAddress.Text := telDesc;
 
+  mnuCallalert.Checked := cqrini.ReadBool('DXCluster', 'AlertEnabled', False);
+  ChangeCallAlertCaption;
+
   if cqrini.ReadBool('DXCluster', 'ConAfterRun', False) then
-    tmrAutoConnect.Enabled := True
+    tmrAutoConnect.Enabled := True;
+  pnlChat.Height := cqrini.ReadInteger('DXCluster','ChatSize',2);  //default now 2 = invisible
 end;
 
 procedure TfrmDXCluster.btnClearClick(Sender: TObject);
 begin
-  WebSpots.smaz_vse;
-end;
-
-procedure TfrmDXCluster.btnFontClick(Sender: TObject);
-begin
-  dlgDXfnt.Font.Name := cqrini.ReadString('DXCluster','Font','DejaVu Sans Mono');
-  dlgDXfnt.Font.Size := cqrini.ReadInteger('DXCluster','FontSize',12);
-  if dlgDXfnt.Execute then
-  begin
-    cqrini.WriteString('DXCluster','Font',dlgDXfnt.Font.Name);
-    cqrini.WriteInteger('DXCluster','FontSize',dlgDXfnt.Font.Size);
-    WebSpots.nastav_font(dlgDXfnt.Font);
-    TelSpots.nastav_font(dlgDXfnt.Font)
-  end
+  WebSpots.RemoveAllLines
 end;
 
 procedure TfrmDXCluster.btnSelectClick(Sender: TObject);
@@ -517,12 +634,27 @@ end;
 
 procedure TfrmDXCluster.edtCommandKeyPress(Sender: TObject; var Key: char);
 begin
+  if key=#26 then
+  Begin
+    key := #0;
+    edtCommand.Clear;
+    edtCommand.Text := GetHistCmd;
+    edtCommand.SelStart := Length(edtCommand.Text);
+  end;
   if key=#13 then
   begin
+    StoreLastCmd(edtCommand.Text);
     key := #0;
    SendCommand(edtCommand.Text);
    edtCommand.Clear
   end;
+end;
+
+procedure TfrmDXCluster.mnuCallalertClick(Sender : TObject);
+begin
+  mnuCallalert.Checked := not mnuCallalert.Checked;
+  cqrini.WriteBool('DXCluster', 'AlertEnabled', mnuCallalert.Checked);
+  ChangeCallAlertCaption
 end;
 
 procedure TfrmDXCluster.tmrAutoConnectTimer(Sender: TObject);
@@ -558,7 +690,7 @@ const
   LF = #10;
 var
   sStart, sStop: Integer;
-  tmp : String;
+  tmp, Chline: String;
   itmp : Integer;
   buffer : String;
   f : Double;
@@ -574,13 +706,40 @@ begin
     tmp  := Copy(Buffer, sStart, sStop - sStart);
     tmp  := trim(tmp);
     if dmData.DebugLevel >=1 then Writeln(tmp);
+
+    if Pos(UpperCase(telUser) + ' DE', UpperCase(tmp)) > 0 then
+      Begin
+        ChLine := tmp;
+        if dmData.DebugLevel>=1 then Writeln('pos: ', pos('>',Chline) ,' len:', length(Chline));
+        if pos('>',Chline) < length(Chline) then //if not dxcluster prompt
+         Begin //remove "mycall de" add local timestamp from PC
+           itmp := length(telUser)+4; //4 = ' DE '
+           ChLine := FormatDateTime('hh:nn',Now)+'_'+copy(Chline,itmp+1,length(Chline)-itmp);
+           if dmData.DebugLevel>=1 then Writeln('Chat :',ChLine);
+           EnterCriticalsection(frmDXCluster.csTelnet);
+           if dmData.DebugLevel>=1 then Writeln('Enter critical section On Receive Chat');
+           try
+            Chats.Add(Chline);
+           finally
+            LeaveCriticalsection(csTelnet);
+            if dmData.DebugLevel>=1 then Writeln('Leave critical section On Receive Chat')
+           end
+         end
+        else
+        Begin
+          Chline := '';
+          if dmData.DebugLevel>=1 then Writeln('Chat : line is cluster prompt!');
+        end;
+      end;
+
     itmp := Pos('DX DE',UpperCase(tmp));
     if (itmp > 0) or TryStrToFloat(copy(tmp,1,Pos(' ',tmp)-1),f)  then
     begin
       EnterCriticalsection(frmDXCluster.csTelnet);
       if dmData.DebugLevel>=1 then Writeln('Enter critical section On Receive');
       try
-        Spots.Add(tmp)
+        Spots.Add(tmp);
+        if Chline <> '' then Chats.Add(Chline);
       finally
         LeaveCriticalsection(csTelnet);
         if dmData.DebugLevel>=1 then Writeln('Leave critical section On Receive')
@@ -593,7 +752,7 @@ begin
         lTelnet.SendMessage(telUser+#13+#10);
       if (Pos('PASSWORD',UpperCase(tmp)) > 0) and (telPass <> '') then
         lTelnet.SendMessage(telPass+#13+#10);
-      TelSpots.pridej_vetu(tmp,clBlack,clWhite,0)
+      TelSpots.AddLine(tmp,clBlack,clWhite,0)
     end;
     sStart := sStop + 1;
     if sStart > Length(Buffer) then
@@ -612,7 +771,7 @@ begin
   if lTelnet.Connected then
   begin
     lTelnet.SendMessage(cmd + #13#10);
-    TelSpots.pridej_vetu(cmd,clBlack,clWhite,0)
+    TelSpots.AddLine(cmd,clBlack,clWhite,0)
   end
 end;
 
@@ -620,6 +779,22 @@ procedure TfrmDXCluster.tmrSpotsTimer(Sender: TObject);
 begin
   if pgDXCluster.ActivePageIndex = 0 then
     ConnectToWeb;
+end;
+
+procedure TfrmDXCluster.trChatSizeChange(Sender: TObject);
+begin
+     pnlChat.Height := trChatSize.Position;
+end;
+
+procedure TfrmDXCluster.trChatSizeClick(Sender: TObject);
+begin
+      trChatSize.Visible := false;
+      trChatSize.Cursor :=  crDefault;
+      edtCommand.Visible := true;
+      label1.Caption := 'Command:';
+      cqrini.WriteInteger('DXCluster','ChatSize',trChatSize.Position);
+      pnlChat.Height := trChatSize.Position;
+      if dmData.DebugLevel >=1 then Writeln('Chat sizing Click');
 end;
 
 function TfrmDXCluster.GetFreq(spot : String) : String;
@@ -826,7 +1001,7 @@ begin
   if tmp > 0 then
     freq[tmp] := FormatSettings.DecimalSeparator;
 
-  isLoTW := dmDXCluster.UsesLotw(call);
+  isLoTW := dmData.UsesLotw(call);
   isEQSL := dmDXCluster.UseseQSL(call);
 
   if cfgUseBackColor then
@@ -1058,8 +1233,9 @@ begin
     end
   end;
 
-  if dmDXCluster.IsAlertCall(call,band,mode) then
-    dmDXCluster.RunCallAlertCmd(call,band,mode,freq);
+  if  mnuCallalert.Checked then // do not run IsAlertCall unless alert is selected
+    if (dmDXCluster.IsAlertCall(call,band,mode,cqrini.ReadBool('DxCluster', 'AlertRegExp', False))) then
+        dmDXCluster.RunCallAlertCmd(call,band,mode,freq);
 
   if dmData.DebugLevel >=1 then
   begin
@@ -1107,6 +1283,24 @@ begin
         if dmData.DebugLevel>=1 then Writeln('TelThread.Execute - after Synchronize(@frmDXCluster.SynTelnet)')
       end
     end;
+
+    while Chats.Count > 0 do
+    begin
+      if dmData.DebugLevel>=2 then Writeln('TelThread.Execute - enter critical section Chat ');
+      EnterCriticalsection(frmDXCluster.csTelnet);
+      try
+        ThChat := Trim(Chats.Strings[0]);
+        Chats.Delete(0)
+      finally
+        LeaveCriticalsection(frmDXCluster.csTelnet);
+        if dmData.DebugLevel>=2 then Writeln('TelThread.Execute - leave critical section Chat ');
+      end;
+      if dmData.DebugLevel >= 2 then Writeln('Chat: ',ThChat);
+      if dmData.DebugLevel>=1 then Writeln('TelThread.Execute - before Synchronize(@frmDXCluster.SynChat)');
+      Synchronize(@frmDXCluster.SynChat);
+      if dmData.DebugLevel>=1 then Writeln('TelThread.Execute - after Synchronize(@frmDXCluster.SynChat)')
+    end;
+
     sleep(500)
   end
 end;
@@ -1253,22 +1447,22 @@ end;
 procedure TfrmDXCluster.SynWeb;
 begin
   lblInfo.Caption := ThInfo;
-  if WebSpots.hledej(ThSpot,0,True,True) = -1 then
+  if WebSpots.Search(ThSpot,0,True,True) = -1 then
   begin
-    WebSpots.zakaz_kresleni(true);
-    WebSpots.pridej_vetu(ThSpot,ThColor,ThBckColor,0);
-    WebSpots.zakaz_kresleni(false)
+    WebSpots.DisableAutoRepaint(true);
+    WebSpots.AddLine(ThSpot,ThColor,ThBckColor,0);
+    WebSpots.DisableAutoRepaint(false)
   end
   {
   if ThSpot = '' then
     exit;
   Writeln('******************* Hledam:',ThSpot,'********');
-  if WebSpots.hledej(ThSpot,1,True,True) = -1 then
+  if WebSpots.Search(ThSpot,1,True,True) = -1 then
   begin
     Writeln('*****************Nenasel:',ThSpot,'********');
-    WebSpots.zakaz_kresleni(true);
+    WebSpots.DisableAutoRepaint(true);
     WebSpots.vloz_vetu(ThSpot,ThColor,clWhite,0,0);
-    WebSpots.zakaz_kresleni(false);
+    WebSpots.DisableAutoRepaint(false);
     Sleep(200)
   end
   else
@@ -1286,23 +1480,36 @@ begin
   //if dmData.DebugLevel>=1 then Writeln('TfrmDXCluster.SynTelnet - Before ]'yu
   if ConTelnet then
   begin
-    TelSpots.zakaz_kresleni(true);
-    TelSpots.pridej_vetu(ThSpot,ThColor,ThBckColor,0);
-    TelSpots.zakaz_kresleni(false)
+    TelSpots.DisableAutoRepaint(true);
+    TelSpots.AddLine(ThSpot,ThColor,ThBckColor,0);
+    TelSpots.DisableAutoRepaint(false)
   end
   else begin
     {
-    if WebSpots.hledej(ThSpot,0,True,True) = -1 then
+    if WebSpots.Search(ThSpot,0,True,True) = -1 then
     begin
-      WebSpots.zakaz_kresleni(true);
+      WebSpots.DisableAutoRepaint(true);
       WebSpots.vloz_vetu(ThSpot,ThColor,ThBckColor,0,0);
-      WebSpots.zakaz_kresleni(false);
+      WebSpots.DisableAutoRepaint(false);
     end
     }
   end;
   //if dmData.DebugLevel>=1 then Writeln('TfrmDXCluster.SynTelnet - before PridejVetu ');
   //if dmData.DebugLevel>=1 then Writeln('TfrmDXCluster.SynTelnet - after zakaz_kresleni');
   //Sleep(200)
+end;
+procedure TfrmDXCluster.SynChat;
+begin
+
+  if ThChat = '' then
+    exit;
+
+  if ConTelnet then
+  begin
+    ChatSpots.DisableAutoRepaint(true);
+    ChatSpots.AddLine(ThChat,clBlack,ChBckColor,0);
+    ChatSpots.DisableAutoRepaint(false)
+  end;
 end;
 
 procedure TfrmDXCluster.ReloadSettings;
@@ -1345,8 +1552,13 @@ begin
   end
 end;
 
-initialization
-  {$I fDXCluster.lrs}
+procedure TfrmDXCluster.ChangeCallAlertCaption;
+begin
+  if mnuCallalert.Checked then
+    mnuCallalert.Caption := 'Callsign alert enabled'
+  else
+    mnuCallalert.Caption := 'Enable callsign alert'
+end;
 
 end.
 

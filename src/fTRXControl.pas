@@ -211,6 +211,8 @@ var
   thRig : TRigThread;
 
 implementation
+{$R *.lfm}
+
 { TfrmTRXControl }
 uses dUtils, dData, fNewQSO, fBandMap, uMyIni, fGrayline, fRadioMemories;
 
@@ -597,10 +599,14 @@ begin
   if not TryStrToCurr(lblFreq.Caption,tmp) then
     SetMode('LSB',GetBandWidth('SSB'))
   else begin
-    if tmp > 10 then
+    if (tmp > 5) and (tmp < 6) then
       SetMode('USB',GetBandWidth('SSB'))
-    else
-      SetMode('LSB',GetBandWidth('SSB'))
+    else begin
+      if tmp > 10 then
+        SetMode('USB',GetBandWidth('SSB'))
+      else
+        SetMode('LSB',GetBandWidth('SSB'))
+    end
   end
 end;
 
@@ -793,7 +799,7 @@ end;
 
 function TfrmTRXControl.GetFreqFromModeBand(band : Integer; smode : String) : String;
 var
-  freq : Currency;
+  freq : Currency = 0;
   mode   : Integer = 0;
 begin
   if smode = 'CW' then
@@ -952,10 +958,14 @@ var
 begin
   if mode = 'SSB' then
   begin
-    if freq > 10000 then
+    if (freq > 5000) and (freq < 6000) then
       mode := 'USB'
-    else
-      mode := 'LSB'
+    else begin
+      if freq > 10000 then
+        mode := 'USB'
+      else
+        mode := 'LSB'
+    end
   end;
 
   if Assigned(radio) then
@@ -985,10 +995,14 @@ begin
   f := StrToFloat(freq);
   if mode = 'SSB' then
   begin
-    if f > 10000 then
+    if (f > 5000) and (f < 6000) then
       mode := 'USB'
-    else
-      mode := 'LSB'
+    else begin
+      if f > 10000 then
+        mode := 'USB'
+      else
+        mode := 'LSB'
+    end
   end;
 
   SetFreqModeBandWidth(f,mode,bandwidth)
@@ -1190,9 +1204,6 @@ begin
   btn2MBand   := dmUtils.GetBandFromFreq(FloatToStr(cqrini.ReadFloat('DefFreq','2cw',144050)/1000));
   btn70CMBand := dmUtils.GetBandFromFreq(FloatToStr(cqrini.ReadFloat('DefFreq','70cw',430000)/1000))
 end;
-
-initialization
-  {$I fTRXControl.lrs}
 
 end.
 

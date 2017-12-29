@@ -41,7 +41,6 @@ const
    NotExactly = 0; 
    Exactly    = 1; 
    ExNoEquals = 2; 
-   MaxCall = 100000;
 
 type
   { TdmDXCluster }
@@ -79,12 +78,9 @@ type
 
     //procedure VyhodnotZnacku(znacka : String; datum : TDateTime; var pfx, country, cont, ITU, WAZ, posun, lat, long : String);
   public
-    dxCallArray : Array [0..MaxCall] of String[20];
-
     function  LetterFromMode(mode : String) : String;
     function  DXCCInfo(adif : Word;freq,mode : String; var index : integer) : String;
     function  BandModFromFreq(freq : String;var mode,band : String) : Boolean;
-    function  UsesLotw(call : String) : Boolean;
     function  UseseQSL(call : String) : Boolean;
     function  id_country(znacka: string;datum : TDateTime; var pfx, cont, country, WAZ,
                                posun, ITU, lat, long: string) : Word; overload;
@@ -94,7 +90,7 @@ type
     function  PfxFromADIF(adif : Word) : String;
     function  CountryFromADIF(adif : Word) : String;
     function  GetBandFromFreq(freq : string; kHz : Boolean=false): String;
-    function  IsAlertCall(const call,band,mode : String) : Boolean;
+    function  IsAlertCall(const call,band,mode : String;RegExp :Boolean) : Boolean;
 
     procedure AddToMarkFile(prefix,call : String;sColor : Integer;Max,lat,long : String);
     procedure GetRealCoordinate(lat,long : String; var latitude, longitude: Currency);
@@ -110,6 +106,7 @@ var
   dmDXCluster: TdmDXCluster;
 
 implementation
+  {$R *.lfm}
 
 { TdmDXCluster }
 uses dUtils, dData, znacmech, uMyini;
@@ -857,9 +854,6 @@ begin
 
   qBands.SQL.Text := 'SELECT * FROM bands ORDER BY b_begin';
   qDXCCRef.SQL.Text  := 'SELECT * FROM dxcc_ref ORDER BY adif';
-
-  for i:=0 to MaxCall-1 do
-    dxCallArray[i] := dmData.CallArray[i]
 end;
 
 procedure TdmDXCluster.DataModuleDestroy(Sender: TObject);
@@ -972,44 +966,6 @@ begin
     uhej := sez1;
     sez2 := new(Pseznam,init(dmData.HomeDir + 'dxcc_data'+PathDelim+'country_del.tab',chy1));
     LoadDXCCRefArray
-  finally
-    LeaveCriticalsection(csDX)
-  end
-end;
-
-function TdmDXCluster.UsesLotw(call : String) : Boolean;
-var
-  i : Integer;
-  h : Integer;
-begin
-  EnterCriticalsection(csDX);
-  try
-    Result := False;
-    if call = '' then
-      exit;
-    call := dmUtils.GetIDCall(UpperCase(call));
-    for i:=0 to MaxCall-1 do
-    begin
-      if dxCallArray[i] = '' then
-        Break;
-      h := Ord(dxCallArray[i][1]);
-      if h = Ord(Call[1]) then
-      begin
-        if dxCallArray[i] = call then
-        begin
-          if dmData.DebugLevel>=1 then Writeln('Found - '+dxCallArray[i]);
-          Result := True;
-          Break
-        end
-      end
-      else begin
-        if h > Ord(Call[1]) then
-        begin
-          if dmData.DebugLevel>=1 then Writeln('NOT found - '+dxCallArray[i]);
-          Break
-        end
-      end
-    end
   finally
     LeaveCriticalsection(csDX)
   end
@@ -1188,50 +1144,44 @@ begin
   end
 end;
 
-function TdmDXCluster.IsAlertCall(const call,band,mode : String) : Boolean;
+function TdmDXCluster.IsAlertCall(const call,band,mode : String;RegExp :Boolean) : Boolean;
 const
+   //with complete call search %s or "call_alert/callsign" can be target. No difference.
    C_SEL = 'select * from call_alert where callsign = %s';
+   //with "pertial callsigns" %s is target and column "call_alert/callsign" contains regexp condition
+   C_RGX_SEL = 'select * from call_alert where %s regexp callsign';
 begin
+  Result := False;
   try
-    qCallAlert.SQL.Text := Format(C_SEL,[QuotedStr(call)]);
-    if dmData.DebugLevel>=1 then Writeln(qCallAlert.SQL.Text);
+    if RegExp then
+       qCallAlert.SQL.Text := Format(C_RGX_SEL,[QuotedStr(call)])
+    else
+      qCallAlert.SQL.Text := Format(C_SEL,[QuotedStr(call)]);
+    if dmData.DebugLevel>=1 then Writeln('Alert: ',qCallAlert.SQL.Text);
     trCallAlert.StartTransaction;
     qCallAlert.Open;
-    if qCallAlert.RecordCount = 0 then
-    begin
-      Result := False
-    end
-    else begin
-      Result := False;
+    if qCallAlert.RecordCount > 0 then
+   begin
+      if dmData.DebugLevel>=1 then Writeln('Alert: Call hits with ', qCallAlert.RecordCount,' records');
       qCallAlert.First;
-      while not qCallAlert.Eof do
+      while ( (not qCallAlert.Eof) and (not Result) ) do
       begin
-        if (qCallAlert.Fields[2].AsString='') and (qCallAlert.Fields[3].AsString='') then
-        begin
-          Result := True;
-          Break
-        end
-        else begin
-           if (band = qCallAlert.Fields[2].AsString) and (mode = qCallAlert.Fields[3].AsString) then
-           begin
-             Result := True;
-             Break
-           end
-        end;
+        Result :=(    (qCallAlert.Fields[2].AsString=''   ) and (qCallAlert.Fields[3].AsString='')
+                   or (qCallAlert.Fields[2].AsString= band) and (qCallAlert.Fields[3].AsString='')
+                   or (qCallAlert.Fields[2].AsString='')    and (qCallAlert.Fields[3].AsString= mode)
+                   or (qCallAlert.Fields[2].AsString= band) and (qCallAlert.Fields[3].AsString= mode)
+                 );
         qCallAlert.Next
-      end
-    end
+      end;
+      if dmData.DebugLevel>=1 then Writeln('Alert: Mode and/or band ',Result,
+                            ' Band:',qCallAlert.Fields[2].AsString,' Mode:',qCallAlert.Fields[3].AsString);
+    end;
   finally
     qCallAlert.Close;
     trCallAlert.Rollback;
   end
 end;
 
-
-
-
-initialization
-  {$I dDXCluster.lrs}
 
 end.
 

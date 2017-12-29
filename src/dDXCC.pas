@@ -17,7 +17,7 @@ interface
 
 uses
   Classes, SysUtils, LResources, Forms, Controls, Dialogs, sqldb,
-  mysql50conn, db, iniFiles, dateutils, FileUtil;
+  mysql50conn, db, iniFiles, dateutils, FileUtil, LazFileUtils;
 
 
 
@@ -134,6 +134,7 @@ var
   dmDXCC: TdmDXCC;
 
 implementation
+  {$R *.lfm}
 
 { TdmDXCC }
 
@@ -683,6 +684,7 @@ var
   sADIF : String;
   us_adif : Integer;
 begin
+  Result := 0;
   if (length(znacka)=0) then
   begin
     exit;
@@ -1099,9 +1101,6 @@ begin
     end
   end
 end;
-
-initialization
-  {$I dDXCC.lrs}
 
 end.
 

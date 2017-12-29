@@ -337,6 +337,8 @@ type
     procedure dbgrdMainColumnMoved(Sender: TObject; FromIndex, ToIndex: Integer
       );
     procedure dbgrdMainColumnSized(Sender: TObject);
+    procedure dbgrdMainDrawColumnCell(Sender : TObject; const Rect : TRect;
+      DataCol : Integer; Column : TColumn; State : TGridDrawState);
     procedure dbgrdMainEnter(Sender: TObject);
     procedure dbgrdMainKeyUp(Sender: TObject; var Key: Word; Shift: TShiftState
       );
@@ -438,6 +440,7 @@ var
   frmMain: TfrmMain;
 
 implementation
+{$R *.lfm}
 
 { TfrmMain }
 uses fNewQSO, fPreferences, dUtils, dData, dDXCC, dDXCluster, fMarkQSL, fDXCCStat,
@@ -477,7 +480,9 @@ begin
       if frmRotControl.Showing then
         dmUtils.LoadFontSettings(frmRotControl);
       if frmQSODetails.Showing then
-        frmQSODetails.LoadFonts
+        frmQSODetails.LoadFonts;
+
+      dmData.LoadQSODateColorSettings
     end
   finally
     Free
@@ -636,7 +641,7 @@ procedure TfrmMain.acEditQSOExecute(Sender: TObject);
 begin
   if dmData.qCQRLOG.RecordCount > 0 then
   begin
-    if frmNewQSO.mnuRemoteMode.Checked then
+    if (frmNewQSO.mnuRemoteMode.Checked) or (frmNewQSO.mnuRemoteModeWsjt.Checked) then
     begin
       Application.MessageBox('Log is in remote mode, please disable it.','Info ...',mb_ok + mb_IconInformation);
       exit
@@ -728,7 +733,7 @@ procedure TfrmMain.acViewExecute(Sender: TObject);
 begin
   if dmData.qCQRLOG.RecordCount = 0 then
     exit;
-  if frmNewQSO.mnuRemoteMode.Checked then
+  if (frmNewQSO.mnuRemoteMode.Checked) or (frmNewQSO.mnuRemoteModeWsjt.Checked) then
   begin
       Application.MessageBox('Log is in remote mode, please disable it.','Info ...',mb_ok + mb_IconInformation);
     exit
@@ -1419,6 +1424,19 @@ begin
   dmUtils.SaveForm(frmMain)
 end;
 
+procedure TfrmMain.dbgrdMainDrawColumnCell(Sender : TObject;
+  const Rect : TRect; DataCol : Integer; Column : TColumn;
+  State : TGridDrawState);
+begin
+  if dmData.UseQSOColor then
+  begin
+    if dmData.qCQRLOG.FieldByName('qsodate').AsDateTime < dmData.QSOColorDate then
+      dbgrdMain.Canvas.Font.Color := dmData.QSOColor
+  end;
+
+  dbgrdMain.DefaultDrawColumnCell(Rect,DataCol,Column,State)
+end;
+
 procedure TfrmMain.dbgrdMainEnter(Sender: TObject);
 begin
   CheckAttachment
@@ -1600,18 +1618,8 @@ end;
 procedure TfrmMain.FormCloseQuery(Sender: TObject; var CanClose: boolean);
 begin
   dmUtils.SaveForm(frmMain);
-  if not (WindowState = wsMaximized) then
-  begin
-    cqrini.WriteInteger('Main', 'Height', Height);
-    cqrini.WriteInteger('Main', 'Width', Width);
-    cqrini.WriteInteger('Main', 'Top', Top);
-    cqrini.WriteInteger('Main', 'Left', Left);
-    cqrini.WriteBool('Main', 'Max', False);
-    if dmData.DebugLevel>1 then Writeln('Saving window size a position (height|width|top|left):',
-    height,'|',Width,'|',top,'|',left)
-  end
-  else
-    cqrini.WriteBool('Main', 'Max', True);
+  dmUtils.SaveWindowPos(frmMain);
+
   cqrini.WriteBool('Main', 'Toolbar', toolMain.Visible);
   cqrini.WriteBool('Main', 'Buttons', pnlButtons.Visible);
   cqrini.WriteBool('Main', 'Details', pnlDetails.Visible);
@@ -1784,7 +1792,7 @@ end;
 
 procedure TfrmMain.acQSL_RExecute(Sender: TObject);
 var
-  idx: integer;
+  idx : integer = 0;
   i: integer = 0;
 
   procedure MarkRec;
@@ -1931,17 +1939,9 @@ begin
   toolMain.Visible   := cqrini.ReadBool('Main', 'Toolbar', True);
   pnlButtons.Visible := cqrini.ReadBool('Main', 'Buttons', True);
   pnlDetails.Visible := cqrini.ReadBool('Main', 'Details', True);
-  if not cqrini.ReadBool('Main', 'Max', False) then
-  begin
-    Height := cqrini.ReadInteger('Main', 'Height', Height);
-    Width  := cqrini.ReadInteger('Main', 'Width', Width);
-    Top    := cqrini.ReadInteger('Main', 'Top', 0);
-    Left   := cqrini.ReadInteger('Main', 'Left', 0);
-    if dmData.DebugLevel>1 then Writeln('Loading window size a position (height|width|top|left):',
-    height,'|',Width,'|',top,'|',left)
-  end
-  else
-    WindowState := wsMaximized;
+
+  dmUtils.LoadWindowPos(frmMain);
+
   CheckAttachment;
   mnuShowButtons.Checked := pnlButtons.Visible;
   mnuShowToolBar.Checked := toolMain.Visible
@@ -2219,9 +2219,6 @@ begin
       acQSLImage.Enabled := False
   end
 end;
-
-initialization
-  {$I fMain.lrs}
 
 end.
 

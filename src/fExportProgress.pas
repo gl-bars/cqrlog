@@ -6,7 +6,7 @@ interface
 
 uses
   Classes, SysUtils, LResources, Forms, Controls, Graphics, Dialogs, StdCtrls,
-  ComCtrls, iniFiles, ExtCtrls, db, dateutils, FileUtil;
+  ComCtrls, iniFiles, ExtCtrls, db, dateutils, FileUtil, LazFileUtils,strutils;
 
 type
 
@@ -25,7 +25,7 @@ type
                               ExQSLVIA,ExIOTA,ExAward,ExLoc,ExMyLoc,ExPower,
                               ExCounty,ExDXCC,ExRemarks,ExWAZ, ExITU,ExNote,ExState,ExProfile,
                               ExLQslS,ExLQslSDate,ExLQslR,ExLQslRDate,ExCont,ExQSLSDate,ExQSLRDate,
-                              ExeQslS,ExeQslSDate,ExeQslR,ExeQslRDate: Boolean);
+                              ExeQslS,ExeQslSDate,ExeQslR,ExeQslRDate,exAscTime: Boolean);
     procedure ExportADIF;
     procedure ExportHTML;
 
@@ -43,9 +43,10 @@ var
   running : Boolean = False;
   
 implementation
+{$R *.lfm}
 
 { TfrmExportProgress }
-uses dUtils, dData, uMyini, dDXCC, uVersion;
+uses dUtils, dData, uMyIni, dDXCC, uVersion;
 
 procedure TfrmExportProgress.FormCreate(Sender: TObject);
 begin
@@ -84,7 +85,7 @@ procedure TfrmExportProgress.FieldsForExport(var ExDate,ExTimeOn,ExTimeOff,ExCal
                              ExQSLVIA,ExIOTA,ExAward,ExLoc,ExMyLoc,ExPower,
                              ExCounty,ExDXCC,ExRemarks,ExWAZ, ExITU,ExNote,ExState,ExProfile,
                              ExLQslS,ExLQslSDate,ExLQslR,ExLQslRDate,ExCont,ExQSLSDate,ExQSLRDate,
-                             ExeQslS,ExeQslSDate,ExeQslR,ExeQslRDate: Boolean);
+                             ExeQslS,ExeQslSDate,ExeQslR,ExeQslRDate,exAscTime: Boolean);
 begin
   exDate    := cqrini.ReadBool('Export','Date',True);
   exTimeOn  := cqrini.ReadBool('Export','time_on',True);
@@ -122,7 +123,8 @@ begin
   ExeQslS     := cqrini.ReadBool('Export','eQSLS',False);
   ExeQslSDate := cqrini.ReadBool('Export','eQSLSDate',False);
   ExeQslR     := cqrini.ReadBool('Export','eQSLR',False);
-  ExeQslRDate := cqrini.ReadBool('Export','eQSLRDate',False)
+  ExeQslRDate := cqrini.ReadBool('Export','eQSLRDate',False);
+  exAscTime   := cqrini.ReadBool('Export','AscTime',False);
 end;
 
 procedure TfrmExportProgress.ExportADIF;
@@ -144,7 +146,7 @@ var
   ExQSLVIA,ExIOTA,ExAward,ExLoc,ExMyLoc,ExPower,
   ExCounty,ExDXCC,ExRemarks,ExWAZ, ExITU,ExNote,ExState, ExProfile : Boolean;
   ExLQslS,ExLQslSDate,ExLQslR,ExLQslRDate,ExCont,ExQSLSDate,ExQSLRDate : Boolean;
-  ExeQslS,ExeQslSDate,ExeQslR,ExeQslRDate : Boolean;
+  ExeQslS,ExeQslSDate,ExeQslR,ExeQslRDate,exAscTime : Boolean;
   Source : TDataSet;
   FirstBackupPath : String;
 
@@ -214,26 +216,82 @@ var
     end;
     if exRSTS then
     begin
-      tmp := '<RST_SENT' + dmUtils.StringToADIF(RSTS);
+      tmp := '<RST_SENT' + dmUtils.StringToADIF(ExtractWord(1,RSTS,[' ']));
       Write(f,tmp);
-      leng := leng + Length(tmp)
+      leng := leng + Length(tmp);
+      if leng>200 then
+       begin
+         Writeln(f);
+         leng := 0
+       end;
+      if length(RSTS)>3 then // there is something else
+      Begin
+          tmp:=ExtractWord(2,RSTS,[' ']);  //contest NR
+          if (tmp <>'') then
+            Begin
+               tmp := '<STX' + dmUtils.StringToADIF(tmp);
+               Write(f,tmp);
+               leng := leng + Length(tmp);
+               if leng>200 then
+               begin
+                 Writeln(f);
+                 leng := 0
+               end;
+            end;
+          tmp:=ExtractWord(3,RSTS,[' ']);   //Contest MSG
+          if (tmp <>'') then
+            Begin
+               tmp := '<STX_STRING' + dmUtils.StringToADIF(tmp);
+               Write(f,tmp);
+               leng := leng + Length(tmp);
+               if leng>200 then
+               begin
+                 Writeln(f);
+                 leng := 0
+               end;
+            end;
+      end;
     end;
-    if leng>200 then
-    begin
-      Writeln(f);
-      leng := 0
-    end;
+
     if exRSTR then
-    begin
-      tmp := '<RST_RCVD' + dmUtils.StringToADIF(RSTR);
-      Write(f,tmp);
-      leng := leng + Length(tmp)
-    end;
-    if leng>200 then
-    begin
-      Writeln(f);
-      leng := 0
-    end;
+      begin
+        tmp := '<RST_RCVD' + dmUtils.StringToADIF(ExtractWord(1,RSTR,[' ']));
+        Write(f,tmp);
+        leng := leng + Length(tmp);
+        if leng>200 then
+         begin
+           Writeln(f);
+           leng := 0
+         end;
+        if length(RSTR)>3 then // there is something else
+        Begin
+            tmp:=ExtractWord(2,RSTR,[' ']);  //contest NR
+            if (tmp <>'') then
+              Begin
+                 tmp := '<SRX' + dmUtils.StringToADIF(tmp);
+                 Write(f,tmp);
+                 leng := leng + Length(tmp);
+                 if leng>200 then
+                 begin
+                   Writeln(f);
+                   leng := 0
+                 end;
+              end;
+            tmp:=ExtractWord(3,RSTR,[' ']);   //Contest MSG
+            if (tmp <>'') then
+              Begin
+                 tmp := '<SRX_STRING' + dmUtils.StringToADIF(tmp);
+                 Write(f,tmp);
+                 leng := leng + Length(tmp);
+                 if leng>200 then
+                 begin
+                   Writeln(f);
+                   leng := 0
+                 end;
+              end;
+        end;
+      end;
+
     if exName then
     begin
       if Length(sName) > 0 then
@@ -266,10 +324,15 @@ var
     begin
       if Length(QSLS) > 0 then
       begin
-        if Pos('S',QSLS) > 1 then
+        if Pos('S',QSLS) > 0 then
           tmp := '<QSL_SENT' + dmUtils.StringToADIF('R')
         else
+        begin
+          if Pos('N',QSLS)=1 then
+            tmp := '<QSL_SENT' + dmUtils.StringToADIF('I')
+          else
           tmp := '<QSL_SENT' + dmUtils.StringToADIF('Y')
+        end
       end
       else
         tmp := '<QSL_SENT' + dmUtils.StringToADIF('N');
@@ -536,14 +599,14 @@ begin
                     ExQSLVIA,ExIOTA,ExAward,ExLoc,ExMyLoc,ExPower,
                     ExCounty,ExDXCC,ExRemarks,ExWAZ,ExITU,ExNote,ExState,ExProfile,
                     ExLQslS,ExLQslSDate,ExLQslR,ExLQslRDate,ExCont,ExQSLSDate,ExQSLRDate,
-                    ExeQslS,ExeQslSDate,ExeQslR,ExeQslRDate)
+                    ExeQslS,ExeQslSDate,ExeQslR,ExeQslRDate,ExAscTime)
   else begin
     ExDate := True;ExTimeOn := True;ExTimeOff := True;ExCall := True;ExMode := True;
     ExFreq := True;ExRSTS := True;ExRSTR := True;ExName := True;ExQTH := True;ExQSLS := True;ExQSLR := True;
     ExQSLVIA := True;ExIOTA := True;ExAward := True;ExLoc := True;ExMyLoc := True;ExPower := True;
     ExCounty := True;ExDXCC := True;ExRemarks := True;ExWAZ := True;ExITU := True;ExNote := True;ExState := True;ExProfile := True;
     ExLQslS := True;ExLQslSDate := True;ExLQslR := True;ExLQslRDate := True; ExCont := True;
-    ExeQslS := True;ExeQslSDate := True;ExeQslR := True;ExeQslRDate := True;
+    ExeQslS := True;ExeQslSDate := True;ExeQslR := True;ExeQslRDate := True; exAscTime := False;
 
     if not DirectoryExistsUTF8(dmData.HomeDir + 'tmp') then
       CreateDirUTF8(dmData.HomeDir + 'tmp');
@@ -553,12 +616,12 @@ begin
 
   AssignFile(f, FileName);
   Rewrite(f);
-  Writeln(f, '<ADIF_VER:5>2.2.1');
   Writeln(f, 'ADIF export from CQRLOG for Linux version '+dmData.VersionString);
-  Writeln(f, 'Copyright (C) ',YearOf(now),' by Petr, OK2CQR and Martin, OK1RR');
+  Writeln(f, 'Copyright (C) ',YearOf(now),' by Petr, OK7AN and Martin, OK1RR');
   Writeln(f);
   Writeln(f, 'Internet: http://www.cqrlog.com');
   Writeln(f);
+  Writeln(f, '<ADIF_VER:5>2.2.1');
   Writeln(f, '<PROGRAMID:6>CQRLOG');
   Writeln(f, '<PROGRAMVERSION:',Length(cVERSION),'>',cVERSION);
   Writeln(f, '<EOH>');
@@ -571,7 +634,10 @@ begin
     if AutoBackup or (not dmData.IsFilter) then
     begin
       dmData.Q.Close;
-      dmData.Q.SQL.Text := 'SELECT * FROM view_cqrlog_main_by_qsodate';
+      if exAscTime then
+        dmData.Q.SQL.Text := 'SELECT * FROM view_cqrlog_main_by_qsodate_asc'
+      else
+        dmData.Q.SQL.Text := 'SELECT * FROM view_cqrlog_main_by_qsodate';
       dmData.trQ.StartTransaction;
       dmData.Q.Open;
       Source := dmData.Q
@@ -724,7 +790,7 @@ var
   ExQSLVIA,ExIOTA,ExAward,ExLoc,ExMyLoc,ExPower,
   ExCounty,ExDXCC,ExRemarks,ExWAZ, ExITU,ExNote, exState, ExProfile : Boolean;
   ExLQslS,ExLQslSDate,ExLQslR,ExLQslRDate,ExCont,ExQSLSDate, ExQSLRDate : Boolean;
-  ExeQslS,ExeQslSDate,ExeQslR,ExeQslRDate : Boolean;
+  ExeQslS,ExeQslSDate,ExeQslR,ExeQslRDate,exAscTime : Boolean;
 
   procedure SaveData(qsodate,TimeOn,TimeOff,Call,Freq,Mode,RSTS,RSTR,sName,
                      QTH,QSLS,QSLR,QSLVIA,IOTA,Power,Itu,waz,loc,Myloc,County,
@@ -964,7 +1030,7 @@ begin
                   ExQSLVIA,ExIOTA,ExAward,ExLoc,ExMyLoc,ExPower,
                   ExCounty,ExDXCC,ExRemarks,ExWAZ, ExITU,ExNote, ExState,
                   ExProfile,ExLQslS,ExLQslSDate,ExLQslR,ExLQslRDate,ExCont,ExQSLSDate,ExQSLRDate,
-                  ExeQslS,ExeQslSDate,ExeQslR,ExeQslRDate);
+                  ExeQslS,ExeQslSDate,ExeQslR,ExeQslRDate,exAscTime);
 
   AssignFile(f, FileName);
   Rewrite(f);
@@ -1155,7 +1221,10 @@ begin
   if not dmData.IsFilter then
   begin
     dmData.Q.Close;
-    dmData.Q.SQL.Text := 'SELECT * FROM view_cqrlog_main_by_qsodate';
+    if exAscTime then
+      dmData.Q.SQL.Text := 'SELECT * FROM view_cqrlog_main_by_qsodate_asc'
+    else
+      dmData.Q.SQL.Text := 'SELECT * FROM view_cqrlog_main_by_qsodate';
     dmData.trQ.StartTransaction;
     dmData.Q.Open;
     Source := dmData.Q
@@ -1260,10 +1329,6 @@ begin
     Close
   end
 end;
-
-
-initialization
-  {$I fExportProgress.lrs}
 
 end.
 

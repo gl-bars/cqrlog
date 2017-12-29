@@ -44,6 +44,7 @@ var
   frmImportLoTWWeb: TfrmImportLoTWWeb;
 
 implementation
+{$R *.lfm}
 
 uses fPreferences, dUtils, dData, fImportProgress, uMyini;
 
@@ -70,6 +71,7 @@ var
   Count : Word = 0;
 begin
   Done := False;
+  FileSize := 0;
   mStat.Clear;
   Application.ProcessMessages;
   if not dmUtils.IsDateOK(edtDateFrom.Text) then
@@ -78,21 +80,17 @@ begin
     edtDateFrom.SetFocus;
     exit
   end;
-  //DLLSSLName  := dmData.cDLLSSLName;
-  //DLLUtilName := dmData.cDLLUtilName;
 
   cqrini.WriteString('LoTWImp','Call',edtCall.Text);
   AdifFile := dmData.HomeDir + 'lotw/'+FormatDateTime('yyyy-mm-dd_hh-mm-ss',now)+'.adi';
   QSOList  := TStringList.Create;
   http     := THTTPSend.Create;
-{
-  SSLLibFile  := dmData.DLLSSLName;
-  SSLUtilFile := dmData.DLLUtilName;
-  }
-  Writeln('DLLSSLName:',DLLSSLName);
-  Writeln('DLLUtilName:',DLLUtilName);
-  Writeln('SSLLibFile:',SSLLibFile);
-  Writeln('SSLUtilFile:',SSLLibFile);
+
+  if dmData.DebugLevel>=1 then
+  begin
+    Writeln('DLLSSLName:',DLLSSLName);
+    Writeln('DLLUtilName:',DLLUtilName)
+  end;
 
   m        := TFileStream.Create(AdifFile,fmCreate);
   try
@@ -127,7 +125,6 @@ begin
     http.Protocol := '1.1';
     if http.HTTPMethod('GET',url) then
     begin
-      Writeln('SSLLibfile:',SSLLibFile);
       mStat.Lines.Add('Connected to LoTW server');
       http.Document.Seek(0,soBeginning);
       m.CopyFrom(http.Document,HTTP.Document.Size);
@@ -172,7 +169,6 @@ begin
       begin
         http.Document.Seek(0,soBeginning);
         m.CopyFrom(http.Document,HTTP.Document.Size);
-        Writeln('SSLLibfile:',SSLLibFile);
         mStat.Lines.LoadFromStream(m)
       end;
       mStat.Lines.Add('NOT logged');
@@ -194,16 +190,7 @@ end;
 
 procedure TfrmImportLoTWWeb.FormShow(Sender: TObject);
 begin
-  if not cqrini.ReadBool('LoTWImp','Max',False) then
-  begin
-    Height           := cqrini.ReadInteger('LoTWImp','Height',Height);
-    Width            := cqrini.ReadInteger('LoTWImp','Width',Width);
-    Top              := cqrini.ReadInteger('LoTWImp','Top',top);
-    Left             := cqrini.ReadInteger('LoTWImp','Left',left)
-  end
-  else begin
-    WindowState := wsMaximized
-  end;
+  dmUtils.LoadWindowPos(self);
   chkShowNew.Checked := cqrini.ReadBool('LoTWImp','ShowNewQSOs',True);
   edtDateFrom.Text   := cqrini.ReadString('LoTWImp','DateFrom','1990-01-01');
   edtCall.Text       := cqrini.ReadString('LoTWImp','Call',
@@ -214,19 +201,7 @@ end;
 procedure TfrmImportLoTWWeb.FormCloseQuery(Sender: TObject;
   var CanClose: boolean);
 begin
-  if not (WindowState = wsMaximized) then
-  begin
-    cqrini.WriteInteger('LoTWImp','Height',Height);
-    cqrini.WriteInteger('LoTWImp','Width',Width);
-    cqrini.WriteInteger('LoTWImp','Top',Top);
-    cqrini.WriteInteger('LoTWImp','Left',Left);
-    cqrini.WriteBool('LoTWImp','Max', False);
-    cqrini.WriteString('LoTWImp','DateFrom',edtDateFrom.Text)
-  end
-  else begin
-    cqrini.WriteBool('LoTWImp','Max', True)
-  end;
-  cqrini.WriteBool('LoTWImp','ShowNewQSOs',chkShowNew.Checked)
+  dmUtils.SaveWindowPos(self)
 end;
 
 procedure TfrmImportLoTWWeb.SockCallBack (Sender: TObject; Reason:  THookSocketReason; const  Value: string);
@@ -238,12 +213,8 @@ begin
       mStat.Lines.Strings[mStat.Lines.Count-1] := 'Size: '+ IntToStr(FileSize);
     Repaint;
     Application.ProcessMessages
-  end;
-  Writeln(Value);
+  end
 end;
-
-initialization
-  {$I fImportLoTWWeb.lrs}
 
 end.
 

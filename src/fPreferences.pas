@@ -18,7 +18,7 @@ interface
 uses
   Classes, SysUtils, LResources, Forms, Controls, Graphics, Dialogs, ComCtrls,
   ExtCtrls, StdCtrls, Buttons, inifiles, DB, process, Spin, ColorBox, lcltype,
-  uCWKeying, frExportPref, types, fileutil;
+  uCWKeying, frExportPref, types, fileutil, LazFileUtils;
 
 type
 
@@ -71,6 +71,7 @@ type
     btnAlertCallsigns: TButton;
     btnCfgStorage: TButton;
     btnAddTrxMem : TButton;
+    btnSelectQSOColor : TButton;
     cb10m1: TCheckBox;
     cb12m1: TCheckBox;
     cb136kHz: TCheckBox;
@@ -117,6 +118,9 @@ type
     cb125m: TCheckBox;
     cb60m: TCheckBox;
     cb30cm: TCheckBox;
+    chkFldXmlRpc: TCheckBox;
+    chkQSOColor : TCheckBox;
+    chkFillAwardField : TCheckBox;
     chkUseCallbookZonesEtc : TCheckBox;
     chkModeRelatedOnly : TCheckBox;
     chkTrxControlDebug : TCheckBox;
@@ -150,7 +154,6 @@ type
     chkRot1RunRotCtld: TCheckBox;
     chkRot2RunRotCtld: TCheckBox;
     chkShowDxcCountry : TCheckBox;
-    chkClearNewQSOFreq : TCheckBox;
     chkClearRIT : TCheckBox;
     chkCountry: TCheckBox;
     chkR1RunRigCtld: TCheckBox;
@@ -251,6 +254,7 @@ type
     chkexTimeoff1: TCheckBox;
     chkexTimeon1: TCheckBox;
     chkexWAZ1: TCheckBox;
+    chkexAscTime: TCheckBox;
     chkFreq3: TCheckBox;
     chkFreq4: TCheckBox;
     chkFreq5: TCheckBox;
@@ -467,6 +471,10 @@ type
     cmbDataBitsR1: TComboBox;
     cl10db : TColorBox;
     cmbModelRig1: TComboBox;
+    dlgColor : TColorDialog;
+    edtDropSyncErr: TSpinEdit;
+    edtQSOColorDate : TEdit;
+    edtWsjtIp: TEdit;
     edtCondxImageUrl: TEdit;
     edtBackupPath1: TEdit;
     edtR1Host : TEdit;
@@ -488,7 +496,6 @@ type
     edtRotor2: TEdit;
     edtWatchFor : TEdit;
     edtRBNLogin : TEdit;
-    edtFreqChange : TEdit;
     edtPoll1: TEdit;
     edtPoll2: TEdit;
     edtRot1Poll: TEdit;
@@ -541,7 +548,6 @@ type
     edtDefaultRST: TEdit;
     edtGrayLineOffset: TEdit;
     edtSunOffset: TEdit;
-    edtLoadFromFldigi1: TSpinEdit;
     edtOffset: TEdit;
     edtCWAddress: TEdit;
     edtCWPort: TEdit;
@@ -555,8 +561,10 @@ type
     edtWinMaxSpeed: TSpinEdit;
     edtK3NGPort: TEdit;
     edtK3NGSpeed: TSpinEdit;
+    edtFldigiIp: TEdit;
     edtWsjtPath: TEdit;
     edtWsjtPort: TEdit;
+    edtFldigiPort: TEdit;
     edtXRefresh: TEdit;
     edtXLastSpots: TEdit;
     edtXTop: TEdit;
@@ -765,6 +773,12 @@ type
     Label204: TLabel;
     Label205: TLabel;
     Label206 : TLabel;
+    Label26: TLabel;
+    Label46 : TLabel;
+    Label47 : TLabel;
+    Label48: TLabel;
+    Label49: TLabel;
+    Label50: TLabel;
     lbl: TLabel;
     Label19: TLabel;
     Label2: TLabel;
@@ -774,7 +788,6 @@ type
     Label23: TLabel;
     Label24: TLabel;
     Label25: TLabel;
-    Label26 : TLabel;
     Label27: TLabel;
     Label28: TLabel;
     Label29: TLabel;
@@ -866,6 +879,7 @@ type
     Panel3: TPanel;
     Panel4: TPanel;
     Panel5: TPanel;
+    pnlQSOColor : TPanel;
     pgTRXControl: TPageControl;
     pgPreferences: TPageControl;
     Panel1: TPanel;
@@ -943,6 +957,7 @@ type
     procedure btnChangeDefFreqClick(Sender: TObject);
     procedure btnChangeDefModeClick(Sender: TObject);
     procedure btnFldigiPathClick(Sender: TObject);
+    procedure btnSelectQSOColorClick(Sender : TObject);
     procedure Button1Click(Sender: TObject);
     procedure Button2Click(Sender: TObject);
     procedure btnBrowseBackupClick(Sender: TObject);
@@ -1016,6 +1031,7 @@ type
     procedure edtPoll2Exit(Sender: TObject);
     procedure edtPoll1Exit(Sender: TObject);
     procedure pgPreferencesChange(Sender: TObject);
+    procedure pnlQSOColorClick(Sender : TObject);
   private
     wasOnlineLogSupportEnabled : Boolean;
   public
@@ -1035,6 +1051,7 @@ var
   WinKeyerChanged : Boolean;
 
 implementation
+{$R *.lfm}
 
 { TfrmPreferences }
 uses dUtils, dData, fMain, fFreq, fQTHProfiles, fSerialPort, fClubSettings, fLoadClub,
@@ -1073,14 +1090,10 @@ begin
   cqrini.WriteBool('NewQSO', 'AutoQQSLS', chkAutoQQSLS.Checked);
   cqrini.WriteBool('NewQSO', 'AllVariants', chkAllVariants.Checked);
   cqrini.WriteBool('NewQSO','ClearRIT',chkClearRIT.Checked);
-  if TryStrToCurr(edtFreqChange.Text,Freq) then
-    cqrini.WriteFloat('NewQSO','FreqChange',freq/1000)
-  else
-    cqrini.WriteFloat('NewQSO','FreqChange',0.010);
-  cqrini.WriteBool('NewQSO','ClearAfterFreqChange',chkClearNewQSOFreq.Checked);
   cqrini.WriteBool('NewQSO','UseCallBookData',chkUseCallBookData.Checked);
   cqrini.WriteBool('NewQSO','CapFirstQTHLetter',chkCapFirstQTHLetter.Checked);
   cqrini.WriteBool('NewQSO','UseCallbookZonesEtc',chkUseCallbookZonesEtc.Checked);
+  cqrini.WriteBool('NewQSO','FillAwardField',chkFillAwardField.Checked);
 
   cqrini.WriteString('Program', 'Proxy', edtProxy.Text);
   cqrini.WriteString('Program', 'Port', edtPort.Text);
@@ -1098,6 +1111,9 @@ begin
   cqrini.WriteFloat('Program', 'SunOffset', StrToCurr(edtSunOffset.Text));
   cqrini.WriteBool('Program', 'SysUTC', chkSysUTC.Checked);
   cqrini.WriteBool('Program','ShowMiles',chkShowMiles.Checked);
+  cqrini.WriteBool('Program', 'QSODiffColor', chkQSOColor.Checked);
+  cqrini.WriteInteger('Program', 'QSOColor', pnlQSOColor.Color);
+  cqrini.WriteString('Program', 'QSOColorDate', edtQSOColorDate.Text);
 
   cqrini.WriteBool('Columns', 'Date', chkDate.Checked);
   cqrini.WriteBool('Columns', 'time_on', chkTimeOn.Checked);
@@ -1407,9 +1423,14 @@ begin
   cqrini.WriteInteger('fldigi', 'interval', edtLoadFromFldigi.Value);
   cqrini.WriteBool('fldigi', 'run', chkRunFldigi.Checked);
   cqrini.WriteString('fldigi', 'path', edtFldigiPath.Text);
+  cqrini.WriteString('fldigi','port',edtFldigiPort.Text);
+  cqrini.WriteString('fldigi','ip',edtFldigiIp.Text);
+  cqrini.WriteBool('fldigi', 'xmlrpc', chkFldXmlRpc.Checked);
+  cqrini.WriteInteger('fldigi', 'dropSyErr', edtDropSyncErr.Value);
 
   cqrini.WriteString('wsjt','path',edtWsjtPath.Text);
   cqrini.WriteString('wsjt','port',edtWsjtPort.Text);
+  cqrini.WriteString('wsjt','ip',edtWsjtIp.Text);
   cqrini.WriteBool('wsjt','run',chkRunWsjt.Checked);
   cqrini.WriteInteger('wsjt', 'freq', rgWsjtFreqFrom.ItemIndex);
   cqrini.WriteString('wsjt', 'deffreq', edtWsjtDefaultFreq.Text);
@@ -1923,6 +1944,13 @@ begin
     edtFldigiPath.Text := dlgOpen.FileName;
 end;
 
+procedure TfrmPreferences.btnSelectQSOColorClick(Sender : TObject);
+begin
+  dlgColor.Color := pnlQSOColor.Color;
+  if dlgColor.Execute then
+    pnlQSOColor.Color := dlgColor.Color
+end;
+
 procedure TfrmPreferences.btnChangeDefFreqClick(Sender: TObject);
 begin
   frmNewQSODefValues := TfrmNewQSODefValues.Create(frmPreferences);
@@ -2412,11 +2440,10 @@ begin
   chkAutoQQSLS.Checked := cqrini.ReadBool('NewQSO', 'AutoQQSLS', False);
   chkAllVariants.Checked := cqrini.ReadBool('NewQSO', 'AllVariants', False);
   chkClearRIT.Checked := cqrini.ReadBool('NewQSO','ClearRIT',False);
-  edtFreqChange.Text := FloatToStr(cqrini.ReadFloat('NewQSO','FreqChange',0.010)*1000);
-  chkClearNewQSOFreq.Checked := cqrini.ReadBool('NewQSO','ClearAfterFreqChange',False);
   chkUseCallBookData.Checked := cqrini.ReadBool('NewQSO','UseCallBookData',False);
   chkCapFirstQTHLetter.Checked := cqrini.ReadBool('NewQSO','CapFirstQTHLetter',True);
   chkUseCallbookZonesEtc.Checked := cqrini.ReadBool('NewQSO','UseCallbookZonesEtc',True);
+  chkFillAwardField.Checked := cqrini.ReadBool('NewQSO','FillAwardField',True);
 
   edtProxy.Text := cqrini.ReadString('Program', 'Proxy', '');
   edtPort.Text := cqrini.ReadString('Program', 'Port', '');
@@ -2434,6 +2461,9 @@ begin
   edtSunOffset.Text := CurrToStr(cqrini.ReadFloat('Program', 'SunOffset', 0));
   chkSysUTC.Checked := cqrini.ReadBool('Program', 'SysUTC', True);
   chkShowMiles.Checked := cqrini.ReadBool('Program','ShowMiles',False);
+  chkQSOColor.Checked := cqrini.ReadBool('Program', 'QSODiffColor', False);
+  pnlQSOColor.Color := cqrini.ReadInteger('Program', 'QSOColor', clBlack);
+  edtQSOColorDate.Text := cqrini.ReadString('Program', 'QSOColorDate', '');
 
   if cqrini.ReadBool('Program', 'BandStatMHz', True) then
     rgStatistics.ItemIndex := 0
@@ -2760,12 +2790,17 @@ begin
   edtDefaultRST.Text := cqrini.ReadString('fldigi', 'defrst', '599');
   rgRSTFrom.ItemIndex := cqrini.ReadInteger('fldigi', 'rst', 0);
   edtLoadFromFldigi.Value := cqrini.ReadInteger('fldigi', 'interval', 2);
-
   chkRunFldigi.Checked := cqrini.ReadBool('fldigi', 'run', False);
   edtFldigiPath.Text := cqrini.ReadString('fldigi', 'path', '');
+  edtFldigiPort.Text := cqrini.ReadString('fldigi','port','7362');
+  edtFldigiIp.Text :=  cqrini.ReadString('fldigi','ip','127.0.0.1');
+  chkFldXmlRpc.Checked := cqrini.ReadBool('fldigi', 'xmlrpc', False);
+  edtDropSyncErr.Value:= cqrini.ReadInteger('fldigi', 'dropSyErr', 3);
+
 
   edtWsjtPath.Text         := cqrini.ReadString('wsjt','path','');
   edtWsjtPort.Text         := cqrini.ReadString('wsjt','port','2237');
+  edtWsjtIp.Text           := cqrini.ReadString('wsjt','ip','127.0.0.1');
   chkRunWsjt.Checked       := cqrini.ReadBool('wsjt','run',False);
   rgWsjtFreqFrom.ItemIndex := cqrini.ReadInteger('wsjt', 'freq', 1);
   edtWsjtDefaultFreq.Text  := cqrini.ReadString('wsjt', 'deffreq', '3.600');
@@ -2874,8 +2909,10 @@ begin
   lbPreferences.Selected[pgPreferences.ActivePageIndex] := True;
 end;
 
-initialization
-  {$I fPreferences.lrs}
+procedure TfrmPreferences.pnlQSOColorClick(Sender : TObject);
+begin
+  btnSelectQSOColor.Click
+end;
 
 end.
 

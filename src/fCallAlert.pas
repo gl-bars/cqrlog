@@ -6,7 +6,7 @@ interface
 
 uses
   Classes, SysUtils, db, FileUtil, LResources, Forms, Controls, Graphics,
-  Dialogs, DBGrids, ExtCtrls, StdCtrls, ActnList, LCLType;
+  Dialogs, DBGrids, ExtCtrls, StdCtrls, ActnList, LCLType, uMyIni;
 
 type
 
@@ -22,6 +22,7 @@ type
     Button2: TButton;
     Button3: TButton;
     Button4: TButton;
+    chkAllowRegExp: TCheckBox;
     dsrCallAlert: TDataSource;
     dbgrdCallAlert: TDBGrid;
     Panel1: TPanel;
@@ -41,6 +42,7 @@ var
   frmCallAlert: TfrmCallAlert;
 
 implementation
+{$R *.lfm}
 
 uses dUtils, dData, fNewCallAlert;
 
@@ -49,8 +51,10 @@ uses dUtils, dData, fNewCallAlert;
 procedure TfrmCallAlert.FormShow(Sender: TObject);
 begin
   dmUtils.LoadForm(self);
-  dsrCallAlert.DataSet := dmData.Q;
+  dsrCallAlert.DataSet := dmData.Q2;
   RefreshCallsignList();
+
+  chkAllowRegExp.Checked := cqrini.ReadBool('DxCluster', 'AlertRegExp', False)
 end;
 
 procedure TfrmCallAlert.acNewExecute(Sender: TObject);
@@ -91,16 +95,16 @@ begin
   F := TfrmNewCallAlert.Create(frmCallAlert);
   try
     F.Caption := 'Edit callsign alert';
-    F.edtCall.Text := dmData.Q.Fields[1].AsString;
-    if dmData.Q.Fields[2].AsString = '' then
+    F.edtCall.Text := dmData.Q2.Fields[1].AsString;
+    if dmData.Q2.Fields[2].AsString = '' then
       F.cmbBand.ItemIndex := 0
     else
-      F.cmbBand.Text := dmData.Q.Fields[2].AsString;
+      F.cmbBand.Text := dmData.Q2.Fields[2].AsString;
 
-    if dmData.Q.Fields[3].AsString = '' then
+    if dmData.Q2.Fields[3].AsString = '' then
       F.cmbMode.ItemIndex := 0
     else
-      F.cmbMode.Text := dmData.Q.Fields[3].AsString;
+      F.cmbMode.Text := dmData.Q2.Fields[3].AsString;
 
     if F.ShowModal = mrOK then
     begin
@@ -113,8 +117,8 @@ begin
       else
         band := F.cmbBand.Text;
 
-      dmData.EditCallAlert(dmData.Q.Fields[0].AsInteger,F.edtCall.Text,band,mode);
-      RefreshCallsignList(dmData.Q.Fields[0].AsInteger)
+      dmData.EditCallAlert(dmData.Q2.Fields[0].AsInteger,F.edtCall.Text,band,mode);
+      RefreshCallsignList(dmData.Q2.Fields[0].AsInteger)
     end
   finally
     FreeAndNil(F)
@@ -126,7 +130,7 @@ procedure TfrmCallAlert.acDeleteExecute(Sender: TObject);
 begin
   if Application.MessageBox('Do you really want to delete this callsign?','Question',mb_YesNo + mb_IconQuestion) = idYes then
   begin
-    dmData.DeleteCallAlert(dmData.Q.Fields[0].AsInteger);
+    dmData.DeleteCallAlert(dmData.Q2.Fields[0].AsInteger);
     RefreshCallsignList();
     dbgrdCallAlert.SetFocus
   end
@@ -139,10 +143,11 @@ end;
 
 procedure TfrmCallAlert.RefreshCallsignList(const id : Integer=0);
 begin
-  if dmData.trQ.Active then dmData.trQ.Rollback;
-  dmData.trQ.StartTransaction;
-  dmData.Q.SQL.Text := 'select * from call_alert order by callsign';
-  dmData.Q.Open;
+  dmData.Q2.Close;
+  if dmData.trQ2.Active then dmData.trQ2.Rollback;
+  dmData.trQ2.StartTransaction;
+  dmData.Q2.SQL.Text := 'select * from call_alert order by callsign';
+  dmData.Q2.Open;
   dbgrdCallAlert.Columns[0].Visible := False;
   dbgrdCallAlert.Columns[1].Width   := 100;
   dbgrdCallAlert.Columns[2].Width   := 100;
@@ -150,27 +155,26 @@ begin
 
   if id>0 then
   begin
-    dmData.Q.DisableControls;
+    dmData.Q2.DisableControls;
     try
-      dmData.Q.Locate('id',id,[])
+      dmData.Q2.Locate('id',id,[])
     finally
-      dmData.Q.EnableControls
+      dmData.Q2.EnableControls
     end
-  end
+  end;
 end;
 
 procedure TfrmCallAlert.FormClose(Sender: TObject; var CloseAction: TCloseAction
   );
 begin
   dmUtils.SaveForm(self);
-  dmData.Q.Close;
-  if dmData.trQ.Active then
-    dmData.trQ.Rollback
+  dmData.Q2.Close;
+
+  cqrini.WriteBool('DxCluster', 'AlertRegExp', chkAllowRegExp.Checked);
+
+  if dmData.trQ2.Active then
+    dmData.trQ2.Rollback
 end;
-
-
-initialization
-  {$I fCallAlert.lrs}
 
 end.
 

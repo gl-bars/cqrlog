@@ -50,6 +50,7 @@ var
   frmeQSLUpload : TfrmeQSLUpload;
 
 implementation
+{$R *.lfm}
 
 uses dUtils,dData,uMyIni, fPreferences, uVersion;
 
@@ -102,11 +103,11 @@ begin
   AssignFile(f,FileName);
   try try
     Rewrite(f);
-    Writeln(f, '<ADIF_VER:5>2.2.1');
     Writeln(f, 'ADIF export from CQRLOG for Linux version '+dmData.VersionString);
-    Writeln(f, 'Copyright (C) ',YearOf(now),' by Petr, OK2CQR and Martin, OK1RR');
+    Writeln(f, 'Copyright (C) ',YearOf(now),' by Petr, OK7AN and Martin, OK1RR');
     Writeln(f);
     Writeln(f, 'Internet: http://www.cqrlog.com');
+    Writeln(f, '<ADIF_VER:5>2.2.1');
     Writeln(f, '<PROGRAMID:6>CQRLOG');
     Writeln(f, '<PROGRAMVERSION:',Length(cVERSION),'>',cVERSION);
     Writeln(f);
@@ -147,6 +148,8 @@ begin
       if (dmData.Q.FieldByName('remarks').AsString<>'') and cqrini.ReadBool('LoTW', 'ExpComment', True) then
       begin
         tmp := '<COMMENT' + dmUtils.StringToADIF(dmData.Q.FieldByName('remarks').AsString);
+        Writeln(f,tmp);
+        tmp := '<QSLMSG' + dmUtils.StringToADIF(dmData.Q.FieldByName('remarks').AsString);
         Writeln(f,tmp)
       end;
 
@@ -371,10 +374,6 @@ begin
     m.Free
   end
 end;
-
-
-initialization
-  {$I feQSLUpload.lrs}
 
 end.
 
