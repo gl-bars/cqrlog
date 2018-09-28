@@ -43,30 +43,41 @@ type
     btn70cm: TButton;
     btn80m: TButton;
     btnCW: TButton;
-    btnMemUp: TButton;
     btnMemDwn: TButton;
+    btnMemWri: TButton;
+    btnMemUp: TButton;
     btnSSB: TButton;
     btnRTTY: TButton;
     btnAM: TButton;
     btnFM: TButton;
     btnVFOA: TButton;
     btnVFOB: TButton;
+    btPoff: TButton;
+    btPon: TButton;
+    btPstby: TButton;
     gbBand: TGroupBox;
-    GroupBox1: TGroupBox;
-    GroupBox2: TGroupBox;
+    gbVfo: TGroupBox;
+    gbMode: TGroupBox;
     GroupBox4: TGroupBox;
     lblFreq: TLabel;
     MenuItem1: TMenuItem;
     MenuItem2: TMenuItem;
+    MenuItem3: TMenuItem;
+    MenuItem4: TMenuItem;
     mnuMem: TMainMenu;
-    Panel1: TPanel;
-    Panel2: TPanel;
+    pnlRig: TPanel;
+    pnlMain: TPanel;
+    pnlPower: TPanel;
     rbRadio1: TRadioButton;
     rbRadio2: TRadioButton;
     tmrRadio : TTimer;
     procedure acAddModMemExecute(Sender: TObject);
+    procedure btnMemWriClick(Sender: TObject);
     procedure btnMemDwnClick(Sender: TObject);
     procedure btnMemUpClick(Sender: TObject);
+    procedure btPoffClick(Sender: TObject);
+    procedure btPonClick(Sender: TObject);
+    procedure btPstbyClick(Sender: TObject);
     procedure FormClose(Sender: TObject; var CloseAction: TCloseAction);
     procedure FormCloseQuery(Sender : TObject; var CanClose : boolean);
     procedure FormCreate(Sender: TObject);
@@ -91,6 +102,8 @@ type
     procedure btnFMClick(Sender: TObject);
     procedure btnRTTYClick(Sender: TObject);
     procedure btnSSBClick(Sender: TObject);
+    procedure MenuItem3Click(Sender: TObject);
+    procedure MenuItem4Click(Sender: TObject);
     procedure rbRadio1Click(Sender: TObject);
     procedure rbRadio2Click(Sender: TObject);
     procedure tmrRadioTimer(Sender : TObject);
@@ -190,7 +203,6 @@ property RigPoll     : Word    read fRigPoll     write fRigPoll;
       Rig_RigCtldHost : String;
       Rig_RigPoll     : Word;
       Rig_RigSendCWR  : Boolean;
-      Rig_ClearRit    : Boolean;
 
       {
       Rig_Model       : Integer;
@@ -231,7 +243,8 @@ var
     mRig.RigCtldPort := Rig_RigCtldPort;
     mRig.RigCtldHost := Rig_RigCtldHost;
     mRig.RigPoll     := Rig_RigPoll;
-    mRig.RigSendCWR  := Rig_RigSendCWR
+    mRig.RigSendCWR  := Rig_RigSendCWR;
+
   end;
 
 
@@ -425,7 +438,7 @@ begin
   dmUtils.LoadWindowPos(frmTRXControl);
   rbRadio1.Caption := cqrini.ReadString('TRX1','Desc','Radio 1');
   rbRadio2.Caption := cqrini.ReadString('TRX2','Desc','Radio 2');
-  old_mode := ''
+  old_mode := '';
 end;
 
 procedure TfrmTRXControl.btn10mClick(Sender: TObject);
@@ -610,6 +623,28 @@ begin
   end
 end;
 
+procedure TfrmTRXControl.MenuItem3Click(Sender: TObject);
+begin
+      if pnlPower.Visible then
+        Begin
+         pnlPower.Visible:= false;
+         Menuitem3.Checked:= false;
+        end
+       else
+        Begin
+         pnlPower.Visible:= true;
+         btPonClick(nil); //setting buttons visible sends PwrOn to sync button colors
+         Menuitem3.Checked:= true;
+        end;
+      cqrini.WriteBool('TRX','PowerButtons',pnlPower.Visible);
+end;
+
+procedure TfrmTRXControl.MenuItem4Click(Sender: TObject);
+begin
+  cqrini.WriteInteger('Pref', 'ActPageIdx', 5);  //set DXCuster tab active. Number may change if preferences page change
+  frmNewQSO.acPreferences.Execute
+end;
+
 procedure TfrmTRXControl.rbRadio1Click(Sender: TObject);
 begin
   InicializeRig
@@ -648,6 +683,39 @@ begin
   end
 end;
 
+procedure TfrmTRXControl.btnMemWriClick(Sender: TObject);
+  var
+  bandwidth : word = 0;
+  mode      : String ='';
+  freq      : String ='';
+  Dfreq     : Double ;
+
+begin
+  Dfreq := 0;
+  Dfreq := radio.GetFreqkHz;
+  if Dfreq > 0 then
+  begin
+      frmRadioMemories := TfrmRadioMemories.Create(frmTRXControl);
+      try
+        dmData.LoadFreqMemories(frmRadioMemories.sgrdMem);
+        bandwidth:= radio.GetPassOnly;
+        mode     := radio.GetRawMode;
+        freq     := FloatToStrF(Dfreq,ffFixed,15,0);
+        if (mode<>'') then
+         begin
+          frmRadioMemories.sgrdMem.RowCount := frmRadioMemories.sgrdMem.RowCount + 1;
+          frmRadioMemories.sgrdMem.Cells[0,frmRadioMemories.sgrdMem.RowCount-1] := freq;
+          frmRadioMemories.sgrdMem.Cells[1,frmRadioMemories.sgrdMem.RowCount-1] := mode;
+          frmRadioMemories.sgrdMem.Cells[2,frmRadioMemories.sgrdMem.RowCount-1] := IntToStr(bandwidth);
+          dmData.StoreFreqMemories(frmRadioMemories.sgrdMem);
+          lblFreq.Caption:='MemW OK';
+         end
+      finally
+        FreeAndNil(frmRadioMemories)
+      end
+  end;
+end;
+
 procedure TfrmTRXControl.btnMemDwnClick(Sender: TObject);
 var
   freq      : Double;
@@ -668,6 +736,39 @@ begin
   dmData.GetPreviousFreqFromMem(freq,mode,bandwidth);
   if freq > 0 then
     SetFreqModeBandWidth(freq,mode,bandwidth)
+end;
+
+procedure TfrmTRXControl.btPoffClick(Sender: TObject);
+begin
+    if Assigned(radio) then
+        begin
+         radio.PwrOff;
+         btPon.Font.Color:= clDefault;
+         btPstby.Font.Color:= clDefault;
+         btPoff.Font.Color:= clRed;
+        end;
+end;
+
+procedure TfrmTRXControl.btPonClick(Sender: TObject);
+begin
+   if Assigned(radio) then
+        begin
+         radio.PwrOn;
+         btPon.Font.Color:= clRed;
+         btPstby.Font.Color:= clDefault;
+         btPoff.Font.Color:= clDefault;
+        end;
+end;
+
+procedure TfrmTRXControl.btPstbyClick(Sender: TObject);
+begin
+     if Assigned(radio) then
+        begin
+         radio.PwrStBy;
+         btPon.Font.Color:= clDefault;
+         btPstby.Font.Color:= clRed;
+         btPoff.Font.Color:= clDefault;
+        end;
 end;
 
 procedure TfrmTRXControl.FormCloseQuery(Sender : TObject; var CanClose : boolean
@@ -767,6 +868,14 @@ begin
   tmrRadio.Interval := radio.RigPoll;
   tmrRadio.Enabled  := True;
   Result := True;
+
+  pnlPower.Visible  := cqrini.ReadBool('TRX','PowerButtons',False);
+  Menuitem3.Checked := pnlPower.Visible;
+  if pnlPower.Visible then btPonClick(nil);
+                            // all rigs do not support rigctld power switching
+                            //so we just put pwr button ON and send rigctld PWR ON cmd
+                            //if rig does not support it that makes no harm.
+                            //if supports we do know pwr state from now on.
 
   if not radio.Connected then
   begin

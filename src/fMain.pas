@@ -97,9 +97,9 @@ type
     acView:     TAction;
     ActionList1: TActionList;
     btnNewQSO:  TBitBtn;
-    BitBtn2:    TBitBtn;
-    BitBtn3:    TBitBtn;
-    BitBtn4:    TBitBtn;
+    btnViewQSO:    TBitBtn;
+    btnClose:    TBitBtn;
+    btnDeleteQSO:    TBitBtn;
     BitBtn5:    TBitBtn;
     btnSort:    TBitBtn;
     dbgrdMain:  TDBGrid;
@@ -112,15 +112,15 @@ type
     Image1:     TImage;
     imgMain:    TImageList;
     imgMain1:   TImageList;
-    Label1:     TLabel;
-    Label2:     TLabel;
-    Label23:    TLabel;
-    Label24:    TLabel;
-    Label25:    TLabel;
-    Label26:    TLabel;
-    Label27: TLabel;
-    Label28: TLabel;
-    Label3:     TLabel;
+    lblQSOInLog:     TLabel;
+    lblDXCCWorked:     TLabel;
+    lblCommentForQSO:    TLabel;
+    lblAward:    TLabel;
+    lblQSLSDate:    TLabel;
+    lblQSLRDate:    TLabel;
+    lblLoTWQSLSDate: TLabel;
+    lblLoTWQSLRDate: TLabel;
+    lblDXCCConfirmed:     TLabel;
     lblDXCCCmf: TLabel;
     lblDXCC:    TLabel;
     lblQSOCount: TLabel;
@@ -516,7 +516,7 @@ begin
     try
       lblComment.Caption := 'Importing DXCC data ...';
       Directory  := ExtractFilePath(dlgOpen.FileName);
-      ImportType := 1;
+      ImportType := imptImportDXCCTables;
       ShowModal
     finally
       Free
@@ -683,7 +683,7 @@ begin
   begin
     if dbgrdMain.SelectedRows.Count < 1 then
     begin
-      if Application.MessageBox('Do you realy want to delete this QSO?',
+      if Application.MessageBox('Do you really want to delete this QSO?',
         'Question ...', MB_ICONQUESTION + MB_YESNO) = idNo then
         exit;
       dmData.qCQRLOG.DisableControls;
@@ -709,7 +709,7 @@ begin
     end
     else
     begin
-      if Application.MessageBox('Do you realy want to delete selected QSOs?',
+      if Application.MessageBox('Do you really want to delete selected QSOs?',
         'Question ...', MB_ICONQUESTION + MB_YESNO) = idNo then
         exit;
       dmData.qCQRLOG.DisableControls;
@@ -992,7 +992,7 @@ begin
       lblComment.Caption := 'Importing QSL mangers ...';
       Directory  := ExtractFilePath(dlgOpen.FileName);
       FileName   := dlgOpen.FileName;
-      ImportType := 5;
+      ImportType := imptImportQSLMgrs;
       ShowModal
     finally
       Free
@@ -1009,7 +1009,7 @@ begin
     with TfrmImportProgress.Create(self) do
     try
       FileName   := dlgOpen.FileName;
-      ImportType := 4;
+      ImportType := imptImportLoTWAdif;
       ShowModal
     finally
       Free;
@@ -1245,7 +1245,7 @@ begin
     end;
     with TfrmImportProgress.Create(self) do
     try
-      ImportType := 9;
+      ImportType := imptRemoveDupes;
       ShowModal
     finally
       Free
@@ -1635,7 +1635,7 @@ begin
 
   with TfrmImportProgress.Create(self) do
   try
-    ImportType := 7;
+    ImportType := imptInsertQSLManagers;
     ShowModal
   finally
     acRefresh.Execute;
@@ -1850,7 +1850,7 @@ begin
   end;
   with TfrmImportProgress.Create(self) do
   try
-    ImportType := 0;
+    ImportType := imptRegenerateDXCC;
     ShowModal
   finally
     Free
@@ -2131,7 +2131,10 @@ begin
   ChangeVis('EQSL_QSL_RCVD',cqrini.ReadBool('Columns','eQSLQSLR',False));
   ChangeVis('EQSL_QSLRDATE',cqrini.ReadBool('Columns','eQSLQSLRDate',False));
   ChangeVis('QSLR',cqrini.ReadBool('Columns','QSLRAll',False));
-  ChangeVis('COUNTRY',cqrini.ReadBool('Columns','Country',False))
+  ChangeVis('COUNTRY',cqrini.ReadBool('Columns','Country',False));
+  ChangeVis('PROP_MODE', cqrini.ReadBool('Columns', 'Propagation', False));
+  ChangeVis('RXFREQ', cqrini.ReadBool('Columns', 'RXFreq', False));
+  ChangeVis('SATELLITE', cqrini.ReadBool('Columns', 'SatelliteName', False))
 end;
 
 procedure TfrmMain.MarkQSLSend(symbol: string);

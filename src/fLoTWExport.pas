@@ -16,8 +16,8 @@ type
   TfrmLoTWExport = class(TForm)
     btnClose: TButton;
     btnFileBrowse: TButton;
-    btnFileExport: TButton;
     btnExportSign: TButton;
+    btnFileExport : TButton;
     btnUpload: TButton;
     btnHelp: TButton;
     chkFileMarkAfterExport: TCheckBox;
@@ -162,7 +162,7 @@ begin
       dmData.trQ1.StartTransaction;
       try
         if cqrini.ReadBool('OnlineLog','IgnoreLoTWeQSL',False) and dmLogUpload.LogUploadEnabled then
-          dmData.DisableOnlineLogSupport;
+          dmLogUpload.DisableOnlineLogSupport;
 
         dmData.Q1.Open();
         dmData.Q1.First;
@@ -184,7 +184,7 @@ begin
         dmData.trQ.Commit;
         dmData.trQ1.Rollback;
         if cqrini.ReadBool('OnlineLog','IgnoreLoTWeQSL',False) and dmLogUpload.LogUploadEnabled then
-          dmData.EnableOnlineLogSupport(False)
+          dmLogUpload.EnableOnlineLogSupport(False)
       end
     end
   finally
@@ -195,18 +195,32 @@ begin
 end;
 
 procedure TfrmLoTWExport.tmrLoTWTimer(Sender: TObject);
+var
+  OutputLines: TStringList;
 begin
   if not AProcess.Running then
   begin
-    mStat.Lines.Add('Signed ...');
-    mStat.Lines.Add('If you did not see any errors, you can send signed file to LoTW website by' +
-                    ' pressing Upload button');
+    OutputLines := TStringList.Create;
+    try
+      OutputLines.LoadFromStream(Aprocess.Output);
+      mStat.Lines.AddStrings(OutputLines);
+      OutputLines.LoadFromStream(Aprocess.Stderr);
+      mStat.Lines.AddStrings(OutputLines);
+    finally
+      OutputLines.Free;
+    end;
+
+    if Aprocess.ExitCode = 0 then begin
+      mStat.Lines.Add('Signed ...');
+      mStat.Lines.Add('If you did not see any errors, you can send signed file to LoTW website by' +
+                      ' pressing Upload button');
+      btnUpload.Enabled := True;
+    end;
     grbWebExport.Enabled := True;
     grbTqsl.Enabled      := True;
     pnlUpload.Enabled    := True;
     pnlClose.Enabled     := True;
     tmrLoTW.Enabled      := False;
-    btnUpload.Enabled    := True
   end
 end;
 
@@ -352,7 +366,7 @@ begin
   if dmData.trQ1.Active then
     dmData.trQ1.RollBack;
   dmData.Q1.Close;
-  if (dmData.IsFilter and rbWebExportAll.Checked) then
+  if (dmData.IsFilter and (rbWebExportAll.Checked or rbFileExportAll.Checked)) then
   begin
     dmData.Q1.SQL.Text := dmData.qCQRLOG.SQL.Text
   end
@@ -365,7 +379,6 @@ begin
   dmData.trQ1.StartTransaction;
   if dmData.DebugLevel >= 1 then Writeln(dmData.Q1.SQL.Text);
   dmData.Q1.Open();
-
   if MarkAfter then
     dmData.trQ.StartTransaction;
   try
@@ -409,6 +422,15 @@ begin
       tmp := '<RST_RCVD' + dmUtils.StringToADIF(dmData.Q1.FieldByName('rst_r').AsString);
       Writeln(f,tmp);
 
+      if (dmData.Q1.FieldByName('prop_mode').AsString <> '') then
+        Writeln(f, '<PROP_MODE' + dmUtils.StringToADIF(dmData.Q1.FieldByName('prop_mode').AsString));
+
+      if (dmData.Q1.FieldByName('satellite').AsString <> '') then
+        Writeln(f, '<SAT_NAME' + dmUtils.StringToADIF(dmData.Q1.FieldByName('satellite').AsString));
+
+      if (dmData.Q1.FieldByName('rxfreq').AsString <> '') then
+        Writeln(f, '<FREQ_RX' + dmUtils.StringToADIF(dmData.Q1.FieldByName('rxfreq').AsString));
+
       Writeln(f,'<EOR>');
       Writeln(f);
       if (nr mod 100 = 0) then
@@ -422,7 +444,6 @@ begin
         dmData.Q.SQL.Text := 'update cqrlog_main set lotw_qsls = ' + QuotedStr('Y') +
                              ',lotw_qslsdate = ' + QuotedStr(date) + ' where id_cqrlog_main = '+
                              dmData.Q1.FieldByName('id_cqrlog_main').AsString;
-        if dmData.DebugLevel>=1 then Writeln(dmData.Q.SQL.Text);
         dmData.Q.ExecSQL
       end;
       dmData.Q1.Next
@@ -433,11 +454,11 @@ begin
       Result := 1
     end
   finally
+   if MarkAfter  and (pgLoTWExport.ActivePageIndex = 0)  then
+      dmData.trQ.Commit;
     dmData.Q1.Close();
     dmData.trQ1.Rollback;
-    CloseFile(f);
-    if MarkAfter  and (pgLoTWExport.ActivePageIndex = 0)  then
-      dmData.trQ.Commit
+    CloseFile(f)
   end
 end;
 

@@ -24,7 +24,7 @@ uses
 
 const
   cDB_LIMIT = 500;
-  cDB_MAIN_VER = 13;
+  cDB_MAIN_VER = 15;
   cDB_COMN_VER = 4;
   cDB_PING_INT = 300;  //ping interval for database connection in seconds
                        //program crashed after long time of inactivity
@@ -41,27 +41,6 @@ type
     ProfNr : Word;
     text   : String;
 end;
-
-type
-  TClub = record
-    Name           : String;
-    LongName       : String;
-    NewInfo        : String;
-    NewBandInfo    : String;
-    NewModeInfo    : String;
-    QSLNeededInfo  : String;
-    AlreadyCfmInfo : String;
-    ClubField      : String;
-    MainFieled     : String;
-    StoreField     : String;
-    StoreText      : String;
-    NewColor       : Integer;
-    BandColor      : Integer;
-    ModeColor      : Integer;
-    QSLColor       : Integer;
-    AlreadyColor   : Integer;
-    DateFrom       : String;
-  end;
 
 type
   TZipCode  = record
@@ -160,6 +139,7 @@ type
     fHomeDir : String;
     fDataDir : String;
     fMembersDir : String;
+    fGlobalMembersDir : String;
     fDebugLevel : Integer;
     fOrderBy : String;
     fVersionString : String;
@@ -183,7 +163,6 @@ type
     function  FindLib(const Path,LibName : String) : String;
     function  GetMysqldPath : String;
     function  TableExists(TableName : String) : Boolean;
-    function  GetMySQLLib : String;
     function  GetDebugLevel : Integer;
 
     procedure CreateDBConnections;
@@ -202,7 +181,6 @@ type
     procedure UpgradeMainDatabaseEx;
     procedure PrepareMysqlConfigFile;
     procedure DeleteOldConfigFiles;
-    procedure PrepareEmptyLogUploadStatusTables(lQ : TSQLQuery;lTr : TSQLTransaction);
     procedure GetCurrentFreqFromMem(var freq : Double; var mode : String; var bandwidth : Integer);
   public
     MainCon      : TSQLConnection;
@@ -219,11 +197,6 @@ type
     //if he wants to use export, program use the same functions for filter enabled
 
     Ascening  : Boolean;
-    Club1     : TClub;
-    Club2     : TClub;
-    Club3     : TClub;
-    Club4     : TClub;
-    Club5     : TClub;
 
     Zip1  : TZipCode;
     Zip2  : TZipCode;
@@ -239,6 +212,7 @@ type
     property DataDir : String read fDataDir write fDataDir;
     property ShareDir   : String read fShareDir write fShareDir;
     property MembersDir : String read fMembersDir;
+    property GlobalMembersDir : string read fGlobalMembersDir;
     property ZipCodeDir : String read fZipCodeDir;
     property UsrHomeDir : String read fUsrHomeDir;
     property DebugLevel : Integer read fDebugLevel write fDebugLevel;
@@ -294,17 +268,20 @@ type
     function  RbnCallExistsInLog(callsign,band,mode,LastDate,LastTime : String) : Boolean;
     function  CallNoteExists(Callsign : String) : Boolean;
     function  GetNewLogNumber : Integer;
+    function  getNewMySQLConnectionObject : TMySQL57Connection;
 
     procedure SaveQSO(date : TDateTime; time_on,time_off,call : String; freq : Currency;mode,rst_s,
                       rst_r, stn_name,qth,qsl_s,qsl_r,qsl_via,iota,pwr : String; itu,waz : Integer;
                       loc, my_loc,county,award,remarks : String; adif : Integer;
                       idcall,state,cont : String; qso_dxcc : Boolean; profile : Integer;
-                      nclub1,nclub2,nclub3,nclub4,nclub5 : String);
+                      nclub1,nclub2,nclub3,nclub4,nclub5, PropMode, Satellite : String;
+                      RxFreq : Currency);
 
     procedure EditQSO(date : TDateTime; time_on,time_off,call : String; freq : Currency;mode,rst_s,
                       rst_r, stn_name,qth,qsl_s,qsl_r,qsl_via,iota,pwr : String; itu,waz : Integer;
                       loc, my_loc,county,award,remarks : String; adif : Word; idcall,state,cont : String;
-                      qso_dxcc : Boolean; profile : Integer; idx : LongInt);
+                      qso_dxcc : Boolean; profile : Integer; PropMode, Satellite : String;
+                      RxFreq : Currency; idx : LongInt);
     procedure SaveComment(call,text : String);
     procedure DeleteComment(id : Integer);
     procedure PrepareImport;
@@ -333,8 +310,6 @@ type
     procedure CreateQSLTmpTable;
     procedure DropQSLTmpTable;
     procedure StartMysqldProcess;
-    procedure EnableOnlineLogSupport(RemoveOldChanges : Boolean = True);
-    procedure DisableOnlineLogSupport;
     procedure DeleteCallAlert(const id : Integer);
     procedure AddCallAlert(const callsign, band, mode : String);
     procedure EditCallAlert(const id : Integer; const callsign, band, mode : String);
@@ -350,6 +325,7 @@ type
     procedure SaveBandChanges(band : String; BandBegin, BandEnd, BandCW, BandRTTY, BandSSB, RXOffset, TXOffset : Currency);
     procedure GetRXTXOffset(Freq : Currency; var RXOffset,TXOffset : Currency);
     procedure LoadQSODateColorSettings;
+    procedure PrepareEmptyLogUploadStatusTables(lQ : TSQLQuery;lTr : TSQLTransaction);
   end;
 
 var
@@ -363,7 +339,7 @@ implementation
   {$R *.lfm}
 
 uses dUtils, dDXCC, fMain, fWorking, fUpgrade, fImportProgress, fNewQSO, dDXCluster, uMyIni,
-     fTRXControl, fRotControl, uVersion, dLogUpload, fDbError, LCLProc, umysql_helper;
+     fTRXControl, fRotControl, uVersion, dLogUpload, fDbError, dMembership, LCLProc, umysql_helper;
 
 procedure TdmData.CheckForDatabases;
 var
@@ -411,7 +387,7 @@ begin
     try
       lblComment.Caption := 'Importing DXCC data ...';
       Directory  := dmData.fHomeDir + 'ctyfiles' + PathDelim;
-      ImportType := 1;
+      ImportType := imptImportDXCCTables;
       ShowModal
     finally
       Free
@@ -422,7 +398,7 @@ begin
       lblComment.Caption := 'Importing QSL data ...';
       Directory     := dmData.fHomeDir + 'ctyfiles' + PathDelim;
       FileName      := Directory+'qslmgr.csv';
-      ImportType    := 5;
+      ImportType    := imptImportQSLMgrs;
       CloseAfImport := True;
       ShowModal
     finally
@@ -942,11 +918,11 @@ begin
   if not DirectoryExistsUTF8(fHomeDir+'database') then
     CreateDir(fHomeDir+'database');
 
-  if DirectoryExistsUTF8(fHomeDir+'members') then
-    fMembersDir := fHomeDir+'members'+PathDelim
-  else
-    fMembersDir := ExpandFileNameUTF8('..'+PathDelim+'share'+PathDelim+'cqrlog'+
-                   PathDelim+'members'+PathDelim);
+  if not DirectoryExistsUTF8(fHomeDir+'members') then
+    CreateDirUTF8(fHomeDir+'members');
+  fMembersDir := fHomeDir+'members'+PathDelim;
+  fGlobalMembersDir := ExpandFileNameUTF8('..'+PathDelim+'share'+PathDelim+'cqrlog'+
+                       PathDelim+'members'+PathDelim);
 
   if DirectoryExistsUTF8(fHomeDir+'zipcodes') then
     fZipCodeDir := fHomeDir+'zipcodes'+PathDelim
@@ -1014,7 +990,12 @@ begin
   if not FileExistsUTF8(fHomeDir+'eqsl.txt') then
     CopyFile(s+'eqsl.txt',fHomeDir+'eqsl.txt',True);
   if not FileExistsUTF8(fHomeDir+'MASTER.SCP') then
-    CopyFile(s+'MASTER.SCP',fHomeDir+'MASTER.SCP',True)
+    CopyFile(s+'MASTER.SCP',fHomeDir+'MASTER.SCP',True);
+
+  if not FileExistsUTF8(fHomeDir+'sat_name.tab') then
+    CopyFile(s+'sat_name.tab', fHomeDir+'sat_name.tab');
+  if not FileExistsUTF8(fHomeDir+'prop_mode.tab') then
+    CopyFile(s+'prop_mode.tab', fHomeDir+'prop_mode.tab')
 end;
 
 procedure TdmData.PrepareDXCCData;
@@ -1119,6 +1100,7 @@ begin
   fDebugLevel := GetDebugLevel;
 
   Writeln('');
+  Writeln('Cqrlog Ver:',cVERSION,' Date:',cBUILD_DATE);
   Writeln('**** DEBUG LEVEL ',fDebugLevel,' ****');
   if fDebugLevel=0 then
     Writeln('**** CHANGE WITH --debug=1 PARAMETER ****');
@@ -1132,44 +1114,6 @@ begin
   end;
 
   lib := MYSQL_EMBEDDED_LIB;
-  try try
-    c := TConnectionName.Create(nil);
-    MySQLVer := copy(c.ClientInfo,1,3);
-
-    if fDebugLevel>=1 then
-    begin
-      Writeln('**************************');
-      Writeln('MySQL version: ',MySQLVer);
-      Writeln('**************************')
-    end;
-
-    if MySQLVer = '10.' then
-      MySQLVer := '5.6';
-    if MySQLVer = '10.1' then
-      MySQLVer := '5.7'
-
-  except
-    on E : Exception do
-    begin
-      Writeln('FATAL ERROR: Can not get MySQL client library version version!',LineEnding,
-              'Setting to default version (5.1)');
-      MySQLVer := '5.1'
-    end
-  end
-  finally
-    FreeAndNil(c)
-  end;
-
-  if not TryStrToCurr(MySQLVer,fMySQLVersion) then
-    fMySQLVersion := 5.6;
-
-  if fDebugLevel>=1 then
-  begin
-    Writeln('**********************************');
-    Writeln('MySQL version assigned: ',FloatToStr(fMySQLVersion));
-    Writeln('**********************************')
-  end;
-
   fHomeDir    := GetAppConfigDir(False);
   fDataDir    := fHomeDir+'database/';
   fUsrHomeDir := copy(fHomeDir,1,Pos('.config',fHomeDir)-1);
@@ -1215,13 +1159,11 @@ begin
   end;
 
   //special connection for band map thread
-  BandMapCon.KeepConnection := True;
   BandMapCon.Transaction    := trBandMapFil;
   qBandMapFil.Transaction   := trBandMapFil;
   qBandMapFil.DataBase      := BandMapCon;
   trBandMapFil.DataBase     := BandMapCon;
 
-  RbnMonCon.KeepConnection := True;
   RbnMonCon.Transaction    := trRbnMon;
   qRbnMon.Transaction      := trRbnMon;
   qRbnMon.DataBase         := RbnMonCon;
@@ -1256,7 +1198,6 @@ begin
     Writeln('ZIP code directory:     ',fZipCodeDir);
     Writeln('Binary dir:             ',ExtractFilePath(Paramstr(0)));
     Writeln('Share dir:              ',fShareDir);
-    Writeln('TConnection to MySQL:   ',FloatToStr(fMySQLVersion));
     Writeln('*')
   end;
 
@@ -1394,12 +1335,14 @@ procedure TdmData.SaveQSO(date : TDateTime; time_on,time_off,call : String; freq
                  rst_r, stn_name,qth,qsl_s,qsl_r,qsl_via,iota,pwr : String; itu,waz : Integer;
                  loc, my_loc,county,award,remarks : String; adif : Integer;
                  idcall,state,cont : String; qso_dxcc : Boolean; profile : Integer;
-                 nclub1,nclub2,nclub3,nclub4,nclub5 : String);
+                 nclub1,nclub2,nclub3,nclub4,nclub5, PropMode, Satellite : String;
+                 RxFreq : Currency);
 var
   qsodate : String;
   band    : String;
   changed : Integer;
   sWAZ, sITU : String;
+  rx_freq : String;
 begin
   Q.Close;
   if dmData.trQ.Active then
@@ -1415,6 +1358,9 @@ begin
     sWAZ := 'null';
   if itu = 0 then
     sITU := 'null';
+  rx_freq := FloatToStr(RxFreq);
+  if (rx_freq = '0') then
+    rx_freq := 'null';
   qsl_via := copy(qsl_via,1,30);
   award   := copy(award,1,50);
   state   := copy(state,1,4);
@@ -1425,7 +1371,7 @@ begin
   Q.SQL.Text :=  'insert into cqrlog_main (qsodate,time_on,time_off,callsign,freq,mode,'+
                  'rst_s,rst_r,name,qth,qsl_s,qsl_r,qsl_via,iota,pwr,itu,waz,loc,my_loc,'+
                  'county,award,remarks,adif,idcall,state,qso_dxcc,band,profile,cont,club_nr1,'+
-                 'club_nr2,club_nr3,club_nr4,club_nr5) values('+QuotedStr(qsodate) +
+                 'club_nr2,club_nr3,club_nr4,club_nr5, prop_mode, satellite, rxfreq) values('+QuotedStr(qsodate) +
                  ','+QuotedStr(time_on)+','+QuotedStr(time_off)+
                  ','+QuotedStr(call)+','+FloatToStr(freq)+
                  ','+QuotedStr(mode)+','+QuotedStr(rst_s)+
@@ -1442,32 +1388,25 @@ begin
                  ','+IntToStr(adif)+','+ QuotedStr(idcall) + ','+ QuotedStr(state) +','+IntToStr(changed)+
                  ','+QuotedStr(band)+','+ IntToStr(profile) +','+QuotedStr(cont)+
                  ','+QuotedStr(nclub1)+','+QuotedStr(nclub2)+','+QuotedStr(nclub3)+
-                 ','+QuotedStr(nclub4)+','+QuotedStr(nclub5)+')';
+                 ','+QuotedStr(nclub4)+','+QuotedStr(nclub5)+','+QuotedStr(PropMode)+','+QuotedStr(Satellite)+','+rx_freq+
+                 ')';
   if fDebugLevel >=1 then
     Writeln(Q.SQL.Text);
   Q.ExecSQL;
   trQ.Commit
 end;
-{
-procedure TdmData.EditQSO(date: TDateTime; time_on, time_off, call: String;
-  freq: Currency; mode, rst_s, rst_r, stn_name, qth, qsl_s, qsl_r, qsl_via,
-  iota, pwr: String; itu, waz: Integer; loc, my_loc, county, award, remarks,
-  dxcc_ref, idcall, state, cont: String; qso_dxcc: Boolean; profile: Integer;
-  idx: LongInt);
-begin
-
-end;
-}
 
 procedure TdmData.EditQSO(date : TDateTime; time_on,time_off,call : String; freq : Currency;mode,rst_s,
                  rst_r, stn_name,qth,qsl_s,qsl_r,qsl_via,iota,pwr : String; itu,waz : Integer;
                  loc, my_loc,county,award,remarks : String; adif : Word; idcall,state,cont : String;
-                  qso_dxcc : Boolean; profile : Integer; idx : LongInt);
+                 qso_dxcc : Boolean; profile : Integer; PropMode, Satellite : String;
+                 RxFreq : Currency; idx : LongInt);
 var
   qsodate : String;
   band    : String;
   changed : Integer;
   sWAZ, sITU : String;
+  rx_freq : String;
 begin
   Q.Close;
   if trQ.Active then trQ.Rollback;
@@ -1483,6 +1422,10 @@ begin
     sWAZ := 'null';
   if itu = 0 then
     sITU := 'null';
+  rx_freq := FloatToStr(RxFreq);
+  if (rx_freq = '0') then
+    rx_freq := 'null';
+
   cont := UpperCase(copy(cont,1,2));
   qth  := copy(qth,1,60);
   qsodate := (FormatDateTime('YYYY-MM-DD',date));
@@ -1498,7 +1441,8 @@ begin
            ', qso_dxcc = '+ IntToStr(changed) + ', name = ' +QuotedStr(Trim(stn_name)) +
            ', qth = ' + QuotedStr(Trim(qth)) + ', award = ' + QuotedStr(award) +', band = ' + QuotedStr(band) +
            ', profile = ' + IntToStr(profile) + ', idcall = ' + QuotedStr(idcall) + ', state=' + QuotedStr(state) +
-           ', cont = ' + QuotedStr(cont)+
+           ', cont = ' + QuotedStr(cont)+ ', prop_mode = ' + QuotedStr(PropMode) + ', satellite = ' + QuotedStr(Satellite)+
+           ', rxfreq = ' + rx_freq +
            ' where id_cqrlog_main = ' + IntToStr(idx);
   if fDebugLevel >=1 then
     Writeln(Q.SQL.Text);
@@ -2223,114 +2167,23 @@ begin
 end;
 
 procedure TdmData.LoadClubsSettings;
-var
-  tmp    : String;
 begin
-  tmp := cqrini.ReadString('Clubs','First','');
-  Club1.Name     := copy(tmp,1,Pos(';',tmp)-1);
-  Club1.LongName := copy(tmp,Pos(';',tmp)+1,Length(tmp)-Pos(';',tmp)+1);
-  Club1.NewInfo        := cqrini.ReadString('FirstClub','NewInfo','');
-  Club1.NewBandInfo    := cqrini.ReadString('FirstClub','NewBandInfo','');
-  Club1.NewModeInfo    := cqrini.ReadString('FirstClub','NewModeInfo','');
-  Club1.QSLNeededInfo  := cqrini.ReadString('FirstClub','QSLNeededInfo','');
-  Club1.AlreadyCfmInfo := cqrini.ReadString('FirstClub','AlreadyConfirmedInfo','');
-  Club1.ClubField      := cqrini.ReadString('FirstClub','ClubFields','');
-  Club1.MainFieled     := cqrini.ReadString('FirstClub','MainFields','');
-  Club1.StoreField     := cqrini.ReadString('FirstClub','StoreFields','');
-  Club1.StoreText      := cqrini.ReadString('FirstClub','StoreText','');
-  Club1.NewColor       := cqrini.ReadInteger('FirstClub','NewColor',0);
-  Club1.BandColor      := cqrini.ReadInteger('FirstClub','BandColor',0);
-  Club1.ModeColor      := cqrini.ReadInteger('FirstClub','ModeColor',0);
-  Club1.QSLColor       := cqrini.ReadInteger('FirstClub','QSLColor',0);
-  Club1.AlreadyColor   := cqrini.ReadInteger('FirstClub','AlreadyColor',0);
-  Club1.DateFrom       := cqrini.ReadString('FirstClub','DateFrom','1945-01-01');
+  dmMembership.LoadClubSettings(1, dmMembership.Club1);
+  dmMembership.LoadClubSettings(2, dmMembership.Club2);
+  dmMembership.LoadClubSettings(3, dmMembership.Club3);
+  dmMembership.LoadClubSettings(4, dmMembership.Club4);
+  dmMembership.LoadClubSettings(5, dmMembership.Club5);
 
-  tmp := cqrini.ReadString('Clubs','Second','');
-  Club2.Name     := copy(tmp,1,Pos(';',tmp)-1);
-  Club2.LongName := copy(tmp,Pos(';',tmp)+1,Length(tmp)-Pos(';',tmp)+1);
-  Club2.NewInfo        := cqrini.ReadString('SecondClub','NewInfo','');
-  Club2.NewBandInfo    := cqrini.ReadString('SecondClub','NewBandInfo','');
-  Club2.NewModeInfo    := cqrini.ReadString('SecondClub','NewModeInfo','');
-  Club2.QSLNeededInfo  := cqrini.ReadString('SecondClub','QSLNeededInfo','');
-  Club2.AlreadyCfmInfo := cqrini.ReadString('SecondClub','AlreadyConfirmedInfo','');
-  Club2.ClubField      := cqrini.ReadString('SecondClub','ClubFields','');
-  Club2.MainFieled     := cqrini.ReadString('SecondClub','MainFields','');
-  Club2.StoreField     := cqrini.ReadString('SecondClub','StoreFields','');
-  Club2.StoreText      := cqrini.ReadString('SecondClub','StoreText','');
-  Club2.NewColor       := cqrini.ReadInteger('SecondClub','NewColor',0);
-  Club2.BandColor      := cqrini.ReadInteger('SecondClub','BandColor',0);
-  Club2.ModeColor      := cqrini.ReadInteger('SecondClub','ModeColor',0);
-  Club2.QSLColor       := cqrini.ReadInteger('SecondClub','QSLColor',0);
-  Club2.AlreadyColor   := cqrini.ReadInteger('SecondClub','AlreadyColor',0);
-  Club2.DateFrom       := cqrini.ReadString('SecondClub','DateFrom','1945-01-01');
-
-  tmp := cqrini.ReadString('Clubs','Third','');
-  Club3.Name     := copy(tmp,1,Pos(';',tmp)-1);
-  Club3.LongName := copy(tmp,Pos(';',tmp)+1,Length(tmp)-Pos(';',tmp)+1);
-  Club3.NewInfo        := cqrini.ReadString('ThirdClub','NewInfo','');
-  Club3.NewBandInfo    := cqrini.ReadString('ThirdClub','NewBandInfo','');
-  Club3.NewModeInfo    := cqrini.ReadString('ThirdClub','NewModeInfo','');
-  Club3.QSLNeededInfo  := cqrini.ReadString('ThirdClub','QSLNeededInfo','');
-  Club3.AlreadyCfmInfo := cqrini.ReadString('ThirdClub','AlreadyConfirmedInfo','');
-  Club3.ClubField      := cqrini.ReadString('ThirdClub','ClubFields','');
-  Club3.MainFieled     := cqrini.ReadString('ThirdClub','MainFields','');
-  Club3.StoreField     := cqrini.ReadString('ThirdClub','StoreFields','');
-  Club3.StoreText      := cqrini.ReadString('ThirdClub','StoreText','');
-  Club3.NewColor       := cqrini.ReadInteger('ThirdClub','NewColor',0);
-  Club3.BandColor      := cqrini.ReadInteger('ThirdClub','BandColor',0);
-  Club3.ModeColor      := cqrini.ReadInteger('ThirdClub','ModeColor',0);
-  Club3.QSLColor       := cqrini.ReadInteger('ThirdClub','QSLColor',0);
-  Club3.AlreadyColor   := cqrini.ReadInteger('ThirdClub','AlreadyColor',0);
-  Club3.DateFrom       := cqrini.ReadString('ThirdClub','DateFrom','1945-01-01');
-
-  tmp := cqrini.ReadString('Clubs','Fourth','');
-  Club4.Name     := copy(tmp,1,Pos(';',tmp)-1);
-  Club4.LongName := copy(tmp,Pos(';',tmp)+1,Length(tmp)-Pos(';',tmp)+1);
-  Club4.NewInfo        := cqrini.ReadString('FourthClub','NewInfo','');
-  Club4.NewBandInfo    := cqrini.ReadString('FourthClub','NewBandInfo','');
-  Club4.NewModeInfo    := cqrini.ReadString('FourthClub','NewModeInfo','');
-  Club4.QSLNeededInfo  := cqrini.ReadString('FourthClub','QSLNeededInfo','');
-  Club4.AlreadyCfmInfo := cqrini.ReadString('FourthClub','AlreadyConfirmedInfo','');
-  Club4.ClubField      := cqrini.ReadString('FourthClub','ClubFields','');
-  Club4.MainFieled     := cqrini.ReadString('FourthClub','MainFields','');
-  Club4.StoreField     := cqrini.ReadString('FourthClub','StoreFields','');
-  Club4.StoreText      := cqrini.ReadString('FourthClub','StoreText','');
-  Club4.NewColor       := cqrini.ReadInteger('FourthClub','NewColor',0);
-  Club4.BandColor      := cqrini.ReadInteger('FourthClub','BandColor',0);
-  Club4.ModeColor      := cqrini.ReadInteger('FourthClub','ModeColor',0);
-  Club4.QSLColor       := cqrini.ReadInteger('FourthClub','QSLColor',0);
-  Club4.AlreadyColor   := cqrini.ReadInteger('FourthClub','AlreadyColor',0);
-  Club4.DateFrom       := cqrini.ReadString('FourthClub','DateFrom','1945-01-01');
-
-  tmp := cqrini.ReadString('Clubs','Fifth','');
-  Club5.Name     := copy(tmp,1,Pos(';',tmp)-1);
-  Club5.LongName := copy(tmp,Pos(';',tmp)+1,Length(tmp)-Pos(';',tmp)+1);
-  Club5.NewInfo        := cqrini.ReadString('FifthClub','NewInfo','');
-  Club5.NewBandInfo    := cqrini.ReadString('FifthClub','NewBandInfo','');
-  Club5.NewModeInfo    := cqrini.ReadString('FifthClub','NewModeInfo','');
-  Club5.QSLNeededInfo  := cqrini.ReadString('FifthClub','QSLNeededInfo','');
-  Club5.AlreadyCfmInfo := cqrini.ReadString('FifthClub','AlreadyConfirmedInfo','');
-  Club5.ClubField      := cqrini.ReadString('FifthClub','ClubFields','');
-  Club5.MainFieled     := cqrini.ReadString('FifthClub','MainFields','');
-  Club5.StoreField     := cqrini.ReadString('FifthClub','StoreFields','');
-  Club5.StoreText      := cqrini.ReadString('FifthClub','StoreText','');
-  Club5.NewColor       := cqrini.ReadInteger('FifthClub','NewColor',0);
-  Club5.BandColor      := cqrini.ReadInteger('FifthClub','BandColor',0);
-  Club5.ModeColor      := cqrini.ReadInteger('FifthClub','ModeColor',0);
-  Club5.QSLColor       := cqrini.ReadInteger('FifthClub','QSLColor',0);
-  Club5.AlreadyColor   := cqrini.ReadInteger('FifthClub','AlreadyColor',0);
-  Club5.DateFrom       := cqrini.ReadString('FifthClub','DateFrom','1945-01-01');
-
-  if Club1.MainFieled = 'call' then
-    Club1.MainFieled := 'idcall';
-  if Club2.MainFieled = 'call' then
-    Club2.MainFieled := 'idcall';
-  if Club3.MainFieled = 'call' then
-    Club3.MainFieled := 'idcall';
-  if Club4.MainFieled = 'call' then
-    Club4.MainFieled := 'idcall';
-  if Club5.MainFieled = 'call' then
-    Club5.MainFieled := 'idcall'
+  if dmMembership.Club1.MainFieled = 'call' then
+    dmMembership.Club1.MainFieled := 'idcall';
+  if dmMembership.Club2.MainFieled = 'call' then
+    dmMembership.Club2.MainFieled := 'idcall';
+  if dmMembership.Club3.MainFieled = 'call' then
+    dmMembership.Club3.MainFieled := 'idcall';
+  if dmMembership.Club4.MainFieled = 'call' then
+    dmMembership.Club4.MainFieled := 'idcall';
+  if dmMembership.Club5.MainFieled = 'call' then
+    dmMembership.Club5.MainFieled := 'idcall'
 end;
 
 procedure TdmData.LoadZipSettings;
@@ -3128,6 +2981,8 @@ procedure TdmData.UpgradeMainDatabase(old_version : Integer);
 var
   err : Boolean = False;
 begin
+  if fDebugLevel>=1 then Writeln('[UpgradeMainDatabase] Old version: ', old_version,  '  cDB_MAIN_VER: ', cDB_MAIN_VER);
+
   if old_version < cDB_MAIN_VER then
   begin
     if trQ1.Active then trQ1.Rollback;
@@ -3324,7 +3179,7 @@ begin
         Q1.SQL.Add('  id int NOT NULL AUTO_INCREMENT PRIMARY KEY,');
         Q1.SQL.Add('  callsign varchar(20) NOT NULL,');
         Q1.SQL.Add('  band varchar(6) NULL,');
-        Q1.SQL.Add('  mode varchar(6) NULL');
+        Q1.SQL.Add('  mode varchar(10) NULL');
         Q1.SQL.Add(') COLLATE '+QuotedStr('utf8_bin')+';');
         if fDebugLevel>=1 then Writeln(Q1.SQL.Text);
         Q1.ExecSQL;
@@ -3348,7 +3203,7 @@ begin
         Q1.SQL.Add('CREATE TABLE freqmem (');
         Q1.SQL.Add('  id int NOT NULL AUTO_INCREMENT PRIMARY KEY,');
         Q1.SQL.Add('  freq numeric(10,4) NOT NULL,');
-        Q1.SQL.Add('  mode varchar(6) NOT NULL,');
+        Q1.SQL.Add('  mode varchar(10) NOT NULL,');
         Q1.SQL.Add('  bandwidth int NOT NULL');
         Q1.SQL.Add(') COLLATE '+QuotedStr('utf8_bin')+';');
         if fDebugLevel>=1 then Writeln(Q1.SQL.Text);
@@ -3368,21 +3223,87 @@ begin
         trQ1.Commit
       end;
 
-      trQ1.StartTransaction;
-      Q1.SQL.Text := 'drop view view_cqrlog_main_by_callsign';
-      if fDebugLevel>=1 then Writeln(Q1.SQL.Text);
-      Q1.ExecSQL;
-      Q1.SQL.Text := 'drop view view_cqrlog_main_by_qsodate';
-      if fDebugLevel>=1 then Writeln(Q1.SQL.Text);
-      Q1.ExecSQL;
-      if old_version >= 13 then
+      if old_version < 14 then
+      begin
+        trQ1.StartTransaction;
+        Q1.SQL.Text := 'alter table cqrlog_main change mode mode varchar(12) not null';
+        if fDebugLevel>=1 then Writeln(Q1.SQL.Text);
+        Q1.ExecSQL;
+        trQ1.Commit;
+
+        trQ1.StartTransaction;
+        Q1.SQL.Text := 'alter table log_changes change mode mode varchar(12) null';
+        if fDebugLevel>=1 then Writeln(Q1.SQL.Text);
+        Q1.ExecSQL;
+        trQ1.Commit;
+
+        trQ1.StartTransaction;
+        Q1.SQL.Text := 'alter table log_changes change old_mode old_mode varchar(12) null';
+        if fDebugLevel>=1 then Writeln(Q1.SQL.Text);
+        Q1.ExecSQL;
+        trQ1.Commit;
+
+        trQ1.StartTransaction;
+        Q1.SQL.Text := 'alter table call_alert change mode mode varchar(12) null';
+        if fDebugLevel>=1 then Writeln(Q1.SQL.Text);
+        Q1.ExecSQL;
+        trQ1.Commit;
+
+        trQ1.StartTransaction;
+        Q1.SQL.Text := 'alter table freqmem change mode mode varchar(12) null';
+        if fDebugLevel>=1 then Writeln(Q1.SQL.Text);
+        Q1.ExecSQL;
+
+        trQ1.Commit
+      end;
+
+      if (old_version < 15) then
+      begin
+        trQ1.StartTransaction;
+        Q1.SQL.Text := 'alter table cqrlog_main add rxfreq numeric(10,4) null';
+        if fDebugLevel>=1 then Writeln(Q1.SQL.Text);
+        Q1.ExecSQL;
+        trQ1.Commit;
+
+        trQ1.StartTransaction;
+        Q1.SQL.Text := 'alter table cqrlog_main add satellite varchar(30) default '+QuotedStr('');
+        if fDebugLevel>=1 then Writeln(Q1.SQL.Text);
+        Q1.ExecSQL;
+        trQ1.Commit;
+
+        trQ1.StartTransaction;
+        Q1.SQL.Text := 'alter table cqrlog_main add prop_mode varchar(30) default '+QuotedStr('');
+        if fDebugLevel>=1 then Writeln(Q1.SQL.Text);
+        Q1.ExecSQL;
+        trQ1.Commit
+      end;
+
+      if TableExists('view_cqrlog_main_by_callsign') then
+      begin
+        trQ1.StartTransaction;
+        Q1.SQL.Text := 'drop view view_cqrlog_main_by_callsign';
+        if fDebugLevel>=1 then Writeln(Q1.SQL.Text);
+        Q1.ExecSQL;
+        trQ1.Commit
+      end;
+
+      if TableExists('view_cqrlog_main_by_qsodate') then
+      begin
+        trQ1.StartTransaction;
+        Q1.SQL.Text := 'drop view view_cqrlog_main_by_qsodate';
+        if fDebugLevel>=1 then Writeln(Q1.SQL.Text);
+        Q1.ExecSQL;
+        trQ1.Commit
+      end;
+
+      if TableExists('view_cqrlog_main_by_qsodate_asc') then
       begin
         trQ1.StartTransaction;
         Q1.SQL.Text := 'drop view view_cqrlog_main_by_qsodate_asc';
         if fDebugLevel>=1 then Writeln(Q1.SQL.Text);
         Q1.ExecSQL;
+        trQ1.Commit
       end;
-      trQ1.Commit;
 
       CreateViews;
 
@@ -3482,6 +3403,9 @@ var
   l : TStringList;
   info : String;
 begin
+  Writeln(ExtractFilePath(Paramstr(0))  + 'mysqld');
+  if FileExistsUTF8(ExtractFilePath(Paramstr(0))  + 'mysqld') then
+    Result := ExtractFilePath(Paramstr(0))  + 'mysqld';
   if FileExistsUTF8('/usr/bin/mysqld') then
     Result := '/usr/bin/mysqld';
   if FileExistsUTF8('/usr/bin/mysqld_safe') then //Fedora
@@ -3616,7 +3540,7 @@ begin
     trBands.RollBack;
   trBands.StartTransaction;
   qBands.Open;
-  Writeln('qBands.RecorfdCount: ',qBands.RecordCount);
+  if dmData.DebugLevel>=1 then Writeln('qBands.RecorfdCount: ',qBands.RecordCount);
   if qBands.RecordCount = 0 then
     exit;
   band := qBands.Fields[1].AsString;
@@ -3632,115 +3556,7 @@ begin
     else
       mode := 'RTTY';
   end;
-  Writeln('TdmData.BandModFromFreq:',Result,' cw ',FloatToStr(cw),' ssb ',FloatToStr(ssb))
-end;
-
-procedure TdmData.EnableOnlineLogSupport(RemoveOldChanges : Boolean = True);
-const
-  C_DEL = 'DELETE FROM %s';
-var
-  t  : TSQLQuery;
-  tr : TSQLTransaction;
-  i  : Integer;
-begin
-  t := TSQLQuery.Create(nil);
-  tr := TSQLTransaction.Create(nil);
-  try
-    t.Transaction := tr;
-    tr.DataBase   := MainCon;
-    t.DataBase    := MainCon;
-    if RemoveOldChanges then
-    begin
-      try
-        tr.StartTransaction;
-        t.SQL.Text := Format(C_DEL,['upload_status']);
-        if fDebugLevel>=1 then Writeln(t.SQL.Text);
-        t.ExecSQL;
-
-        t.SQL.Text := Format(C_DEL,['log_changes']);
-        if fDebugLevel>=1 then Writeln(t.SQL.Text);
-        t.ExecSQL;
-
-        tr.Commit
-      except
-        on E : Exception do
-        begin
-          Writeln('EnableOnlineLogSupport:',E.Message);
-          tr.Rollback;
-          exit
-        end
-      end
-    end;
-
-    try
-      tr.StartTransaction;
-      t.SQL.Text := '';
-      for i:=0 to scOnlineLogTriggers.Script.Count-1 do
-      begin
-        if Pos(';',scOnlineLogTriggers.Script.Strings[i]) = 0 then
-          t.SQL.Add(scOnlineLogTriggers.Script.Strings[i])
-        else begin
-          t.SQL.Add(scOnlineLogTriggers.Script.Strings[i]);
-          if fDebugLevel>=1 then Writeln(t.SQL.Text);
-          t.ExecSQL;
-          t.SQL.Text := ''
-        end
-      end;
-
-      if RemoveOldChanges then
-        PrepareEmptyLogUploadStatusTables(t,tr)
-
-    except
-      on E : Exception do
-      begin
-        Writeln('EnableOnlineLogSupport:',E.Message);
-        tr.Rollback
-      end
-    end
-  finally
-    t.Close;
-    FreeAndNil(t);
-    FreeAndNil(tr)
-  end
-end;
-
-procedure TdmData.DisableOnlineLogSupport;
-const
-  C_DROP = 'DROP TRIGGER IF EXISTS %s';
-var
-  t  : TSQLQuery;
-  tr : TSQLTransaction;
-  i  : Integer;
-begin
-  t := TSQLQuery.Create(nil);
-  tr := TSQLTransaction.Create(nil);
-  try
-    t.Transaction := tr;
-    tr.DataBase   := MainCon;
-    t.DataBase    := MainCon;
-
-    try
-      t.SQL.Text := Format(C_DROP,['cqrlog_main_bd']);
-      if fDebugLevel>=1 then Writeln(t.SQL.Text);
-      t.ExecSQL;
-
-      t.SQL.Text := Format(C_DROP,['cqrlog_main_ai']);
-      if fDebugLevel>=1 then Writeln(t.SQL.Text);
-      t.ExecSQL;
-
-      t.SQL.Text := Format(C_DROP,['cqrlog_main_bu']);
-      if fDebugLevel>=1 then Writeln(t.SQL.Text);
-      t.ExecSQL;
-
-      tr.Commit
-    except
-      tr.Rollback
-    end
-  finally
-    t.Close;
-    FreeAndNil(t);
-    FreeAndNil(tr)
-  end
+  if dmData.DebugLevel>=1 then Writeln('TdmData.BandModFromFreq:',Result,' cw ',FloatToStr(cw),' ssb ',FloatToStr(ssb))
 end;
 
 function TdmData.TriggersExistsOnCqrlog_main : Boolean;
@@ -3971,6 +3787,8 @@ begin
   t := TSQLQuery.Create(nil);
   tr := TSQLTransaction.Create(nil);
   try try
+    dmLogUpload.DisableOnlineLogSupport;
+
     t.Transaction := tr;
     tr.DataBase   := MainCon;
     t.DataBase    := MainCon;
@@ -3990,6 +3808,10 @@ begin
     t.Close;
     if tr.Active then
       tr.Commit;
+
+    if dmLogUpload.LogUploadEnabled then
+      dmLogUpload.EnableOnlineLogSupport(False);
+
     FreeAndNil(t);
     FreeAndNil(tr)
   end
@@ -4009,6 +3831,8 @@ begin
   t := TSQLQuery.Create(nil);
   tr := TSQLTransaction.Create(nil);
   try try
+    dmLogUpload.DisableOnlineLogSupport;
+
     t.Transaction := tr;
     tr.DataBase   := MainCon;
     t.DataBase    := MainCon;
@@ -4028,6 +3852,10 @@ begin
     t.Close;
     if tr.Active then
       tr.Commit;
+
+    if dmLogUpload.LogUploadEnabled then
+      dmLogUpload.EnableOnlineLogSupport(False);
+
     FreeAndNil(t);
     FreeAndNil(tr)
   end
@@ -4242,7 +4070,7 @@ begin
       qFreqMem.SQL.Text := C_SEL + ' where (mode = ' + QuotedStr(mode) +') order by id'
   end;
 
-  if fDebugLevel>=1 then Writeln(qFreqMem.SQL.Text);
+  if fDebugLevel>=1 then Writeln('FreqmemSql:',qFreqMem.SQL.Text);
   trFreqMem.StartTransaction;
   qFreqMem.Open;
 
@@ -4250,7 +4078,8 @@ begin
   fLastMemId := qFreqMem.Fields[0].AsInteger;
 
   qFreqMem.First;
-  fFirstMemId := qFreqMem.Fields[0].AsInteger
+  fFirstMemId := qFreqMem.Fields[0].AsInteger;
+  if fDebugLevel>=1 then Writeln('FreqmemFirst:',fFirstMemId,'  FreqmemLast:',fLastMemId);
 end;
 
 procedure TdmData.GetCurrentFreqFromMem(var freq : Double; var mode : String; var bandwidth : Integer);
@@ -4265,7 +4094,8 @@ begin
      freq      := 0;
      mode      := 'CW';
      bandwidth := 0
-  end
+  end;
+  if fDebugLevel>=1 then Writeln('Freq:',freq,' mode:',mode,' bandwidth:',bandwidth);
 end;
 
 procedure TdmData.GetPreviousFreqFromMem(var freq : Double; var mode : String; var bandwidth : Integer);
@@ -4377,70 +4207,13 @@ end;
 
 procedure TdmData.CreateDBConnections;
 begin
-  if fMySQLVersion < 5.5 then
-  begin
-    MainCon      := TMySQL51Connection.Create(self);
-    BandMapCon   := TMySQL51Connection.Create(self);
-    RbnMonCon    := TMySQL51Connection.Create(self);
-    LogUploadCon := TMySQL51Connection.Create(self);
-    dbDXC        := TMySQL51Connection.Create(self)
-  end
-  else  if fMySQLVersion < 5.6 then
-  begin
-    MainCon      := TMySQL55Connection.Create(self);
-    BandMapCon   := TMySQL55Connection.Create(self);
-    RbnMonCon    := TMySQL55Connection.Create(self);
-    LogUploadCon := TMySQL55Connection.Create(self);
-    dbDXC        := TMySQL55Connection.Create(self)
-  end
-  else begin
-    if fMySQLVersion < 5.7 then
-    begin
-      MainCon      := TMySQL56Connection.Create(self);
-      BandMapCon   := TMySQL56Connection.Create(self);
-      RbnMonCon    := TMySQL56Connection.Create(self);
-      LogUploadCon := TMySQL56Connection.Create(self);
-      dbDXC        := TMySQL56Connection.Create(self)
-    end
-    else begin
-      MainCon      := TMySQL57Connection.Create(self);
-      BandMapCon   := TMySQL57Connection.Create(self);
-      RbnMonCon    := TMySQL57Connection.Create(self);
-      LogUploadCon := TMySQL57Connection.Create(self);
-      dbDXC        := TMySQL57Connection.Create(self)
-    end
-  end
+  MainCon      := getNewMySQLConnectionObject();
+  BandMapCon   := getNewMySQLConnectionObject();
+  RbnMonCon    := getNewMySQLConnectionObject();
+  LogUploadCon := getNewMySQLConnectionObject();
+  dbDXC        := getNewMySQLConnectionObject();
 end;
 
-function TdmData.GetMySQLLib : String;
-var
-  lib : String;
-  Paths : TStringList;
-begin
-  Result := '';
-  Paths := TStringList.Create;
-  try
-    Paths.Add('/usr/lib64/');
-    Paths.Add('/lib64/');
-    Paths.Add('/usr/lib/x86_64-linux-gnu/');
-    Paths.Add('/usr/lib64/mysql/');
-    Paths.Add('/lib/x86_64-linux-gnu/');
-
-    Paths.Add('/usr/lib/i386-linux-gnu/');
-    Paths.Add('/lib/i386-linux-gnu/');
-    Paths.Add('/usr/lib/');
-    Paths.Add('/lib/');
-    Paths.Add('/usr/lib/mysql/');
-
-    Result := MyFindFile('libmariadbclient.so*', Paths);
-    if (Result='') then
-    begin
-      Result := MyFindFile('libmysqlclient.so*', Paths)
-    end
-  finally
-    FreeAndNil(Paths)
-  end
-end;
 
 function TdmData.GetDebugLevel : Integer;
 var
@@ -4526,6 +4299,16 @@ begin
     QSOColorDate := now
 end;
 
+function TdmData.getNewMySQLConnectionObject : TMySQL57Connection;
+var
+  Connection : TMySQL57Connection;
+begin
+  Connection := TMySQL57Connection.Create(self);
+  Connection.SkipLibraryVersionCheck := True;
+  Connection.KeepConnection := True;
+
+  result := Connection
+end;
 
 end.
 

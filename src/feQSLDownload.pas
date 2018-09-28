@@ -176,7 +176,7 @@ begin
             with TfrmImportProgress.Create(self) do
             try
               FileName    := AdifFile;
-              ImportType  := 8;
+              ImportType  := imptImporteQSLAdif;
               eQSLShowNew := chkShowNew.Checked;
               ShowModal;
               QSOList.Text := eQSLQSOList.Text;
@@ -232,9 +232,9 @@ end;
 
 procedure TfrmeQSLDownload.btnPreferencesClick(Sender : TObject);
 begin
+  cqrini.WriteInteger('Pref', 'ActPageIdx', 18);  //set lotw tab active. Number may change if preferences page change
   with TfrmPreferences.Create(self) do
   try
-    pgPreferences.ActivePage := tabLoTW;
     ShowModal
   finally
     Free

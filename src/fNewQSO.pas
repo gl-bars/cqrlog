@@ -25,6 +25,8 @@ uses
 const
   cRefCall = 'Ref. call (to change press CTRL+R)   ';
   cMyLoc   = 'My grid (to change press CTRL+L) ';
+  cQSLMgrVersionCheckUrl = 'http://www.ok2cqr.com/linux/cqrlog/qslmgr/ver.dat';
+  cCntyVersionCheckUrl = 'http://www.ok2cqr.com/linux/cqrlog/ctyfiles/ver.dat';
 
 type
   TRemoteModeType = (rmtFldigi, rmtWsjt);
@@ -81,9 +83,20 @@ type
     acUploadToClubLog: TAction;
     acUploadToHamQTH: TAction;
     acTune : TAction;
+    btnClearSatellite : TButton;
     chkAutoMode: TCheckBox;
+    cmbPropagation : TComboBox;
+    cmbSatellite : TComboBox;
     dbgrdQSOBefore: TDBGrid;
+    edtRXFreq : TEdit;
+    lblCallbookInformation : TLabel;
+    lblPropagation : TLabel;
+    lblStatellite : TLabel;
+    lblRXFreq : TLabel;
+    Label36 : TLabel;
     lblQSLRcvdDate: TLabel;
+    mCallBook : TMemo;
+    mCountry : TMemo;
     MenuItem32 : TMenuItem;
     MenuItem33 : TMenuItem;
     MenuItem34 : TMenuItem;
@@ -154,47 +167,44 @@ type
     edtState: TEdit;
     edtWAZ: TEdit;
     GroupBox1: TGroupBox;
-    GroupBox2: TGroupBox;
-    grbCallBook: TGroupBox;
     imgMain: TImageList;
     imgMain1: TImageList;
-    Label1: TLabel;
-    Label10: TLabel;
-    Label11: TLabel;
-    Label12: TLabel;
-    Label13: TLabel;
-    Label14: TLabel;
+    lblDate: TLabel;
+    lblQTH: TLabel;
+    lblCommentToCallsign: TLabel;
+    lblPwr: TLabel;
+    lblItuEdit: TLabel;
+    lblLocalCaption: TLabel;
     lblTarSunSet: TLabel;
     lblTarSunRise: TLabel;
     lblLocSunSet: TLabel;
     lblLocSunRise: TLabel;
-    Label15: TLabel;
-    Label17: TLabel;
-    Label18: TLabel;
-    Label19: TLabel;
-    Label2: TLabel;
-    Label20: TLabel;
-    Label21: TLabel;
-    Label22: TLabel;
-    Label23: TLabel;
-    Label24: TLabel;
-    Label25: TLabel;
-    Label26: TLabel;
-    Label27: TLabel;
-    Label28: TLabel;
-    Label29: TLabel;
-    Label3: TLabel;
-    Label30: TLabel;
-    Label31: TLabel;
-    Label32: TLabel;
-    Label33: TLabel;
-    Label34: TLabel;
-    Label4: TLabel;
-    Label5: TLabel;
-    Label6: TLabel;
-    Label7: TLabel;
-    Label8: TLabel;
-    Label9: TLabel;
+    lblGrid: TLabel;
+    lblCounty: TLabel;
+    lblQSLS: TLabel;
+    lblQSLR: TLabel;
+    lblStartTime: TLabel;
+    lblAward: TLabel;
+    lblDXCCRef: TLabel;
+    lblWazEdit: TLabel;
+    lblCommentToQSO: TLabel;
+    lblQSONrDesc: TLabel;
+    lblState: TLabel;
+    lblDXCCCaption: TLabel;
+    lblWAZCaption: TLabel;
+    lblITUCaption: TLabel;
+    lblEndTime: TLabel;
+    lblContCaption: TLabel;
+    lblLatCaption: TLabel;
+    lblLongCaption: TLabel;
+    lblDistCaption: TLabel;
+    lblAzim: TLabel;
+    lblMode: TLabel;
+    lblFrequency: TLabel;
+    blbQTHProfile: TLabel;
+    lblRstSent: TLabel;
+    lblRSTRcvd: TLabel;
+    lblName: TLabel;
     lblAmbiguous: TLabel;
     lblAzi: TLabel;
     lblCall: TLabel;
@@ -215,9 +225,7 @@ type
     lblQSOTakes: TLabel;
     lblWAZ: TLabel;
     MainMenu1: TMainMenu;
-    mCallBook: TMemo;
     mComment: TMemo;
-    mCountry: TMemo;
     MenuItem1: TMenuItem;
     MenuItem10: TMenuItem;
     MenuItem11: TMenuItem;
@@ -294,26 +302,31 @@ type
     mnuNewQSO: TMenuItem;
     mnuFile: TMenuItem;
     mnuTRXControl: TMenuItem;
+    pgDetails : TPageControl;
     Panel1: TPanel;
     Panel2: TPanel;
     Panel3: TPanel;
     Panel4: TPanel;
+    Panel5 : TPanel;
     Panel6: TPanel;
     pnlOffline: TPanel;
     popEditQSO: TPopupMenu;
     sbNewQSO: TStatusBar;
     sbtneQSL : TSpeedButton;
-    sgrdStatistic: TStringGrid;
-    SpeedButton1: TSpeedButton;
+    sgrdStatistic : TStringGrid;
+    btnSunRise: TSpeedButton;
     SpeedButton2: TSpeedButton;
     SpeedButton3: TSpeedButton;
-    SpeedButton4: TSpeedButton;
+    btnSunSet: TSpeedButton;
     sbtnAttach: TSpeedButton;
     sbtnQSL: TSpeedButton;
     sbtnQRZ: TSpeedButton;
     sbtnLoTW: TSpeedButton;
     sbtnHamQTH : TSpeedButton;
     sbtnRefreshTime: TSpeedButton;
+    tabDXCCStat : TTabSheet;
+    tabSatellite : TTabSheet;
+    tmrWsjtSpd: TTimer;
     tmrWsjtx: TTimer;
     tmrUploadAll: TTimer;
     tmrFldigi: TTimer;
@@ -349,11 +362,14 @@ type
     procedure acUploadToHamQTHExecute(Sender: TObject);
     procedure acUploadToHrdLogExecute(Sender: TObject);
     procedure acPropExecute(Sender: TObject);
+    procedure btnClearSatelliteClick(Sender : TObject);
     procedure chkAutoModeChange(Sender: TObject);
     procedure cmbFreqExit(Sender: TObject);
     procedure cmbIOTAEnter(Sender: TObject);
+    procedure cmbPropagationChange(Sender : TObject);
     procedure cmbQSL_REnter(Sender: TObject);
     procedure cmbQSL_SEnter(Sender: TObject);
+    procedure cmbSatelliteChange(Sender : TObject);
     procedure dbgrdQSOBeforeColumnSized(Sender: TObject);
     procedure edtAwardEnter(Sender: TObject);
     procedure edtCallChange(Sender: TObject);
@@ -362,8 +378,10 @@ type
     procedure edtEndTimeEnter(Sender: TObject);
     procedure edtGridEnter(Sender: TObject);
     procedure edtHisRSTExit(Sender: TObject);
+    procedure edtHisRSTKeyPress(Sender : TObject; var Key : char);
     procedure edtITUEnter(Sender: TObject);
     procedure edtMyRSTExit(Sender: TObject);
+    procedure edtMyRSTKeyPress(Sender : TObject; var Key : char);
     procedure edtNameEnter(Sender: TObject);
     procedure edtPWREnter(Sender: TObject);
     procedure edtQSL_VIAEnter(Sender: TObject);
@@ -503,8 +521,10 @@ type
     procedure tmrStartStartTimer(Sender: TObject);
     procedure tmrStartTimer(Sender: TObject);
     procedure tmrUploadAllTimer(Sender: TObject);
+    procedure tmrWsjtSpdTimer(Sender: TObject);
     procedure tmrWsjtxTimer(Sender: TObject);
   private
+    StartRun : Boolean;
     fEditQSO : Boolean;
     fViewQSO : Boolean;
     old_stat_adif : Word;
@@ -520,6 +540,9 @@ type
     old_mode   : String;
     old_freq   : String;
     old_qslr   : String;
+    old_sat    : String;
+    old_prop   : String;
+    old_rxfreq : String;
     posun      : String;
 
     old_time   : String;
@@ -575,7 +598,15 @@ type
     procedure DisplayCoordinates(latitude, Longitude : Currency);
     procedure DrawGrayline;
 
+    procedure CheckForExternalTablesUpdate;
+    procedure CheckForDXCCTablesUpdate;
+    procedure CheckForQslManagersUpdate;
+    procedure CheckForMembershipUpdate;
+
+    procedure SelTextFix(Edit : TEdit; var Key : Char);
+
     function CheckFreq(freq : String) : String;
+
   public
     QTHfromCb   : Boolean;
     FromDXC     : Boolean;
@@ -588,18 +619,20 @@ type
     WsjtxBand             : String;
     wHiSpeed              : integer;      // when packets received :udp polling speeds (tmrWsjtx)
     wLoSpeed              : integer;     // when running idle
-
     old_call              : String;               //Moved from private
 
     FldigiXmlRpc          : Boolean;
 
-    ClearAfterFreqChange : Boolean;
-    ChangeFreqLimit : Double;
+    ClearAfterFreqChange  : Boolean;
+    ChangeFreqLimit       : Double;
+    RepHead                :String;                //the heading for possible reply commands created
+                                                  //includes message type #0 (change it)
 
     property EditQSO : Boolean read fEditQSO write fEditQSO default False;
     property ViewQSO : Boolean read fViewQSO write fViewQSO default False;
 
     procedure DisableRemoteMode;   //Moved from private
+    procedure SaveRemote;
 
     procedure OnBandMapClick(Sender:TObject;Call,Mode : String;Freq:Currency);
     procedure AppIdle(Sender: TObject; var Handled: Boolean);
@@ -619,6 +652,7 @@ type
     procedure ReturnToNewQSO;
     procedure InitializeCW;
     procedure RunVK(key_pressed: String);
+    procedure RunST(script: String);
   end;
 
   type
@@ -638,6 +672,7 @@ type
     protected
       procedure Execute; override;
   end;
+
 
 var
   frmNewQSO    : TfrmNewQSO;
@@ -679,66 +714,37 @@ uses dUtils, fChangeLocator, dDXCC, dDXCluster, dData, fMain, fSelectDXCC, fGray
      fLongNote, fRefCall, fKeyTexts, fCWType, fExportProgress, fPropagation, fCallAttachment,
      fQSLViewer, fCWKeys, uMyIni, fDBConnect, fAbout, uVersion, fChangelog,
      fBigSquareStat, fSCP, fRotControl, fLogUploadStatus, fRbnMonitor, fException, fCommentToCall,
-     fRemind, fContest,fXfldigi;
+     fRemind, fContest, fXfldigi, dMembership, dSatellite;
 
 procedure TQSLTabThread.Execute;
 var
-  HTTP   : THTTPSend;
-  m      : TStringList;
+  data   : string;
   FileDate : TDateTime;
 begin
   FreeOnTerminate := True;
-  http   := THTTPSend.Create;
-  m      := TStringList.Create;
-  try
-    HTTP.ProxyHost := cqrini.ReadString('Program','Proxy','');
-    HTTP.ProxyPort := cqrini.ReadString('Program','Port','');
-    HTTP.UserName  := cqrini.ReadString('Program','User','');
-    HTTP.Password  := cqrini.ReadString('Program','Passwd','');
-    if HTTP.HTTPMethod('GET', 'http://www.ok2cqr.com/linux/cqrlog/qslmgr/ver.dat') then
-    begin
-      m.LoadFromStream(HTTP.Document);
-      FileDate := dmUtils.MyStrToDate(trim(m.Text));
-      if FileDate > dmUtils.GetLastQSLUpgradeDate then
-      begin
-        Synchronize(@frmNewQSO.SynQSLTab)
-      end
-    end
-  finally
-    http.Free;
-    m.Free
+  if dmUtils.GetDataFromHttp(cQSLMgrVersionCheckUrl, data) then
+  begin
+    FileDate := dmUtils.MyStrToDate(data);
+    if FileDate > dmUtils.GetLastQSLUpgradeDate then
+      Synchronize(@frmNewQSO.SynQSLTab)
   end
 end;
 
 
 procedure TDXCCTabThread.Execute;
 var
-  HTTP   : THTTPSend;
-  m      : TStringList;
+  data   : string;
   FileDate : TDateTime;
 begin
   FreeOnTerminate := True;
-  http   := THTTPSend.Create;
-  m      := TStringList.Create;
-  try
-    HTTP.ProxyHost := cqrini.ReadString('Program','Proxy','');
-    HTTP.ProxyPort := cqrini.ReadString('Program','Port','');
-    HTTP.UserName  := cqrini.ReadString('Program','User','');
-    HTTP.Password  := cqrini.ReadString('Program','Passwd','');
-    if HTTP.HTTPMethod('GET', 'http://www.ok2cqr.com/linux/cqrlog/ctyfiles/ver.dat') then
-    begin
-      m.LoadFromStream(HTTP.Document);
-      FileDate := dmUtils.MyStrToDate(trim(m.Text));
-      if FileDate > dmUtils.GetLastUpgradeDate then
-      begin
+  if dmUtils.GetDataFromHttp(cCntyVersionCheckUrl, data) then
+  begin
+    FileDate := dmUtils.MyStrToDate(data);
+    if FileDate > dmUtils.GetLastUpgradeDate then
         Synchronize(@frmNewQSO.SynDXCCTab)
-      end;
-    end;
-  finally
-    http.Free;
-    m.Free
   end
 end;
+
 
 procedure TfrmNewQSO.SynDXCCTab;
 begin
@@ -749,11 +755,13 @@ begin
     try
       Caption            := 'Downloading DXCC data ...';
       lblComment.Caption := 'Downloading DXCC data ...';
-      ImportType := 3;
+      ImportType := imptDownloadDXCCData;
       ShowModal;
     finally
       Free
     end;
+    if (edtCall.Text = '') then
+      ClearAll;                //reload combo boxes with prop modes and satelite names
     dmDXCC.ReloadDXCCTables;
     dmDXCluster.ReloadDXCCTables
   end
@@ -768,7 +776,7 @@ begin
     try
       Caption            := 'Downloading QSL managers ...';
       lblComment.Caption := 'Downloading QSL managers ...';
-      ImportType := 6;
+      ImportType := imptDownloadQSLData;
       ShowModal;
     finally
       Free
@@ -1077,6 +1085,10 @@ begin
   dmUtils.InsertModes(cmbMode);
   dmUtils.InsertFreq(cmbFreq);
 
+  dmSatellite.GetListOfSatellites(cmbSatellite, old_sat);
+  dmSatellite.GetListOfPropModes(cmbPropagation, old_prop);
+  edtRXFreq.Text := old_rxfreq;
+
   if cbOffline.Checked then
   begin
     edtStartTime.Text := sTimeOn;
@@ -1160,9 +1172,6 @@ begin
 end;
 
 procedure TfrmNewQSO.LoadSettings;
-var
-  Tab   : TDXCCTabThread;
-  thqsl : TQSLTabThread;
 begin
   dmUtils.ModifyXplanetConf;
   dmUtils.LoadFontSettings(frmNewQSO);
@@ -1204,12 +1213,6 @@ begin
   begin
     frmRotControl.Show;
     frmRotControl.BringToFront
-  end;
-
-  if cqrini.ReadBool('Window','Dxcluster',False) then
-  begin
-    frmDXCluster.Show;
-    frmDXCluster.BringToFront
   end;
 
   if frmTRXControl.Showing then
@@ -1276,22 +1279,19 @@ begin
   if cqrini.ReadBool('Window','CWType',False) then
     acCWType.Execute;
 
+
+  CheckForExternalTablesUpdate;
+
   if cqrini.ReadBool('Window','RBNMonitor',False) then
     acRBNMonitor.Execute;
 
-  if cqrini.ReadBool('Program','CheckDXCCTabs',True) then
+  if cqrini.ReadBool('Window','Dxcluster',False) then
   begin
-    Tab := TDXCCTabThread.Create(True);
-    Tab.FreeOnTerminate := True;
-    Tab.Start
+    frmDXCluster.Show;
+    frmDXCluster.BringToFront
   end;
 
-  if cqrini.ReadBool('Program','CheckQSLTabs',True) then
-  begin
-    thqsl := TQSLTabThread.Create(True);
-    thqsl.FreeOnTerminate := True;
-    thqsl.Start
-  end;
+  pgDetails.Pages[1].TabVisible := cqrini.ReadBool('NewQSO','SatelliteMode', False);
 
   //this have to be done here when log is selected (settings at database)
   frmReminder.chRemi.Checked := cqrini.ReadBool('Reminder','chRemi',False);
@@ -1319,7 +1319,12 @@ begin
   dmData.InsertProfiles(cmbProfiles,False);
   cmbProfiles.Text := dmData.GetDefaultProfileText;
   ChangeCallBookCaption;
-  BringToFront
+  BringToFront;
+  if not StartRun then
+   Begin   //run "when cqrlog is starting" -script
+    RunST('start.sh');
+    StartRun := true;
+   end;
 end;
 
 procedure TfrmNewQSO.CloseAllWindows;
@@ -1849,7 +1854,7 @@ begin
       if dmData.DebugLevel>=1 then Writeln('note:',note);
       edtRemQSO.Text := note
     end;
-    btnSave.Click
+    SaveRemote;
   end;   //while msgrcv
  end; //else fldigixmlrpc
 
@@ -1962,6 +1967,43 @@ begin
   end
 end;
 
+procedure TfrmNewQSO.tmrWsjtSpdTimer(Sender: TObject);
+var
+  Hour,Min,Sec,HSec : word;
+begin
+   if (WsjtxMode='FT8') then
+    begin
+     DecodeTime(Time,Hour,Min,Sec,HSec);
+     if dmData.DebugLevel>=1 then Writeln(' Timer FT8 mode - Sec is: ',Sec);
+     case Sec of
+       13,28,43,58 :
+                     begin  //set hispeed  decode time is coming
+                        if ( tmrWsjtx.Interval = wLoSpeed ) then
+                          begin
+                           if dmData.DebugLevel>=1 then Writeln ('Timer >> Sec is: ',Sec,' ',tmrWsjtx.Interval,'=',wLoSpeed );
+                           tmrWsjtx.Interval := wHiSpeed;
+                           if dmData.DebugLevel>=1 then Writeln(' Timer >> Setting UDP decode to FT8 HiSpeed ', tmrWsjtx.Interval);
+                          end;
+                     end;
+       2,17,32,47  :
+                     begin //set lospeed  decode time is over
+                         if ( tmrWsjtx.Interval = wHiSpeed ) then  //we did not have UFT8-mode. Is HiSpeed still on?
+                          Begin
+                           if dmData.DebugLevel>=1 then Writeln(' Timer << Sec is: ',Sec,' ',tmrWsjtx.Interval,'=',wLoSpeed );
+                           tmrWsjtx.Interval := wLoSpeed;
+                           if dmData.DebugLevel>=1 then Writeln(' Timer << Setting UDP decode to FT8 LoSpeed ', tmrWsjtx.Interval);
+                          end;
+                      end;
+       end;
+    end
+   else
+      if (  tmrWsjtx.Interval = wHiSpeed ) then  //we did not have UFT8-mode. Is HiSpeed still on?
+       Begin
+         tmrWsjtx.Interval := wLoSpeed;       // turn it off then
+         if dmData.DebugLevel>=1 then Writeln('Setting UDP decode to LoSpeed not in FT8 mode ',tmrWsjtx.Interval);
+       end;
+end;
+
 procedure TfrmNewQSO.tmrWsjtxTimer(Sender: TObject);
 var
   Buf      : String;
@@ -1970,6 +2012,7 @@ var
   TimeLine : String;
   Repbuf   : String;
   index    : Integer;
+  tmpindex : Integer;
   ParNum   : Integer;
   MsgType  : Integer;
   Sec      : Integer;
@@ -1977,7 +2020,9 @@ var
   Hour     : Integer;
   RepStart : integer;
   ParDou   : Double;
+  Snr      : integer;
   Dtim     : TDateTime;
+  Dfreq    : Integer;
   new      : Boolean;
   TXEna    : Boolean;
   TXOn     : Boolean;
@@ -2013,7 +2058,7 @@ var
   var
     P : uint32;
   begin
-    P := UiFBuf(index);                 //string length;
+    P := UiFBuf(index);                 //string length;   4bytes
     if P = $FFFFFFFF then               //exeption: empty Qstring len: $FFFF FFFF content: empty
     begin
       Result := ''
@@ -2068,14 +2113,19 @@ var
     Result := ord(Buf[index]) = 1;
     inc(index)
   end;
+//-------------------------------------------------------------------
 
 begin
   if WsjtxDecodeRunning then
    begin
      if dmData.DebugLevel>=1 then Writeln('WsjtDecode already running!');
-     exit;
+     Exit;
    end
-     else WsjtxDecodeRunning := true;   //do not jump here if already running
+     else
+     Begin
+       WsjtxDecodeRunning := true;   //do not jump here if already running
+       tmrWsjtx.Enabled:= false;
+     end;
   if Wsjtxsock.WaitingData > 0 then
   Begin
   MyCall := UpperCase(cqrini.ReadString('Station', 'Call', ''));
@@ -2084,15 +2134,10 @@ begin
   Buf := Wsjtxsock.RecvPacket(1000);
   if WsjtxSock.lasterror=0 then
   begin
-     if ( tmrWsjtx.Interval = wLoSpeed ) then
-       Begin
-            tmrWsjtx.Enabled  := False;
-            tmrWsjtx.Interval := wHiSpeed;    //  timer has now dynamic value. Now we got data. Expecting more that one packet.
-                                              //  setting HiSpeed ON
-            if dmData.DebugLevel>=1 then Writeln('Setting UDP decode to HiSpeed');
-       end;
+
     index := pos(#$ad+#$bc+#$cb+#$da,Buf); //QTheader: magic number 0xadbccbda
     RepStart := index; //for possibly reply creation
+
     if dmData.DebugLevel>=1 then Write('Header position:',index);
     index:=index+4;  // skip QT header
 
@@ -2102,6 +2147,13 @@ begin
     MsgType :=  UiFBuf(index);
     if dmData.DebugLevel>=1 then Write(' Message type:', MsgType,' ');
     lblCall.Caption       := 'Wsjt-x remote #'+intToStr(MsgType);   //changed to see last received msgtype
+
+    tmpindex := index;
+    ParStr := StFBuf(index);       //read ID to get index point to RepHead end
+    RepHead := copy(Buf,1,index-1);
+    RepHead[12] := #0;             //Ready made reply header with #0 command (lobyte of uint32)
+    index := tmpindex;             //return pointer back
+
     case MsgType of
 
 
@@ -2160,10 +2212,8 @@ begin
           begin
             new :=true;
             WsjtxMode := ParStr;
-            if (WsjtxMode = 'FT8') or (WsjtxMode = 'MSK144') then
-                wLoSpeed  := 500  else  wLoSpeed  := 1500;
           end;
-          if dmData.DebugLevel>=1 then Writeln('Mode:', WsjtxMode, '  wLoSpeed:',wLoSpeed );
+          if dmData.DebugLevel>=1 then Writeln('Mode:', WsjtxMode);
            //----------------------------------------------------
           call := trim(StFBuf(index)); //to be sure...
           if dmData.DebugLevel>=1 then Writeln('Call :', call);
@@ -2189,6 +2239,15 @@ begin
           //----------------------------------------------------
           if TXEna and TXOn then
           begin
+            if dmData.DebugLevel>=1 then Writeln('Status: TxEna, TxOn, DXCall is:',call);
+            if (frmMonWsjtx <> nil) then   //CQ-monitor exist
+               if (frmMonWsjtx.DblClickCall <> call) then   //this works now also when calling started from wsjt-x main screen 2click
+                                            begin    //we do not try to work same station any more as with 2click before
+                                              if frmMonWsjtx.chkStopTx.Checked then frmMonWsjtx.DblClickCall := call
+                                                else frmMonWsjtx.DblClickCall :='';
+                                              if dmData.DebugLevel>=1 then Writeln('Change 2click call to:',frmMonWsjtx.DblClickCall);
+                                            end;
+
             if  edtCall.Text <> call then  //call (and web info) maybe there already ok from pevious status packet
                            Begin
                              edtCall.Text := '';//clean grid like double ESC does
@@ -2253,13 +2312,13 @@ begin
             TimeLine := TimeLine + intToStr(Sec);
           if dmData.DebugLevel>=1 then Writeln(TimeLine);
           //----------------------------------------------------
-          ParNum :=  IFBuf(index);
+          Snr :=  IFBuf(index);
           if dmData.DebugLevel>=1 then Writeln('snr:',ParNum );
           //----------------------------------------------------
           ParDou := DouFBuf(index);
           if dmData.DebugLevel>=1 then Writeln('delta time:',ParDou);
           //----------------------------------------------------
-          ParNum :=  UiFBuf(index);
+          Dfreq :=  UiFBuf(index);
           if dmData.DebugLevel>=1 then Writeln('DeltaFreq:', ParNum);
           //----------------------------------------------------
           mode := StFBuf(index);    //mode as letter: # @ & etc...
@@ -2277,13 +2336,12 @@ begin
                //if CQ or Mycall
                if ((FirstWord = 'CQ') or (pos (FirstWord,MyCall) > 0)) then
                 Begin
-                    frmMonWsjtx.AddDecodedMessage(Timeline+' '+mode+' '+ParStr,WsjtxBand,Repbuf)
+                    frmMonWsjtx.AddDecodedMessage(Timeline+' '+mode+' '+ParStr,WsjtxBand,Repbuf,Dfreq,Snr)
                 end
                else  //if followed call
                Begin
-                  if dmData.DebugLevel>=1 then Writeln('++++++in Follow!');
-                  if (frmMonWsjtx.tbFollow.Checked and (pos(frmMonWsjtx.edtFollowCall.Text,ParStr) > pos(' ',ParStr)) ) then  //not first word
-                     frmMonWsjtx.AddFollowedMessage(Timeline+' '+intToStr(ParNum)+' '+ParStr,Repbuf);
+                  if dmData.DebugLevel>=1 then Writeln('Other Decode');
+                  frmMonWsjtx.AddOtherMessage(Timeline+' '+intToStr(Dfreq)+' '+ParStr,Repbuf,Snr);
                end;
              end;
 
@@ -2319,16 +2377,17 @@ begin
           note  := '';
           pwr   := '';
 
-          date := dmUtils.GetDateTime(0);
+          //date := dmUtils.GetDateTime(0);
           edtDate.Clear;
-          dmUtils.DateInRightFormat(date,Mask,sDate);
-          edtDate.Text:=sDate;
+          //dmUtils.DateInRightFormat(date,Mask,sDate);
+          //edtDate.Text:=sDate;
 
           //----------------------------------------------------
            if TryJulianDateToDateTime(DiFBuf(index),DTim)  then  //date (not used in cqrlog)
-             if dmData.DebugLevel>=1 then Writeln('Date :',FormatDateTime('YYYY-MM-DD',DTim));
+             if dmData.DebugLevel>=1 then Writeln('End Date :',FormatDateTime('YYYY-MM-DD',DTim));
+           // we do not use end date:
           //-----------------------------------------TIME-----------
-           ParNum := UiFBuf(index);          //time
+           ParNum := UiFBuf(index);    //set qso end time
            Min  := ParNum div 60000;  //minutes from 00:00    UTC
            Hour := Min div 60;
            Min  := Min - Hour * 60;
@@ -2341,8 +2400,7 @@ begin
              TimeLine := TimeLine + '0' + intToStr(Min)
            else
              TimeLine := TimeLine + intToStr(Min);
-           if dmData.DebugLevel>=1 then Writeln('Time: ',TimeLine);
-           edtStartTime.Text := TimeLine;
+           if dmData.DebugLevel>=1 then Writeln('End Time: ',TimeLine);
            edtEndTime.Text := TimeLine;
            //----------------------------------------------------
            ParNum := BFBuf(index);  //timespec local/utc   (not used in cqrlog)
@@ -2434,11 +2492,39 @@ begin
               edtNameExit(nil); //makes 1st ltr upcase
             end;
            if dmData.DebugLevel>=1 then Writeln('edtName before pressing save:',edtName.Text );
+          //----------------------------------------------------
+           if TryJulianDateToDateTime(DiFBuf(index),DTim)  then  //date (not used in cqrlog)
+           //start date used
+           dmUtils.DateInRightFormat(DTim,Mask,sDate);
+           edtDate.Text:=sDate;
+           if dmData.DebugLevel>=1 then Writeln('Start Date :',sDate);
+          //-----------------------------------------TIME-----------
+           ParNum := UiFBuf(index);    //set qso start time
+           Min  := ParNum div 60000;  //minutes from 00:00    UTC
+           Hour := Min div 60;
+           Min  := Min - Hour * 60;
+           TimeLine :='';
+           if length(intToStr(Hour)) = 1 then
+             TimeLine := TimeLine + '0'+ intToStr(Hour) +':'
+           else
+             TimeLine :=TimeLine + intToStr(Hour) +':';
+           if length(intToStr(Min)) = 1 then
+             TimeLine := TimeLine + '0' + intToStr(Min)
+           else
+             TimeLine := TimeLine + intToStr(Min);
+           if dmData.DebugLevel>=1 then Writeln('Start Time: ',TimeLine);
+           edtStartTime.Text := TimeLine;
+           //----------------------------------------------------
 
            //----------------------------------------------------
            if dmData.DebugLevel>=1 then Writeln(' WSJTX decode #5 logging: press save');
-           btnSave.Click;
+           SaveRemote;
            if dmData.DebugLevel>=1 then Writeln(' WSJTX decode #5 logging now ended');
+           if ((frmMonWsjtx <> nil) and (frmMonWsjtx.DblClickCall <> '')) then //CQ-monitor exist
+                                    begin
+                                      if dmData.DebugLevel>=1 then Writeln('Reset 2click call:',frmMonWsjtx.DblClickCall,' QSO logged');
+                                      frmMonWsjtx.DblClickCall :='';
+                                    end;
          end; //QSO logged in
 
      6 : begin //Close
@@ -2455,29 +2541,21 @@ begin
                                                // Now end of decode and wsjt-x still running: Allow timer run again.
    end;  //if WsjtxSock.lasterror=0 then
   end;  // while datagrams in buffer
-  end //waiting data
-  else
-   Begin
-      if ( tmrWsjtx.Interval = wHiSpeed ) then  //we did not have UDP packets. Is HiSpeed still on?
-       Begin
-         if dmData.DebugLevel>=1 then Writeln('Setting UDP decode to LoSpeed');
-         tmrWsjtx.Enabled  := False;
-         tmrWsjtx.Interval := wLoSpeed;       // turn it off then
-         tmrWsjtx.Enabled  := True;
-       end;
-   end;
-   {
-   The latest message protocol as always is documented in the latest revision of the NetworkMessage.hpp header file:
-   https://sourceforge.net/p/wsjt/wsjt/HEAD/tree/branches/wsjtx/NetworkMessage.hpp
-
-   The reference implementations, particularly message_aggregator, can always be used to verify behaviour or
-   to construct a recipe to replicate an issue.
-    }
+  end; //waiting data
   WsjtxDecodeRunning := false;
+  tmrWsjtx.Enabled:=true;
 end;
+{
+  The latest message protocol as always is documented in the latest revision of the NetworkMessage.hpp header file:
+  https://sourceforge.net/p/wsjt/wsjt/HEAD/tree/branches/wsjtx/NetworkMessage.hpp
+
+  The reference implementations, particularly message_aggregator, can always be used to verify behaviour or
+  to construct a recipe to replicate an issue.
+   }
 
 procedure TfrmNewQSO.FormCreate(Sender: TObject);
 begin
+  StartRun := false;
   CWint := nil;
   tmrRadio.Enabled := False;
   fViewQSO := False;
@@ -2487,6 +2565,9 @@ begin
   old_t_band := '';
   old_t_mode := '';
   old_prof   := -1;
+  old_prop   := '';
+  old_sat    := '';
+  old_rxfreq := '';
   WhatUpNext := upHamQTH;
   UploadAll  := False
 end;
@@ -2499,6 +2580,7 @@ var
   Delete : Boolean = False;
   ShowMain : Boolean = False;
   date     : TDate;
+  RxFreq   : Double = 0;
 begin
   ShowMain := (fEditQSO or fViewQSO) and (not fromNewQSO);
   if not cbOffline.Checked then
@@ -2552,7 +2634,13 @@ begin
     exit
   end;
 
-  //SaveGrid;
+  if (dmUtils.GetBandFromFreq(cmbFreq.Text) = '') then
+  begin
+    Application.MessageBox('You must enter correct frequency (in MHz)', 'Error', MB_ICONERROR + MB_OK);
+    cmbFreq.SetFocus;
+    exit
+  end;
+
   dmData.SaveComment(edtCall.Text,mComment.Text);
 
   myloc := sbNewQSO.Panels[0].Text;
@@ -2567,6 +2655,9 @@ begin
   if (old_call = edtCall.Text) and (old_adif <> adif) then
     ChangeDXCC := True; //if user chooses another country by direct enter to the edtDXCCref
                      //without clicking to btnDXCCRef
+
+  if not TryStrToFloat(edtRXFreq.Text, RxFreq) then
+    RxFreq := 0;
 
   if fEditQSO then
   begin
@@ -2602,6 +2693,9 @@ begin
                    lblCont.Caption,
                    ChangeDXCC,
                    dmData.GetNRFromProfile(cmbProfiles.Text),
+                   dmSatellite.GetPropShortName(cmbPropagation.Text),
+                   dmSatellite.GetSatShortName(cmbSatellite.Text),
+                   RxFreq,
                    id);
     if (old_call<>edtCall.Text) or (old_mode<>cmbMode.Text) or (StrToFloat(old_freq)<>StrToFloat(cmbFreq.Text)) or
        (old_date<>StrToDate(edtDate.Text)) or (old_time<>edtStartTime.Text) or (old_rsts<>edtHisRST.Text) or
@@ -2618,7 +2712,10 @@ begin
         edtCallExit(nil)
       end;
 
-    old_prof := dmData.GetNRFromProfile(cmbProfiles.Text);
+    old_prof   := dmData.GetNRFromProfile(cmbProfiles.Text);
+    old_sat    := dmSatellite.GetSatShortName(cmbSatellite.Text);
+    old_prop   := dmSatellite.GetPropShortName(cmbPropagation.Text);
+    old_rxfreq := edtRXFreq.Text;
     date := StrToDate(edtDate.Text);
     {
     if (not cbOffline.Checked) or (mnuRemoteMode.Checked) then
@@ -2683,7 +2780,11 @@ begin
                    frmQSODetails.ClubNR2,
                    frmQSODetails.ClubNR3,
                    frmQSODetails.ClubNR4,
-                   frmQSODetails.ClubNR5)
+                   frmQSODetails.ClubNR5,
+                   dmSatellite.GetPropShortName(cmbPropagation.Text),
+                   dmSatellite.GetSatShortName(cmbSatellite.Text),
+                   RxFreq
+                   )
   end;
   if fEditQSO and (not fromNewQSO) then
   begin
@@ -3272,7 +3373,7 @@ begin
   begin
     if cqrini.ReadBool('Backup','AskFirst',False) then
     begin
-      case Application.MessageBox('Do you want to backup your data?','Question ...',mb_YesNoCancel+mb_IconQuestion) of
+      case Application.MessageBox('Do you want to backup your data?'+#13+#13+'("Cancel" = Do not exit cqrlog)','Exit & backup',mb_YesNoCancel+mb_IconQuestion) of
         idCancel : begin
                      CloseAction := caNone;
                      exit
@@ -3283,6 +3384,8 @@ begin
     else
       CreateAutoBackup()
   end;
+  RunST('stop.sh'); //run "when cqrlog is closing" -script
+  sleep(1000); //give scirpt time to use rigctld if that is needed
   if mnuRemoteModeWsjt.Checked or mnuRemoteMode.Checked then DisableRemoteMode;
   CloseAllWindows;
   SaveSettings;
@@ -3810,6 +3913,14 @@ begin
    frmPropagation.Show
 end;
 
+procedure TfrmNewQSO.btnClearSatelliteClick(Sender : TObject);
+begin
+  cmbPropagation.ItemIndex := 0;
+  cmbSatellite.ItemIndex   := 0;
+  edtRXFreq.Clear;
+  cmbSatelliteChange(nil)
+end;
+
 procedure TfrmNewQSO.acCWFKeyExecute(Sender: TObject);
 begin
   UpdateFKeyLabels;
@@ -3833,7 +3944,7 @@ end;
 
 procedure TfrmNewQSO.acMonitorWsjtxExecute(Sender: TObject);
 begin
-  if (frmMonWsjtx = nil) then Application.CreateForm(TfrmMonWsjtx, frmMonWsjtx);
+  if (frmMonWsjtx = nil) then  Application.CreateForm(TfrmMonWsjtx, frmMonWsjtx);
   frmMonWsjtx.Show;
   cqrini.WriteBool('Window','MonWsjtx',true);
 end;
@@ -3925,6 +4036,14 @@ begin
   cmbIOTA.SelectAll
 end;
 
+procedure TfrmNewQSO.cmbPropagationChange(Sender : TObject);
+begin
+  if (cmbPropagation.Text <> '') or (cmbSatellite.Text <> '') or (edtRXFreq.Text <> '') then
+    tabSatellite.Font.Color := clRed
+  else
+    tabSatellite.Font.Color := clDefault
+end;
+
 procedure TfrmNewQSO.cmbQSL_REnter(Sender: TObject);
 begin
   cmbQSL_R.SelectAll
@@ -3933,6 +4052,13 @@ end;
 procedure TfrmNewQSO.cmbQSL_SEnter(Sender: TObject);
 begin
   cmbQSL_S.SelectAll
+end;
+
+procedure TfrmNewQSO.cmbSatelliteChange(Sender : TObject);
+begin
+  cmbPropagationChange(nil);
+  if ((cmbSatellite.Text <> '') and (cmbPropagation.Text = '')) then
+    cmbPropagation.Text := 'SAT|Satellite'
 end;
 
 procedure TfrmNewQSO.dbgrdQSOBeforeColumnSized(Sender: TObject);
@@ -3951,6 +4077,11 @@ begin
   edtHisRST.SelLength := 0
 end;
 
+procedure TfrmNewQSO.edtHisRSTKeyPress(Sender : TObject; var Key : char);
+begin
+  SelTextFix(edtHisRST, Key)
+end;
+
 procedure TfrmNewQSO.edtITUEnter(Sender: TObject);
 begin
   edtITU.SelectAll
@@ -3960,6 +4091,11 @@ procedure TfrmNewQSO.edtMyRSTExit(Sender: TObject);
 begin
   edtMyRST.SelStart  := 0;
   edtMyRST.SelLength := 0
+end;
+
+procedure TfrmNewQSO.edtMyRSTKeyPress(Sender : TObject; var Key : char);
+begin
+  SelTextFix(edtMyRST, Key)
 end;
 
 procedure TfrmNewQSO.edtNameEnter(Sender: TObject);
@@ -4490,11 +4626,10 @@ begin
     if cmbQSL_S.Text = 'B' then
       cmbQSL_S.Text := 'MD'
   end;
-  if (not (fEditQSO or fViewQSO)) or (old_call<>edtCall.Text) then
-  begin
-    idcall := dmUtils.GetIDCall(edtCall.Text);
-    sbNewQSO.Panels[1].Text := cRefCall + idcall
-  end;
+
+  idcall := dmUtils.GetIDCall(edtCall.Text);
+  sbNewQSO.Panels[1].Text := cRefCall + idcall;
+
   if (not(fEditQSO or fViewQSO)) then
   begin
     if SearchQRZ then
@@ -4952,7 +5087,7 @@ begin
   dbgrdQSOBefore.DataSource := dmData.dsrQSOBefore;
   dbgrdQSOBefore.ResetColWidths;
   LoadGrid;
-  SetLength(aColumns,38);
+  SetLength(aColumns,41);
   dmUtils.LoadVisibleColumnsConfiguration(aColumns);
 
   fQsoGr   := cqrini.ReadString('Fonts','QGrids','Sans 10');
@@ -5035,16 +5170,6 @@ begin
           if aColumns[y].Visible and (dbgrdQSOBefore.Columns[i].Width = 0) then
             dbgrdQSOBefore.Columns[i].Width := 60
         end
-      end;
-
-      if fDefault then
-      begin
-        dbgrdQSOBefore.Columns[i].Title.Font.Name := 'default';
-        dbgrdQSOBefore.Columns[i].Title.Font.Size := 0
-      end
-      else begin
-        dbgrdQSOBefore.Columns[i].Title.Font.Name := fQsoGr;
-        dbgrdQSOBefore.Columns[i].Title.Font.Size := fqSize
       end
     end;
 
@@ -5057,7 +5182,21 @@ begin
         dbgrdQSOBefore.Columns[dbgrdQSOBefore.Columns.Count-1].DisplayName := aColumns[i].FieldName;
         dbgrdQSOBefore.Columns[dbgrdQSOBefore.Columns.Count-1].Width       := 60
       end
+    end;
+
+    for i:=0 to dbgrdQSOBefore.Columns.Count-1 do
+    begin
+      if fDefault then
+      begin
+        dbgrdQSOBefore.Columns[i].Title.Font.Name := 'default';
+        dbgrdQSOBefore.Columns[i].Title.Font.Size := 0
+      end
+      else begin
+        dbgrdQSOBefore.Columns[i].Title.Font.Name := fQsoGr;
+        dbgrdQSOBefore.Columns[i].Title.Font.Size := fqSize
+      end
     end
+
   finally
     dbgrdQSOBefore.DataSource.DataSet.EnableControls
   end
@@ -5371,7 +5510,10 @@ begin
     begin
       lblQSLRcvdDate.Caption := 'QSL rcvd on '+dmData.qQSOBefore.FieldByName('qslr_date').AsString;
       lblQSLRcvdDate.Visible := True
-    end
+    end;
+    dmSatellite.GetListOfSatellites(cmbSatellite, dmData.qQSOBefore.FieldByName('satellite').AsString);
+    dmSatellite.GetListOfPropModes(cmbPropagation, dmData.qQSOBefore.FieldByName('prop_mode').AsString);
+    edtRXFreq.Text := FloatToStr(dmData.qQSOBefore.FieldByName('rxfreq').AsFloat)
   end
   else begin
     cmbProfiles.Text := dmData.GetProfileText(dmData.qCQRLOG.FieldByName('profile').AsInteger);
@@ -5413,8 +5555,13 @@ begin
     begin
       lblQSLRcvdDate.Caption := 'QSL rcvd on '+dmData.qCQRLOG.FieldByName('qslr_date').AsString;
       lblQSLRcvdDate.Visible := True
-    end
+    end;
+    dmSatellite.GetListOfSatellites(cmbSatellite, dmData.qCQRLOG.FieldByName('satellite').AsString);
+    dmSatellite.GetListOfPropModes(cmbPropagation, dmData.qCQRLOG.FieldByName('prop_mode').AsString);
+    edtRXFreq.Text := FloatToStr(dmData.qCQRLOG.FieldByName('rxfreq').AsFloat)
   end;
+  if (edtRXFreq.Text = '0') then
+    edtRXFreq.Text := '';
   sbNewQSO.Panels[1].Text := cRefCall + idcall;
   adif := dmDXCC.AdifFromPfx(edtDXCCRef.Text);
   if fromNewQSO then
@@ -5669,19 +5816,19 @@ begin
   frmQSODetails.mode     := cmbMode.Text;
   frmQSODetails.freq     := cmbFreq.Text;
   frmQSODetails.ClubDate := edtDate.Text;
-  if dmData.Club1.MainFieled = 'idcall' then
+  if dmMembership.Club1.MainFieled = 'idcall' then
     frmQSODetails.ClubData1 := idcall;
 
-  if dmData.Club2.MainFieled = 'idcall' then
+  if dmMembership.Club2.MainFieled = 'idcall' then
     frmQSODetails.ClubData2 := idcall;
 
-  if dmData.Club3.MainFieled = 'idcall' then
+  if dmMembership.Club3.MainFieled = 'idcall' then
     frmQSODetails.ClubData3 := idcall;
 
-  if dmData.Club4.MainFieled = 'idcall' then
+  if dmMembership.Club4.MainFieled = 'idcall' then
     frmQSODetails.ClubData4 := idcall;
 
-  if dmData.Club5.MainFieled = 'idcall' then
+  if dmMembership.Club5.MainFieled = 'idcall' then
     frmQSODetails.ClubData5 := idcall;
 end;
 
@@ -5690,19 +5837,19 @@ begin
   frmQSODetails.mode     := cmbMode.Text;
   frmQSODetails.freq     := cmbFreq.Text;
   frmQSODetails.ClubDate := edtDate.Text;
-  if dmData.Club1.MainFieled = 'qth' then
+  if dmMembership.Club1.MainFieled = 'qth' then
     frmQSODetails.ClubData1 := edtQTH.Text;
 
-  if dmData.Club2.MainFieled = 'qth' then
+  if dmMembership.Club2.MainFieled = 'qth' then
     frmQSODetails.ClubData2 := edtQTH.Text;
 
-  if dmData.Club3.MainFieled = 'qth' then
+  if dmMembership.Club3.MainFieled = 'qth' then
     frmQSODetails.ClubData3 := edtQTH.Text;
 
-  if dmData.Club4.MainFieled = 'qth' then
+  if dmMembership.Club4.MainFieled = 'qth' then
     frmQSODetails.ClubData4 := edtQTH.Text;
 
-  if dmData.Club5.MainFieled = 'qth' then
+  if dmMembership.Club5.MainFieled = 'qth' then
     frmQSODetails.ClubData5 := edtQTH.Text;
 end;
 
@@ -5711,19 +5858,19 @@ begin
   frmQSODetails.mode     := cmbMode.Text;
   frmQSODetails.freq     := cmbFreq.Text;
   frmQSODetails.ClubDate := edtDate.Text;
-  if dmData.Club1.MainFieled = 'award' then
+  if dmMembership.Club1.MainFieled = 'award' then
     frmQSODetails.ClubData1 := edtAward.Text;
 
-  if dmData.Club2.MainFieled = 'award' then
+  if dmMembership.Club2.MainFieled = 'award' then
     frmQSODetails.ClubData2 := edtAward.Text;
 
-  if dmData.Club3.MainFieled = 'award' then
+  if dmMembership.Club3.MainFieled = 'award' then
     frmQSODetails.ClubData3 := edtAward.Text;
 
-  if dmData.Club4.MainFieled = 'award' then
+  if dmMembership.Club4.MainFieled = 'award' then
     frmQSODetails.ClubData4 := edtAward.Text;
 
-  if dmData.Club5.MainFieled = 'award' then
+  if dmMembership.Club5.MainFieled = 'award' then
     frmQSODetails.ClubData5 := edtAward.Text;
 end;
 
@@ -5732,19 +5879,19 @@ begin
   frmQSODetails.mode     := cmbMode.Text;
   frmQSODetails.freq     := cmbFreq.Text;
   frmQSODetails.ClubDate := edtDate.Text;
-  if dmData.Club1.MainFieled = 'county' then
+  if dmMembership.Club1.MainFieled = 'county' then
     frmQSODetails.ClubData1 := edtCounty.Text;
 
-  if dmData.Club2.MainFieled = 'county' then
+  if dmMembership.Club2.MainFieled = 'county' then
     frmQSODetails.ClubData2 := edtCounty.Text;
 
-  if dmData.Club3.MainFieled = 'county' then
+  if dmMembership.Club3.MainFieled = 'county' then
     frmQSODetails.ClubData3 := edtCounty.Text;
 
-  if dmData.Club4.MainFieled = 'county' then
+  if dmMembership.Club4.MainFieled = 'county' then
     frmQSODetails.ClubData4 := edtCounty.Text;
 
-  if dmData.Club5.MainFieled = 'county' then
+  if dmMembership.Club5.MainFieled = 'county' then
     frmQSODetails.ClubData5 := edtCounty.Text;
 end;
 
@@ -5798,19 +5945,19 @@ begin
   frmQSODetails.mode     := cmbMode.Text;
   frmQSODetails.freq     := cmbFreq.Text;
   frmQSODetails.ClubDate := edtDate.Text;
-  if dmData.Club1.MainFieled = 'state' then
+  if dmMembership.Club1.MainFieled = 'state' then
     frmQSODetails.ClubData1 := edtState.Text;
 
-  if dmData.Club2.MainFieled = 'state' then
+  if dmMembership.Club2.MainFieled = 'state' then
     frmQSODetails.ClubData2 := edtState.Text;
 
-  if dmData.Club3.MainFieled = 'state' then
+  if dmMembership.Club3.MainFieled = 'state' then
     frmQSODetails.ClubData3 := edtState.Text;
 
-  if dmData.Club4.MainFieled = 'state' then
+  if dmMembership.Club4.MainFieled = 'state' then
     frmQSODetails.ClubData4 := edtState.Text;
 
-  if dmData.Club5.MainFieled = 'state' then
+  if dmMembership.Club5.MainFieled = 'state' then
     frmQSODetails.ClubData5 := edtState.Text;
 end;
 
@@ -5896,9 +6043,9 @@ end;
 procedure TfrmNewQSO.ChangeCallBookCaption;
 begin
   if cqrini.ReadBool('Callbook','HamQTH',True) then
-    grbCallBook.Caption := 'Callbook (HamQTH.com)'
+    lblCallbookInformation.Caption := 'Callbook (HamQTH.com):'
   else
-    grbCallBook.Caption := 'Callbook (qrz.com)'
+    lblCallbookInformation.Caption := 'Callbook (qrz.com):'
 end;
 
 procedure TfrmNewQSO.CalculateLocalSunRiseSunSet;
@@ -5979,6 +6126,22 @@ begin
     end
   finally
     Free
+  end
+end;
+
+procedure TfrmNewQSO.RunST(script: String);   //run start stop script
+var
+   AProcess: TProcess;
+begin
+  if not FileExists(dmData.HomeDir + script) then
+  exit;
+  AProcess := TProcess.Create(nil);
+  try
+    AProcess.CommandLine := 'bash ' + dmData.HomeDir + script;
+    if dmData.DebugLevel>=1 then Writeln('Command line: ',AProcess.CommandLine);
+    AProcess.Execute
+  finally
+    AProcess.Free
   end
 end;
 
@@ -6145,6 +6308,8 @@ var
   tries: integer = 10;
 
 begin
+  cqrini.WriteInteger('Pref', 'ActPageIdx', 20);  //set fldigi/wsjt tab active.
+
   case RemoteType of
     rmtFldigi : begin
                   RememberAutoMode := chkAutoMode.Checked;
@@ -6174,24 +6339,22 @@ begin
 
                   WsjtxMode := '';    //will be set by type1 'status'-message
                   WsjtxBand := '';
-                  wHiSpeed  := 20;    //mS
-                  wLoSpeed  := 1500;  //will be shorter when FT8 or MSK144 mode change in decode/status
+                  wHiSpeed  := 10;    //mS will be shorter when FT8
+                  wLoSpeed  := 1000;
 
 
                   tmrWsjtx.Interval := wLoSpeed;      //  timer has now dynamic value. Most of time there is nothing to do
                   tmrWsjtx.Enabled  := True;          //  so timer can run more seldom.
-                                                      //  When first UDP packet is received it will turn timer to wHiSpeed
-                                                      //  for fast handling and when there is no more data wLoSpeed is turned
-                                                      //  on again.
+                  tmrWsjtSpd.Enabled:= True;
 
                   // start UDP server  http://synapse.ararat.cz/doc/help/blcksock.TBlockSocket.html
                   WsjtxSock := TUDPBlockSocket.Create;
-                  {if dmData.DebugLevel>=1 then} Writeln('Socket created!');
+                  if dmData.DebugLevel>=1 then Writeln('Socket created!');
                   WsjtxSock.EnableReuse(true);
-                  {if dmData.DebugLevel>=1 then} Writeln('Reuse enabled!');
+                  if dmData.DebugLevel>=1 then Writeln('Reuse enabled!');
                   try
                     WsjtxSock.bind(cqrini.ReadString('wsjt','ip','127.0.0.1'),cqrini.ReadString('wsjt','port','2237'));
-                    {if dmData.DebugLevel>=1 then }Writeln('Bind issued '+cqrini.ReadString('wsjt','ip','127.0.0.1')+
+                    if dmData.DebugLevel>=1 then Writeln('Bind issued '+cqrini.ReadString('wsjt','ip','127.0.0.1')+
                                                                         ':'+cqrini.ReadString('wsjt','port','2237'));
                      // On bind failure try to rebind every second
                      while ((WsjtxSock.LastError <> 0) and (tries > 0 )) do
@@ -6227,6 +6390,7 @@ begin
   if  mnuRemoteModeWsjt.Checked then
   begin
       tmrWsjtx.Enabled := False;
+      tmrWsjtSpd.Enabled:=false;
       while ((WsjtxDecodeRunning) and (tries > 0)) do
       begin
         dec(tries);
@@ -6261,6 +6425,12 @@ begin
 
 
 end;
+procedure  TfrmNewQSO.SaveRemote;
+Begin
+     old_call:='';
+     old_adif:=adif; // to prevent ChangeDXCC going True on qso save (a sort of fix ??? hooo...)
+     btnSave.Click;
+end;
 
 procedure TfrmNewQSO.onExcept(Sender: TObject; E: Exception);
 begin
@@ -6291,6 +6461,63 @@ begin
   frmGrayline.pfx := lblDXCC.Caption;
   frmGrayline.kresli
 end;
+
+procedure TfrmNewQSO.CheckForExternalTablesUpdate;
+begin
+  CheckForDXCCTablesUpdate;
+  CheckForQslManagersUpdate;
+  CheckForMembershipUpdate
+end;
+
+procedure TfrmNewQSO.CheckForDXCCTablesUpdate;
+var
+  Tab   : TDXCCTabThread;
+begin
+  if cqrini.ReadBool('Program','CheckDXCCTabs',True) then
+  begin
+    Tab := TDXCCTabThread.Create(True);
+    Tab.FreeOnTerminate := True;
+    Tab.Start
+  end
+end;
+
+procedure TfrmNewQSO.CheckForQslManagersUpdate;
+var
+  thqsl : TQSLTabThread;
+begin
+  if cqrini.ReadBool('Program','CheckQSLTabs',True) then
+  begin
+    thqsl := TQSLTabThread.Create(True);
+    thqsl.FreeOnTerminate := True;
+    thqsl.Start
+  end
+end;
+
+procedure TfrmNewQSO.CheckForMembershipUpdate;
+begin
+  if cqrini.ReadBool('Clubs', 'CheckForUpdate', False) then
+    dmMembership.CheckForMembershipUpdate
+end;
+
+//at least in Ubuntu 18.04 when user wanted to rewrite the second auto-selected
+//number in a report, it wrote the number to the end of the report
+//it worked fine in Ubuntu Gnome but doesn't in Debian, probably someting
+//with GTK versions
+procedure TfrmNewQSO.SelTextFix(Edit : TEdit; var Key : Char);
+var
+  ch : Char;
+begin
+  if Edit.SelText <> '' then
+  begin
+    ch := upcase(Key);
+    if (ch in ['A'..'Z']) or (ch in ['0'..'9']) then
+    begin
+      Edit.SelText := Key;
+      Key := #0
+    end
+  end
+end;
+
 
 end.
 

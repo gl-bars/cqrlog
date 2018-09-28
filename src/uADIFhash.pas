@@ -48,6 +48,9 @@ const h_APP_CQRLOG_DXCC = 17864;
 const h_CQZ = 5026;
 const h_STATE = 60192;
 const h_AWARD = 53520;
+const h_PROP_MODE = 17551;
+const h_SAT_NAME = 39545;
+const h_FREQ_RX = 2926;
 
 h_APP_N1MM_EXCHANGE1 = 39939;
 h_APP_N1MM_EXCHANGE2 = 39936;

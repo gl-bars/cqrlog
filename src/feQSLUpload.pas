@@ -52,7 +52,7 @@ var
 implementation
 {$R *.lfm}
 
-uses dUtils,dData,uMyIni, fPreferences, uVersion;
+uses dUtils,dData,uMyIni, fPreferences, uVersion, dLogUpload;
 
 procedure TfrmeQSLUpload.SockCallBack(Sender: TObject; Reason:  THookSocketReason; const  Value: string);
 begin
@@ -77,13 +77,13 @@ begin
   dmData.Q.Close;
   if dmData.trQ.Active then dmData.trQ.Rollback;
   if rbWebExportNotExported.Checked then
-    dmData.Q.SQL.Text := 'select id_cqrlog_main,qsodate,time_on,callsign,mode,band,freq,rst_s,rst_r,remarks '+
+    dmData.Q.SQL.Text := 'select id_cqrlog_main,qsodate,time_on,callsign,mode,band,freq,rst_s,rst_r,remarks, satellite, prop_mode, rxfreq '+
                          'from cqrlog_main where eqsl_qslsdate is null'
   else begin
     if dmData.IsFilter then
       dmData.Q.SQL.Text := dmData.qCQRLOG.SQL.Text
     else
-      dmData.Q.SQL.Text := 'select id_cqrlog_main,qsodate,time_on,callsign,mode,band,freq,rst_s,rst_r,remarks '+
+      dmData.Q.SQL.Text := 'select id_cqrlog_main,qsodate,time_on,callsign,mode,band,freq,rst_s,rst_r,remarks, satellite, prop_mode, rxfreq '+
                            'from cqrlog_main'
   end;
   dmData.Q.Open;
@@ -144,6 +144,15 @@ begin
 
       tmp := '<RST_RCVD' + dmUtils.StringToADIF(dmData.Q.FieldByName('rst_r').AsString);
       Writeln(f,tmp);
+
+      if (dmData.Q.FieldByName('prop_mode').AsString <> '') then
+        Writeln(f, '<PROP_MODE' + dmUtils.StringToADIF(dmData.Q.FieldByName('prop_mode').AsString));
+
+      if (dmData.Q.FieldByName('satellite').AsString <> '') then
+        Writeln(f, '<SAT_NAME' + dmUtils.StringToADIF(dmData.Q.FieldByName('satellite').AsString));
+
+      if (dmData.Q.FieldByName('rxfreq').AsString <> '') then
+        Writeln(f, '<FREQ_RX' + dmUtils.StringToADIF(dmData.Q.FieldByName('rxfreq').AsString));
 
       if (dmData.Q.FieldByName('remarks').AsString<>'') and cqrini.ReadBool('LoTW', 'ExpComment', True) then
       begin
@@ -215,7 +224,7 @@ begin
   FileName := dmData.HomeDir+'eQSL'+PathDelim+FormatDateTime('yyyy-mm-dd_hh-mm-ss',now)+'.adi';
   try
     if cqrini.ReadBool('OnlineLog','IgnoreLoTWeQSL',False) then
-      dmData.DisableOnlineLogSupport;
+      dmLogUpload.DisableOnlineLogSupport;
 
     if ExportData(FileName) then
     begin
@@ -235,15 +244,15 @@ begin
 
   finally
     if cqrini.ReadBool('OnlineLog','IgnoreLoTWeQSL',False) then
-      dmData.EnableOnlineLogSupport(False)
+      dmLogUpload.EnableOnlineLogSupport(False)
   end
 end;
 
 procedure TfrmeQSLUpload.btnPreferencesClick(Sender : TObject);
 begin
+  cqrini.WriteInteger('Pref', 'ActPageIdx', 18);  //set lotw tab active. Number may change if preferences page change
   with TfrmPreferences.Create(self) do
   try
-    pgPreferences.ActivePage := tabLoTW;
     ShowModal
   finally
     Free

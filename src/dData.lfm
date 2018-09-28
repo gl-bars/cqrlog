@@ -6,6 +6,7 @@ object dmData: TdmData
   HorizontalOffset = 406
   VerticalOffset = 62
   Width = 822
+  PPI = 96
   object dsrMain: TDataSource
     DataSet = qCQRLOG
     left = 304
@@ -45,7 +46,6 @@ object dmData: TdmData
     FieldDefs = <>
     BeforeOpen = mQBeforeOpen
     Transaction = trmQ
-    Options = []
     Params = <>
     ParseSQL = False
     left = 632
@@ -54,7 +54,6 @@ object dmData: TdmData
   object trmQ: TSQLTransaction
     Active = False
     Action = caNone
-    Options = []
     left = 632
     top = 144
   end
@@ -179,7 +178,7 @@ object dmData: TdmData
       '            time_off VARCHAR(5) DEFAULT '''','
       '            callsign VARCHAR(20) NOT NULL,'
       '            freq NUMERIC(10,4) NOT NULL,'
-      '            mode VARCHAR(10) NOT NULL,'
+      '            mode VARCHAR(12) NOT NULL,'
       '            rst_s VARCHAR(20) DEFAULT '''','
       '            rst_r VARCHAR(20) DEFAULT '''','
       '            name VARCHAR(40) DEFAULT '''','
@@ -219,8 +218,11 @@ object dmData: TdmData
       '            eqsl_qslsdate date default null,'
       '            eqsl_qsl_rcvd varchar(1) default '''' not null,'
       '            eqsl_qslrdate date default null,'
-      '            exch1 VARCHAR(20) default null,'
-      '            exch2 VARCHAR(20) default null'
+      '            rxfreq NUMERIC(10,4) NULL,'
+      '            satellite VARCHAR(30) DEFAULT '''','
+      '            prop_mode VARCHAR(30) DEFAULT '''''
+      ',           exch1 VARCHAR(20) default null'
+      ',           exch2 VARCHAR(20) default null'
       ');'
       'CREATE INDEX main_index ON cqrlog_main(qsodate DESC,time_on DESC);'
       'CREATE INDEX callsign ON cqrlog_main(callsign);'
@@ -374,13 +376,13 @@ object dmData: TdmData
       '  qsodate date NULL,'
       '  time_on varchar(5) NULL,'
       '  callsign varchar(20) NULL,'
-      '  mode varchar(10) NULL,'
+      '  mode varchar(12) NULL,'
       '  band varchar(6) NULL,'
       '  freq numeric(10,4) NULL,'
       '  old_qsodate date NULL,'
       '  old_time_on varchar(5) NULL,'
       '  old_callsign varchar(20) NULL,'
-      '  old_mode varchar(10) NULL,'
+      '  old_mode varchar(12) NULL,'
       '  old_band varchar(6) NULL,'
       '  old_freq numeric(10,4) NULL,'
       '  upddeleted int(1) default 1'
@@ -403,7 +405,7 @@ object dmData: TdmData
       '  id int NOT NULL AUTO_INCREMENT PRIMARY KEY,'
       '  callsign varchar(20) NOT NULL,'
       '  band varchar(6) NULL,'
-      '  mode varchar(6) NULL'
+      '  mode varchar(12) NULL'
       ') COLLATE ''utf8_bin'';'
       ''
       'ALTER TABLE call_alert ADD INDEX (id);'
@@ -412,7 +414,7 @@ object dmData: TdmData
       'CREATE TABLE freqmem ('
       '       id int NOT NULL AUTO_INCREMENT PRIMARY KEY,'
       '       freq numeric(10,4) NOT NULL,'
-      '       mode varchar(6) NOT NULL,'
+      '       mode varchar(12) NOT NULL,'
       '       bandwidth int NOT NULL'
       ') COLLATE ''utf8_bin'';'
       ''
@@ -435,7 +437,6 @@ object dmData: TdmData
     FieldDefs = <>
     BeforeOpen = qLogListBeforeOpen
     Transaction = trLogList
-    Options = []
     Params = <>
     ParseSQL = False
     left = 528
@@ -444,7 +445,6 @@ object dmData: TdmData
   object trLogList: TSQLTransaction
     Active = False
     Action = caNone
-    Options = []
     left = 528
     top = 288
   end
@@ -457,7 +457,6 @@ object dmData: TdmData
     PacketRecords = 100
     FieldDefs = <>
     Transaction = trmQ
-    Options = []
     Params = <>
     ParseSQL = False
     left = 632
@@ -466,7 +465,6 @@ object dmData: TdmData
   object trSQLConsole: TSQLTransaction
     Active = False
     Action = caNone
-    Options = []
     left = 632
     top = 288
   end
@@ -478,7 +476,6 @@ object dmData: TdmData
   object qQSLMgr: TSQLQuery
     FieldDefs = <>
     Transaction = trQSLMgr
-    Options = []
     Params = <>
     ParseSQL = False
     left = 152
@@ -487,14 +484,12 @@ object dmData: TdmData
   object trQSLMgr: TSQLTransaction
     Active = False
     Action = caNone
-    Options = []
     left = 152
     top = 288
   end
   object qCallBook: TSQLQuery
     FieldDefs = <>
     Transaction = trCallBook
-    Options = []
     Params = <>
     left = 24
     top = 80
@@ -502,14 +497,12 @@ object dmData: TdmData
   object trCallBook: TSQLTransaction
     Active = False
     Action = caNone
-    Options = []
     left = 24
     top = 144
   end
   object trLongNote: TSQLTransaction
     Active = False
     Action = caNone
-    Options = []
     left = 728
     top = 144
   end
@@ -517,7 +510,6 @@ object dmData: TdmData
     FieldDefs = <>
     BeforeOpen = qLongNoteBeforeOpen
     Transaction = trLongNote
-    Options = []
     Params = <>
     left = 728
     top = 80
@@ -525,7 +517,6 @@ object dmData: TdmData
   object qProfiles: TSQLQuery
     FieldDefs = <>
     Transaction = trProfiles
-    Options = []
     Params = <>
     ParseSQL = False
     left = 88
@@ -534,14 +525,12 @@ object dmData: TdmData
   object trProfiles: TSQLTransaction
     Active = False
     Action = caNone
-    Options = []
     left = 88
     top = 144
   end
   object qIOTAList: TSQLQuery
     FieldDefs = <>
     Transaction = trIOTAList
-    Options = []
     Params = <>
     ParseSQL = False
     left = 24
@@ -550,14 +539,12 @@ object dmData: TdmData
   object trIOTAList: TSQLTransaction
     Active = False
     Action = caNone
-    Options = []
     left = 24
     top = 288
   end
   object trBands: TSQLTransaction
     Active = False
     Action = caNone
-    Options = []
     left = 88
     top = 288
   end
@@ -565,7 +552,6 @@ object dmData: TdmData
     FieldDefs = <>
     BeforeOpen = qBandsBeforeOpen
     Transaction = trBands
-    Options = []
     Params = <>
     ParseSQL = False
     left = 88
@@ -574,14 +560,12 @@ object dmData: TdmData
   object trDXClusters: TSQLTransaction
     Active = False
     Action = caNone
-    Options = []
     left = 224
     top = 144
   end
   object qDXClusters: TSQLQuery
     FieldDefs = <>
     Transaction = trDXClusters
-    Options = []
     Params = <>
     ParseSQL = False
     left = 224
@@ -590,14 +574,12 @@ object dmData: TdmData
   object trComment: TSQLTransaction
     Active = False
     Action = caNone
-    Options = []
     left = 224
     top = 288
   end
   object qComment: TSQLQuery
     FieldDefs = <>
     Transaction = trComment
-    Options = []
     Params = <>
     ParseSQL = False
     left = 224
@@ -606,14 +588,12 @@ object dmData: TdmData
   object trException: TSQLTransaction
     Active = False
     Action = caNone
-    Options = []
     left = 472
     top = 288
   end
   object qException: TSQLQuery
     FieldDefs = <>
     Transaction = trException
-    Options = []
     Params = <>
     ParseSQL = False
     left = 472
@@ -622,14 +602,12 @@ object dmData: TdmData
   object trQSOBefore: TSQLTransaction
     Active = False
     Action = caNone
-    Options = []
     left = 304
     top = 288
   end
   object qQSOBefore: TSQLQuery
     FieldDefs = <>
     Transaction = trQSOBefore
-    Options = []
     Params = <>
     ParseSQL = False
     left = 304
@@ -638,7 +616,6 @@ object dmData: TdmData
   object trQ1: TSQLTransaction
     Active = False
     Action = caNone
-    Options = []
     left = 528
     top = 144
   end
@@ -646,7 +623,6 @@ object dmData: TdmData
     FieldDefs = <>
     BeforeOpen = Q1BeforeOpen
     Transaction = trQ1
-    Options = []
     Params = <>
     ParseSQL = False
     left = 528
@@ -655,7 +631,6 @@ object dmData: TdmData
   object trQ: TSQLTransaction
     Active = False
     Action = caNone
-    Options = []
     left = 472
     top = 144
   end
@@ -663,7 +638,6 @@ object dmData: TdmData
     FieldDefs = <>
     BeforeOpen = QBeforeOpen
     Transaction = trQ
-    Options = []
     Params = <>
     ParseSQL = False
     left = 472
@@ -672,7 +646,6 @@ object dmData: TdmData
   object trCQRLOG: TSQLTransaction
     Active = False
     Action = caNone
-    Options = []
     left = 304
     top = 144
   end
@@ -681,7 +654,6 @@ object dmData: TdmData
     FieldDefs = <>
     BeforeOpen = qCQRLOGBeforeOpen
     Transaction = trCQRLOG
-    Options = []
     Params = <>
     ParseSQL = False
     left = 304
@@ -704,13 +676,13 @@ object dmData: TdmData
     Script.Strings = (
       'CREATE VIEW view_cqrlog_main_by_qsodate AS SELECT id_cqrlog_main,qsodate,time_on,time_off,callsign, freq,mode,rst_s,rst_r,name,qth,qsl_s,qsl_r,qsl_via,iota,pwr,itu,waz,loc,my_loc,county,'
       'award,remarks, band, dxcc_id.dxcc_ref AS dxcc_ref ,qso_dxcc, profile,idcall, state, lotw_qslsdate, lotw_qslrdate,lotw_qsls, lotw_qslr, cont, qsls_date,qslr_date,club_nr1,club_nr2,club_nr3,'
-      'club_nr4,club_nr5,eqsl_qsl_sent,eqsl_qslsdate,eqsl_qsl_rcvd,eqsl_qslrdate,concat(qsl_r,lotw_qslr,eqsl_qsl_rcvd) as qslr,dxcc_id.country FROM cqrlog_main JOIN dxcc_id ON dxcc_id.adif = cqrlog_main.adif order by qsodate DESC, time_on DESC;'
+      'club_nr4,club_nr5,eqsl_qsl_sent,eqsl_qslsdate,eqsl_qsl_rcvd,eqsl_qslrdate,concat(qsl_r,lotw_qslr,eqsl_qsl_rcvd) as qslr,dxcc_id.country, rxfreq, satellite, prop_mode FROM cqrlog_main JOIN dxcc_id ON dxcc_id.adif = cqrlog_main.adif order by qsodate DESC, time_on DESC;'
       'CREATE VIEW view_cqrlog_main_by_qsodate_asc AS SELECT id_cqrlog_main,qsodate,time_on,time_off,callsign, freq,mode,rst_s,rst_r,name,qth,qsl_s,qsl_r,qsl_via,iota,pwr,itu,waz,loc,my_loc,county,'
       'award,remarks, band, dxcc_id.dxcc_ref AS dxcc_ref ,qso_dxcc, profile,idcall, state, lotw_qslsdate, lotw_qslrdate,lotw_qsls, lotw_qslr, cont, qsls_date,qslr_date,club_nr1,club_nr2,club_nr3,'
-      'club_nr4,club_nr5,eqsl_qsl_sent,eqsl_qslsdate,eqsl_qsl_rcvd,eqsl_qslrdate,concat(qsl_r,lotw_qslr,eqsl_qsl_rcvd) as qslr,dxcc_id.country FROM cqrlog_main JOIN dxcc_id ON dxcc_id.adif = cqrlog_main.adif order by qsodate ASC, time_on ASC;'
+      'club_nr4,club_nr5,eqsl_qsl_sent,eqsl_qslsdate,eqsl_qsl_rcvd,eqsl_qslrdate,concat(qsl_r,lotw_qslr,eqsl_qsl_rcvd) as qslr,dxcc_id.country, rxfreq, satellite, prop_mode FROM cqrlog_main JOIN dxcc_id ON dxcc_id.adif = cqrlog_main.adif order by qsodate ASC, time_on ASC;'
       'CREATE VIEW view_cqrlog_main_by_callsign AS SELECT id_cqrlog_main,qsodate,time_on,time_off,callsign, freq,mode,rst_s,rst_r,name,qth,qsl_s,qsl_r,qsl_via,iota,pwr,itu,waz,loc,my_loc,county,'
       'award,remarks, band, dxcc_id.dxcc_ref AS dxcc_ref ,qso_dxcc, profile,idcall, state, lotw_qslsdate, lotw_qslrdate,lotw_qsls, lotw_qslr, cont, qsls_date,qslr_date,club_nr1,club_nr2,club_nr3,'
-      'club_nr4,club_nr5,eqsl_qsl_sent,eqsl_qslsdate,eqsl_qsl_rcvd,eqsl_qslrdate,concat(qsl_r,lotw_qslr,eqsl_qsl_rcvd) as qslr,dxcc_id.country FROM cqrlog_main JOIN dxcc_id ON dxcc_id.adif = cqrlog_main.adif order by callsign;'
+      'club_nr4,club_nr5,eqsl_qsl_sent,eqsl_qslsdate,eqsl_qsl_rcvd,eqsl_qslrdate,concat(qsl_r,lotw_qslr,eqsl_qsl_rcvd) as qslr,dxcc_id.country, rxfreq, satellite, prop_mode FROM cqrlog_main JOIN dxcc_id ON dxcc_id.adif = cqrlog_main.adif order by callsign;'
     )
     Terminator = ';'
     CommentsinSQL = True
@@ -751,7 +723,7 @@ object dmData: TdmData
       '            time_off VARCHAR(5) DEFAULT '''','
       '            callsign VARCHAR(20) NOT NULL,'
       '            freq NUMERIC(10,4) NOT NULL,'
-      '            mode VARCHAR(8) NOT NULL,'
+      '            mode VARCHAR(12) NOT NULL,'
       '            rst_s VARCHAR(20) DEFAULT '''','
       '            rst_r VARCHAR(20) DEFAULT '''','
       '            name VARCHAR(40) DEFAULT '''','
@@ -908,41 +880,35 @@ object dmData: TdmData
   end
   object qBandMapFil: TSQLQuery
     FieldDefs = <>
-    Options = []
     Params = <>
     left = 728
     top = 216
   end
   object trBandMapFil: TSQLTransaction
     Active = False
-    Options = []
     left = 728
     top = 288
   end
   object qRbnMon: TSQLQuery
     FieldDefs = <>
-    Options = []
     Params = <>
     left = 152
     top = 80
   end
   object trRbnMon: TSQLTransaction
     Active = False
-    Options = []
     left = 152
     top = 144
   end
   object qFreqMem: TSQLQuery
     FieldDefs = <>
     Transaction = trFreqMem
-    Options = []
     Params = <>
     left = 368
     top = 216
   end
   object trFreqMem: TSQLTransaction
     Active = False
-    Options = []
     left = 368
     top = 288
   end
@@ -950,7 +916,6 @@ object dmData: TdmData
     FieldDefs = <>
     BeforeOpen = WBeforeOpen
     Transaction = trW
-    Options = []
     Params = <>
     left = 368
     top = 80
@@ -958,7 +923,6 @@ object dmData: TdmData
   object trW: TSQLTransaction
     Active = False
     Action = caNone
-    Options = []
     left = 368
     top = 144
   end
@@ -966,7 +930,6 @@ object dmData: TdmData
     FieldDefs = <>
     BeforeOpen = W1BeforeOpen
     Transaction = trW1
-    Options = []
     Params = <>
     left = 416
     top = 80
@@ -974,7 +937,6 @@ object dmData: TdmData
   object trW1: TSQLTransaction
     Active = False
     Action = caNone
-    Options = []
     left = 416
     top = 144
   end
@@ -982,7 +944,6 @@ object dmData: TdmData
     FieldDefs = <>
     BeforeOpen = Q2BeforeOpen
     Transaction = trQ2
-    Options = []
     Params = <>
     ParseSQL = False
     left = 576
@@ -991,7 +952,6 @@ object dmData: TdmData
   object trQ2: TSQLTransaction
     Active = False
     Action = caNone
-    Options = []
     left = 576
     top = 144
   end

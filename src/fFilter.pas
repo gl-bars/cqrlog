@@ -42,6 +42,7 @@ type
     cmbGroupBy: TComboBox;
     cmbLoTW_qsls: TComboBox;
     cmbSort: TComboBox;
+    cmbBandSelector: TComboBox;
     edtCont: TEdit;
     edtPwrFrom : TEdit;
     edtPwrTo : TEdit;
@@ -62,40 +63,44 @@ type
     edtFreqTo: TEdit;
     edtQTH: TEdit;
     edtITU: TEdit;
-    GroupBox1: TGroupBox;
-    GroupBox10: TGroupBox;
-    GroupBox11: TGroupBox;
-    GroupBox12: TGroupBox;
-    GroupBox13: TGroupBox;
-    GroupBox14: TGroupBox;
-    GroupBox15: TGroupBox;
-    GroupBox16: TGroupBox;
+    gbCallsign: TGroupBox;
+    gbIota: TGroupBox;
+    gbRemarks: TGroupBox;
+    gbAward: TGroupBox;
+    gbMyLoc: TGroupBox;
+    gbZones: TGroupBox;
+    gbCounty: TGroupBox;
+    gbState: TGroupBox;
     GroupBox17 : TGroupBox;
-    GroupBox2: TGroupBox;
-    GroupBox3: TGroupBox;
-    GroupBox4: TGroupBox;
-    GroupBox5: TGroupBox;
-    GroupBox6: TGroupBox;
-    GroupBox7: TGroupBox;
-    GroupBox8: TGroupBox;
-    GroupBox9: TGroupBox;
+    gbBand: TGroupBox;
+    gbDxcc: TGroupBox;
+    gbFreq: TGroupBox;
+    gbMode: TGroupBox;
+    gbDate: TGroupBox;
+    gbLoc: TGroupBox;
+    gbQth: TGroupBox;
+    gbQsl: TGroupBox;
+    gbContinent: TGroupBox;
     Label1: TLabel;
-    Label10: TLabel;
-    Label11: TLabel;
-    Label12: TLabel;
-    Label13: TLabel;
-    Label14: TLabel;
-    Label15: TLabel;
-    Label16 : TLabel;
-    Label17 : TLabel;
+    lblProf: TLabel;
+    lblMember: TLabel;
+    lblGrpBy: TLabel;
+    lblLoTW: TLabel;
+    lblRcvdE: TLabel;
+    lblRcvdL: TLabel;
+    lblSentC: TLabel;
+    lblSentE: TLabel;
+    lblSentL: TLabel;
+    lblSortBy: TLabel;
+    lblEqsl : TLabel;
     Label18 : TLabel;
     Label19 : TLabel;
     Label2: TLabel;
+    Label20: TLabel;
     Label3: TLabel;
     Label4: TLabel;
-    Label5: TLabel;
-    Label6: TLabel;
-    Label7: TLabel;
+    lblVia: TLabel;
+    lblRcvdC: TLabel;
     Label8: TLabel;
     Label9: TLabel;
     dlgOpen: TOpenDialog;
@@ -120,6 +125,8 @@ type
     procedure btnLoadClick(Sender: TObject);
     procedure btnSaveClick(Sender: TObject);
     procedure btnSelectDXCCClick(Sender: TObject);
+    procedure cmbBandSelectorChange(Sender: TObject);
+    procedure FormCreate(Sender: TObject);
     procedure FormKeyUp(Sender: TObject; var Key: Word; Shift: TShiftState);
     procedure FormShow(Sender: TObject);
     procedure btnCancelClick(Sender: TObject);
@@ -138,7 +145,7 @@ implementation
 {$R *.lfm}
 
 { TfrmFilter }
-uses dData, dUtils,fSelectDXCC;
+uses dData, dUtils,fSelectDXCC, dMembership;
 
 procedure TfrmFilter.btnOKClick(Sender: TObject);
 var
@@ -444,16 +451,16 @@ begin
   cmbProfile.Items.Insert(0,'Any profile');
   cmbProfile.ItemIndex := 0;
   cmbMembers.Items.Add('');
-  if dmData.Club1.Name <> '' then
-    cmbMembers.Items.Add('1;'+dmData.Club1.Name+';'+dmData.Club1.LongName);
-  if dmData.Club2.Name <> '' then
-    cmbMembers.Items.Add('2;'+dmData.Club2.Name+';'+dmData.Club2.LongName);
-  if dmData.Club3.Name <> '' then
-    cmbMembers.Items.Add('3;'+dmData.Club3.Name+';'+dmData.Club3.LongName);
-  if dmData.Club4.Name <> '' then
-    cmbMembers.Items.Add('4;'+dmData.Club4.Name+';'+dmData.Club4.LongName);
-  if dmData.Club5.Name <> '' then
-    cmbMembers.Items.Add('5;'+dmData.Club5.Name+';'+dmData.Club5.LongName);
+  if dmMembership.Club1.Name <> '' then
+    cmbMembers.Items.Add('1;'+dmMembership.Club1.Name+';'+dmMembership.Club1.LongName);
+  if dmMembership.Club2.Name <> '' then
+    cmbMembers.Items.Add('2;'+dmMembership.Club2.Name+';'+dmMembership.Club2.LongName);
+  if dmMembership.Club3.Name <> '' then
+    cmbMembers.Items.Add('3;'+dmMembership.Club3.Name+';'+dmMembership.Club3.LongName);
+  if dmMembership.Club4.Name <> '' then
+    cmbMembers.Items.Add('4;'+dmMembership.Club4.Name+';'+dmMembership.Club4.LongName);
+  if dmMembership.Club5.Name <> '' then
+    cmbMembers.Items.Add('5;'+dmMembership.Club5.Name+';'+dmMembership.Club5.LongName);
   cmbMembers.ItemIndex := 0;
   cmbSort.ItemIndex := 0
 end;
@@ -470,6 +477,44 @@ begin
   finally
     frmSelectDXCC.Free
   end
+end;
+
+procedure TfrmFilter.cmbBandSelectorChange(Sender: TObject);
+var
+  Band :String;
+begin
+  if (cmbBandSelector.ItemIndex < 1 ) then
+   Begin
+     edtFreqFrom.Text:='';
+     edtFreqTo.Text := edtFreqFrom.Text;
+   end
+   else
+   Begin
+     Band:= cmbBandSelector.items[cmbBandSelector.ItemIndex];
+     if (band<>'') then
+      begin
+           dmData.qBands.Close;
+           dmData.qBands.SQL.Text := 'select band,b_begin,b_end from cqrlog_common.bands where band="'+Band+'"';
+           dmData.qBands.Open;
+
+           if (dmData.qBands.RecordCount > 0) then
+            begin
+              if (dmData.qBands.FieldByName('band').AsString = Band) then
+               Begin
+                 edtFreqFrom.Text:=dmData.qBands.FieldByName('b_begin').AsString;
+                 edtFreqTo.Text := dmData.qBands.FieldByName('b_end').AsString;
+               end;
+            end;
+           dmData.qBands.Close;
+      end;
+    end;
+
+end;
+
+procedure TfrmFilter.FormCreate(Sender: TObject);
+begin
+  dmUtils.InsertBands(cmbBandSelector);
+  cmbBandSelector.Items.Insert(0, ''); //to be sure
 end;
 
 procedure TfrmFilter.FormKeyUp(Sender: TObject; var Key: Word;

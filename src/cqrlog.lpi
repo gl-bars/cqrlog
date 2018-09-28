@@ -20,7 +20,7 @@
       <AutoIncrementBuild Value="True"/>
       <MinorVersionNr Value="3"/>
       <RevisionNr Value="1"/>
-      <BuildNr Value="2178"/>
+      <BuildNr Value="2184"/>
       <StringTable ProductVersion="0.3.1.2026"/>
     </VersionInfo>
     <BuildModes Count="1">
@@ -86,7 +86,7 @@
         <MinVersion Major="1" Minor="2" Release="1" Valid="True"/>
       </Item10>
     </RequiredPackages>
-    <Units Count="104">
+    <Units Count="106">
       <Unit0>
         <Filename Value="cqrlog.lpr"/>
         <IsPartOfProject Value="True"/>
@@ -123,6 +123,7 @@
         <Filename Value="fChangeLocator.pas"/>
         <IsPartOfProject Value="True"/>
         <ComponentName Value="frmChangeLocator"/>
+        <HasResources Value="True"/>
         <ResourceBaseClass Value="Form"/>
       </Unit5>
       <Unit6>
@@ -333,6 +334,7 @@
         <Filename Value="fClubSettings.pas"/>
         <IsPartOfProject Value="True"/>
         <ComponentName Value="frmClubSettings"/>
+        <HasResources Value="True"/>
         <ResourceBaseClass Value="Form"/>
       </Unit37>
       <Unit38>
@@ -418,6 +420,7 @@
         <Filename Value="fCustomStat.pas"/>
         <IsPartOfProject Value="True"/>
         <ComponentName Value="frmCustomStat"/>
+        <HasResources Value="True"/>
         <ResourceBaseClass Value="Form"/>
       </Unit50>
       <Unit51>
@@ -472,6 +475,7 @@
         <Filename Value="fEditDetails.pas"/>
         <IsPartOfProject Value="True"/>
         <ComponentName Value="frmEditDetails"/>
+        <HasResources Value="True"/>
         <ResourceBaseClass Value="Form"/>
       </Unit59>
       <Unit60>
@@ -702,6 +706,7 @@
         <Filename Value="fExportPref.pas"/>
         <IsPartOfProject Value="True"/>
         <ComponentName Value="frmExportPref"/>
+        <HasResources Value="True"/>
         <ResourceBaseClass Value="Form"/>
       </Unit93>
       <Unit94>
@@ -744,31 +749,45 @@
         <IsPartOfProject Value="True"/>
       </Unit99>
       <Unit100>
+        <Filename Value="dMembership.pas"/>
+        <IsPartOfProject Value="True"/>
+        <ComponentName Value="dmMembership"/>
+        <HasResources Value="True"/>
+        <ResourceBaseClass Value="DataModule"/>
+      </Unit100>
+      <Unit101>
+        <Filename Value="dSatellite.pas"/>
+        <IsPartOfProject Value="True"/>
+        <ComponentName Value="dmSatellite"/>
+        <HasResources Value="True"/>
+        <ResourceBaseClass Value="DataModule"/>
+      </Unit101>
+      <Unit102>
+        <Filename Value="uCabrilloImport.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit102>
+      <Unit103>
         <Filename Value="fCabrilloImport.pas"/>
         <IsPartOfProject Value="True"/>
         <ComponentName Value="frmCabrilloImport"/>
         <HasResources Value="True"/>
         <ResourceBaseClass Value="Form"/>
-      </Unit100>
-      <Unit101>
+      </Unit103>
+      <Unit104>
         <Filename Value="uextra_util.pas"/>
         <IsPartOfProject Value="True"/>
-      </Unit101>
-      <Unit102>
+      </Unit104>
+      <Unit105>
         <Filename Value="umysql_helper.pas"/>
         <IsPartOfProject Value="True"/>
-      </Unit102>
-      <Unit103>
-        <Filename Value="uCabrilloImport.pas"/>
-        <IsPartOfProject Value="True"/>
-      </Unit103>
+      </Unit105>
     </Units>
   </ProjectOptions>
   <CompilerOptions>
     <Version Value="11"/>
     <SearchPaths>
       <Libraries Value="$(LazarusDir)/lcl"/>
-      <OtherUnitFiles Value="lnet/lib;richmemo;richmemo/gtk2;synapse"/>
+      <OtherUnitFiles Value="lnet/lib;richmemo;richmemo/gtk2;synapse;richmemo/qt"/>
     </SearchPaths>
     <Parsing>
       <SyntaxOptions>
@@ -795,4 +814,11 @@
       <CreateMakefileOnBuild Value="True"/>
     </Other>
   </CompilerOptions>
+  <Debugging>
+    <Exceptions Count="1">
+      <Item1>
+        <Name Value="EInterfaceCritical"/>
+      </Item1>
+    </Exceptions>
+  </Debugging>
 </CONFIG>

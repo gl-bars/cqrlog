@@ -72,6 +72,7 @@ type
     btnCfgStorage: TButton;
     btnAddTrxMem : TButton;
     btnSelectQSOColor : TButton;
+    btnForceMembershipUpdate : TButton;
     cb10m1: TCheckBox;
     cb12m1: TCheckBox;
     cb136kHz: TCheckBox;
@@ -118,9 +119,16 @@ type
     cb125m: TCheckBox;
     cb60m: TCheckBox;
     cb30cm: TCheckBox;
+    chkRXFreq : TCheckBox;
+    chkSatellite : TCheckBox;
+    chkPropagation : TCheckBox;
+    chkSatelliteMode : TCheckBox;
+    chkCheckMembershipUpdate : TCheckBox;
+    chkConToDXC: TCheckBox;
     chkFldXmlRpc: TCheckBox;
     chkQSOColor : TCheckBox;
     chkFillAwardField : TCheckBox;
+    chkShowDxcCountry: TCheckBox;
     chkUseCallbookZonesEtc : TCheckBox;
     chkModeRelatedOnly : TCheckBox;
     chkTrxControlDebug : TCheckBox;
@@ -153,7 +161,6 @@ type
     chkIgnoreBandFreq : TCheckBox;
     chkRot1RunRotCtld: TCheckBox;
     chkRot2RunRotCtld: TCheckBox;
-    chkShowDxcCountry : TCheckBox;
     chkClearRIT : TCheckBox;
     chkCountry: TCheckBox;
     chkR1RunRigCtld: TCheckBox;
@@ -202,7 +209,6 @@ type
     chkNewDXCCTables: TCheckBox;
     chkShow4M: TCheckBox;
     chkDeleteAfterQSO: TCheckBox;
-    chkConToDXC: TCheckBox;
     chkAutoSearch: TCheckBox;
     chkShowXplanet: TCheckBox;
     chkCloseXplanet: TCheckBox;
@@ -472,6 +478,7 @@ type
     cl10db : TColorBox;
     cmbModelRig1: TComboBox;
     dlgColor : TColorDialog;
+    edtStartConCmd: TEdit;
     edtDropSyncErr: TSpinEdit;
     edtQSOColorDate : TEdit;
     edtWsjtIp: TEdit;
@@ -645,14 +652,15 @@ type
     GroupBox44: TGroupBox;
     GroupBox45: TGroupBox;
     GroupBox46: TGroupBox;
-    GroupBox47: TGroupBox;
+    gbDXCAlert: TGroupBox;
     GroupBox48: TGroupBox;
     GroupBox49: TGroupBox;
-    GroupBox5: TGroupBox;
+    gbDXCColor: TGroupBox;
     GroupBox50: TGroupBox;
     GroupBox51: TGroupBox;
     GroupBox52: TGroupBox;
-    GroupBox6: TGroupBox;
+    gbDXCConnect: TGroupBox;
+    gbDXCSpots: TGroupBox;
     GroupBox7: TGroupBox;
     GroupBox8: TGroupBox;
     GroupBox9: TGroupBox;
@@ -773,12 +781,14 @@ type
     Label204: TLabel;
     Label205: TLabel;
     Label206 : TLabel;
+    Label207: TLabel;
     Label26: TLabel;
     Label46 : TLabel;
     Label47 : TLabel;
     Label48: TLabel;
     Label49: TLabel;
     Label50: TLabel;
+    Label51: TLabel;
     lbl: TLabel;
     Label19: TLabel;
     Label2: TLabel;
@@ -964,6 +974,7 @@ type
     procedure btnChangeDefaultFreqClick(Sender: TObject);
     procedure btnKeyTextClick(Sender: TObject);
     procedure btnSplitClick(Sender: TObject);
+    procedure btnForceMembershipUpdateClick(Sender : TObject);
     procedure chkClUpEnabledChange(Sender: TObject);
     procedure chkHaUpEnabledChange(Sender: TObject);
     procedure chkHrUpEnabledChange(Sender: TObject);
@@ -1034,8 +1045,13 @@ type
     procedure pnlQSOColorClick(Sender : TObject);
   private
     wasOnlineLogSupportEnabled : Boolean;
+
+    procedure SaveClubSection;
+    procedure LoadMebershipCombo;
+    procedure LoadMembersFromCombo(ClubComboText, ClubNumber : String);
   public
     { public declarations }
+    ActPageIdx : integer;
   end;
 
 var
@@ -1057,7 +1073,7 @@ implementation
 uses dUtils, dData, fMain, fFreq, fQTHProfiles, fSerialPort, fClubSettings, fLoadClub,
   fGrayline, fNewQSO, fBandMap, fBandMapWatch, fDefaultFreq, fKeyTexts, fTRXControl,
   fSplitSettings, uMyIni, fNewQSODefValues, fDXCluster, fCallAlert, fConfigStorage, fPropagation,
-  fRadioMemories;
+  fRadioMemories, dMembership, dLogUpload;
 
 procedure TfrmPreferences.btnOKClick(Sender: TObject);
 var
@@ -1094,6 +1110,7 @@ begin
   cqrini.WriteBool('NewQSO','CapFirstQTHLetter',chkCapFirstQTHLetter.Checked);
   cqrini.WriteBool('NewQSO','UseCallbookZonesEtc',chkUseCallbookZonesEtc.Checked);
   cqrini.WriteBool('NewQSO','FillAwardField',chkFillAwardField.Checked);
+  cqrini.WriteBool('NewQSO','SatelliteMode', chkSatelliteMode.Checked);
 
   cqrini.WriteString('Program', 'Proxy', edtProxy.Text);
   cqrini.WriteString('Program', 'Port', edtPort.Text);
@@ -1152,6 +1169,9 @@ begin
   cqrini.WriteBool('Columns', 'eQSLQSLRDate', chkeQSLRcvdDate.Checked);
   cqrini.WriteBool('Columns', 'QSLRAll', chkQSLRAll.Checked);
   cqrini.WriteBool('Columns', 'Country', chkCountry.Checked);
+  cqrini.WriteBool('Columns', 'Propagation', chkPropagation.Checked);
+  cqrini.WriteBool('Columns', 'SatelliteName', chkSatellite.Checked);
+  cqrini.WriteBool('Columns', 'RXFreq', chkRXFreq.Checked);
 
   cqrini.WriteBool('Bands', '137kHz', cb136kHz.Checked);
   cqrini.WriteBool('Bands', '472kHz', cb472kHz.Checked);
@@ -1309,6 +1329,7 @@ begin
   cqrini.WriteBool('DXCluster', 'ConAfterRun', chkConToDXC.Checked);
   cqrini.WriteBool('DXCluster','ShowDxcCountry',chkShowDxcCountry.Checked);
   cqrini.WriteString('DXCluster','AlertCmd', edtAlertCmd.Text);
+  cqrini.WriteString('DXCluster','StartCmd', edtStartConCmd.Text);
 
   cqrini.WriteBool('Fonts', 'UseDefault', chkUseDefaultSEttings.Checked);
   cqrini.WriteString('Fonts', 'Buttons', lblbFont.Caption);
@@ -1339,11 +1360,7 @@ begin
   cqrini.WriteInteger('IOTA', 'QSLIOTA', clboxQSLIOTA.Selected);
   cqrini.WriteBool('IOTA', 'ShowIOTAInfo', chkShowIOTAInfo.Checked);
 
-  cqrini.WriteString('Clubs', 'First', cmbFirstClub.Text);
-  cqrini.WriteString('Clubs', 'Second', cmbSecondClub.Text);
-  cqrini.WriteString('Clubs', 'Third', cmbThirdClub.Text);
-  cqrini.WriteString('Clubs', 'Fourth', cmbFourthClub.Text);
-  cqrini.WriteString('Clubs', 'Fifth', cmbFifthClub.Text);
+  SaveClubSection;
 
   cqrini.WriteString('BandMap', 'BandFont', lblBandMapFont.Font.Name);
   cqrini.WriteInteger('BandMap', 'FontSize', fbandSize);
@@ -1560,6 +1577,14 @@ begin
   frmNewQSO.ClearAfterFreqChange := False;//cqrini.ReadBool('NewQSO','ClearAfterFreqChange',False);
   frmNewQSO.ChangeFreqLimit      := cqrini.ReadFloat('NewQSO','FreqChange',0.010);
 
+
+  if not chkSatelliteMode.Checked then
+  begin
+     frmNewQSO.btnClearSatelliteClick(nil);
+     frmNewQSO.pgDetails.TabIndex := 0
+  end;
+  frmNewQSO.pgDetails.Pages[1].TabVisible  := chkSatelliteMode.Checked;
+
   if ReloadFreq then
     dmUtils.InsertFreq(frmNewQSO.cmbFreq);
   if ReloadModes then
@@ -1573,14 +1598,14 @@ begin
   if (not (chkHaUpEnabled.Checked or chkClUpEnabled.Checked or chkHrUpEnabled.Checked)) then
   begin
     if wasOnlineLogSupportEnabled then
-      dmData.DisableOnlineLogSupport
+      dmLogUpload.DisableOnlineLogSupport
   end
   else begin
     if not wasOnlineLogSupportEnabled then
     begin
       if dmData.TriggersExistsOnCqrlog_main then
-        dmData.DisableOnlineLogSupport;
-      dmData.EnableOnlineLogSupport
+        dmLogUpload.DisableOnlineLogSupport;
+      dmLogUpload.EnableOnlineLogSupport
     end
   end;
 
@@ -1590,6 +1615,9 @@ begin
   frmTRXControl.rbRadio1.Caption := edtRadio1.Text;
   frmTRXControl.rbRadio2.Caption := edtRadio2.Text;
   frmTRXControl.SetDebugMode(chkTrxControlDebug.Checked or (dmData.DebugLevel>0));
+
+  if ((frmNewQSO.sbNewQSO.Panels[0].Text = '') or (frmNewQSO.sbNewQSO.Panels[0].Text = cMyLoc)) then
+    frmNewQSO.sbNewQSO.Panels[0].Text := cMyLoc + edtLoc.Text;
 
   cqrini.SaveToDisk;
   dmData.SaveConfigFile;
@@ -1605,6 +1633,7 @@ procedure TfrmPreferences.FormCreate(Sender: TObject);
 begin
   dmUtils.InsertQSL_S(cmbQSL_S);
   dmUtils.InsertFreq(cmbFreq);
+  ActPageIdx := 0; //tabProgram
 end;
 
 
@@ -1622,6 +1651,7 @@ procedure TfrmPreferences.FormCloseQuery(Sender: TObject; var CanClose: boolean)
 begin
   cqrini.WriteInteger('Pref', 'Top', Top);
   cqrini.WriteInteger('Pref', 'Left', Left);
+  cqrini.WriteInteger('Pref', 'ActPageIdx', pgPreferences.ActivePageIndex);
 end;
 
 procedure TfrmPreferences.chkUseProfilesChange(Sender: TObject);
@@ -1651,82 +1681,27 @@ end;
 
 procedure TfrmPreferences.btnLoadFifthClick(Sender: TObject);
 begin
-  if cmbFifthClub.Text = '' then
-    exit;
-  with TfrmLoadClub.Create(self) do
-    try
-      TypOfLoad := 0;
-      DBnum := '5';
-      SourceFile := dmData.MembersDir + LowerCase(
-        copy(cmbFifthClub.Text, 1, Pos(';', cmbFifthClub.Text) - 1)) + '.txt';
-      ShowModal
-    finally
-      Free
-    end;
+  LoadMembersFromCombo(cmbFifthClub.Text, '5')
 end;
 
 procedure TfrmPreferences.btnLoadFirstClick(Sender: TObject);
 begin
-  if cmbFirstClub.Text = '' then
-    exit;
-  with TfrmLoadClub.Create(self) do
-    try
-      TypOfLoad := 0;
-      DBnum := '1';
-      SourceFile := dmData.MembersDir + LowerCase(
-        copy(cmbFirstClub.Text, 1, Pos(';', cmbFirstClub.Text) - 1)) + '.txt';
-      ShowModal
-    finally
-      Free
-    end;
+  LoadMembersFromCombo(cmbFirstClub.Text, '1')
 end;
 
 procedure TfrmPreferences.btnLoadFourthClick(Sender: TObject);
 begin
-  if cmbFourthClub.Text = '' then
-    exit;
-  with TfrmLoadClub.Create(self) do
-    try
-      TypOfLoad := 0;
-      DBnum := '4';
-      SourceFile := dmData.MembersDir + LowerCase(
-        copy(cmbFourthClub.Text, 1, Pos(';', cmbFourthClub.Text) - 1)) + '.txt';
-      ShowModal;
-    finally
-      Free
-    end;
+  LoadMembersFromCombo(cmbFourthClub.Text, '4')
 end;
 
 procedure TfrmPreferences.btnLoadSecondClick(Sender: TObject);
 begin
-  if cmbSecondClub.Text = '' then
-    exit;
-  with TfrmLoadClub.Create(self) do
-    try
-      TypOfLoad := 0;
-      DBnum := '2';
-      SourceFile := dmData.MembersDir + LowerCase(
-        copy(cmbSecondClub.Text, 1, Pos(';', cmbSecondClub.Text) - 1)) + '.txt';
-      ShowModal
-    finally
-      Free
-    end;
+  LoadMembersFromCombo(cmbSecondClub.Text, '2')
 end;
 
 procedure TfrmPreferences.btnLoadThirdClick(Sender: TObject);
 begin
-  if cmbThirdClub.Text = '' then
-    exit;
-  with TfrmLoadClub.Create(self) do
-    try
-      TypOfLoad := 0;
-      DBnum := '3';
-      SourceFile := dmData.MembersDir + LowerCase(
-        copy(cmbThirdClub.Text, 1, Pos(';', cmbThirdClub.Text) - 1)) + '.txt';
-      ShowModal
-    finally
-      Free
-    end;
+  LoadMembersFromCombo(cmbThirdClub.Text, '3')
 end;
 
 procedure TfrmPreferences.btnSelbFontClick(Sender: TObject);
@@ -2116,6 +2091,12 @@ begin
     end;
 end;
 
+procedure TfrmPreferences.btnForceMembershipUpdateClick(Sender : TObject);
+begin
+  SaveClubSection;
+  dmMembership.CheckForMembershipUpdate
+end;
+
 procedure TfrmPreferences.chkClUpEnabledChange(Sender: TObject);
 begin
   edtClUserName.Enabled := chkClUpEnabled.Checked;
@@ -2264,6 +2245,8 @@ begin
   TRXChanged := True
 end;
 
+
+
 procedure TfrmPreferences.cmbHanshakeR1Change(Sender : TObject);
 begin
   TRXChanged := True
@@ -2390,22 +2373,15 @@ var
   i: integer;
 begin
   dmUtils.LoadFontSettings(self);
-  dmUtils.ReadMemberList(cmbFirstClub);
-  dmUtils.ReadZipList(cmbFirstZip);
   dmUtils.InsertModes(cmbDefaultMode);
   dmUtils.InsertModes(cmbMode);
   dmUtils.InsertModes(cmbWsjtDefaultMode);
   cmbDefaultMode.ReadOnly     := True;
   cmbWsjtDefaultMode.ReadOnly := True;
 
-  for i := 0 to cmbFirstClub.Items.Count - 1 do
-  begin
-    cmbSecondClub.Items.Add(cmbFirstClub.Items[i]);
-    cmbThirdClub.Items.Add(cmbFirstClub.Items[i]);
-    cmbFourthClub.Items.Add(cmbFirstClub.Items[i]);
-    cmbFifthClub.Items.Add(cmbFirstClub.Items[i]);
-  end;
+  LoadMebershipCombo;
 
+  dmUtils.ReadZipList(cmbFirstZip);
   for i := 0 to cmbFirstZip.Items.Count - 1 do
   begin
     cmbSecondZip.Items.Add(cmbFirstZip.Items[i]);
@@ -2414,6 +2390,7 @@ begin
   dmData.InsertProfiles(cmbProfiles, False);
   Top := cqrini.ReadInteger('Pref', 'Top', 20);
   Left := cqrini.ReadInteger('Pref', 'Left', 20);
+  ActPageIdx := cqrini.ReadInteger('Pref', 'ActPageIdx', 0);
 
   edtCall.Text := cqrini.ReadString('Station', 'Call', '');
   edtName.Text := cqrini.ReadString('Station', 'Name', '');
@@ -2444,6 +2421,7 @@ begin
   chkCapFirstQTHLetter.Checked := cqrini.ReadBool('NewQSO','CapFirstQTHLetter',True);
   chkUseCallbookZonesEtc.Checked := cqrini.ReadBool('NewQSO','UseCallbookZonesEtc',True);
   chkFillAwardField.Checked := cqrini.ReadBool('NewQSO','FillAwardField',True);
+  chkSatelliteMode.Checked := cqrini.ReadBool('NewQSO','SatelliteMode', False);
 
   edtProxy.Text := cqrini.ReadString('Program', 'Proxy', '');
   edtPort.Text := cqrini.ReadString('Program', 'Port', '');
@@ -2507,6 +2485,9 @@ begin
   chkeQSLRcvdDate.Checked := cqrini.ReadBool('Columns', 'eQSLQSLRDate', False);
   chkQSLRAll.Checked := cqrini.ReadBool('Columns', 'QSLRAll', False);
   chkCountry.Checked := cqrini.ReadBool('Columns', 'Country', False);
+  chkPropagation.Checked := cqrini.ReadBool('Columns', 'Propagation', False);
+  chkSatellite.Checked := cqrini.ReadBool('Columns', 'SatelliteName', False);
+  chkRXFreq.Checked := cqrini.ReadBool('Columns', 'RXFreq', False);
 
   cb136kHz.Checked := cqrini.ReadBool('Bands', '137kHz', False);
   cb472kHz.Checked := cqrini.ReadBool('Bands', '472kHz', False);
@@ -2674,6 +2655,7 @@ begin
   chkConToDXC.Checked := cqrini.ReadBool('DXCluster', 'ConAfterRun', False);
   chkShowDxcCountry.Checked := cqrini.ReadBool('DXCluster','ShowDxcCountry',False);
   edtAlertCmd.Text := cqrini.ReadString('DXCluster','AlertCmd','');
+  edtStartConCmd.Text := cqrini.ReadString('DXCluster','StartCmd','');
 
   chkUseDefaultSEttings.Checked := cqrini.ReadBool('Fonts', 'UseDefault', True);
   lblbFont.Caption := cqrini.ReadString('Fonts', 'Buttons', 'Sans 10');
@@ -2709,6 +2691,7 @@ begin
   cmbThirdClub.Text := cqrini.ReadString('Clubs', 'Third', '');
   cmbFourthClub.Text := cqrini.ReadString('Clubs', 'Fourth', '');
   cmbFifthClub.Text := cqrini.ReadString('Clubs', 'Fifth', '');
+  chkCheckMembershipUpdate.Checked := cqrini.ReadBool('Clubs', 'CheckForUpdate', False);
 
   lblBandMapFont.Font.Name := cqrini.ReadString('BandMap', 'BandFont', 'Monospace');
   lblBandMapFont.Font.Size := cqrini.ReadInteger('BandMap', 'FontSize', 8);
@@ -2820,11 +2803,11 @@ begin
   edtHtmlFiles.Text := cqrini.ReadString('ExtView', 'html', 'firefox');
   chkIntQSLViewer.Checked := cqrini.ReadBool('ExtView', 'QSL', True);
 
-  edtClub1Date.Text := cqrini.ReadString('FirstClub', 'DateFrom', '1945-01-01');
-  edtClub2Date.Text := cqrini.ReadString('SecondClub', 'DateFrom', '1945-01-01');
-  edtClub3Date.Text := cqrini.ReadString('ThirdClub', 'DateFrom', '1945-01-01');
-  edtClub4Date.Text := cqrini.ReadString('FourthClub', 'DateFrom', '1945-01-01');
-  edtClub5Date.Text := cqrini.ReadString('FifthClub', 'DateFrom', '1945-01-01');
+  edtClub1Date.Text := cqrini.ReadString('FirstClub', 'DateFrom', C_CLUB_DEFAULT_DATE_FROM);
+  edtClub2Date.Text := cqrini.ReadString('SecondClub', 'DateFrom', C_CLUB_DEFAULT_DATE_FROM);
+  edtClub3Date.Text := cqrini.ReadString('ThirdClub', 'DateFrom', C_CLUB_DEFAULT_DATE_FROM);
+  edtClub4Date.Text := cqrini.ReadString('FourthClub', 'DateFrom', C_CLUB_DEFAULT_DATE_FROM);
+  edtClub5Date.Text := cqrini.ReadString('FifthClub', 'DateFrom', C_CLUB_DEFAULT_DATE_FROM);
 
   edtCbUser.Text := cqrini.ReadString('CallBook', 'CBUser', '');
   edtCbPass.Text := cqrini.ReadString('CallBook', 'CBPass', '');
@@ -2885,7 +2868,9 @@ begin
 
   chkSysUTCClick(nil);
   TRXChanged      := False;
-  WinKeyerChanged := False
+  WinKeyerChanged := False;
+
+  pgPreferences.ActivePageIndex := ActPageIdx;    //set wanted tab for showing when open. ActTab is public variable.
 end;
 
 procedure TfrmPreferences.edtPoll2Exit(Sender: TObject);
@@ -2912,6 +2897,76 @@ end;
 procedure TfrmPreferences.pnlQSOColorClick(Sender : TObject);
 begin
   btnSelectQSOColor.Click
+end;
+
+procedure TfrmPreferences.SaveClubSection;
+begin
+  cqrini.WriteString('Clubs', 'First', cmbFirstClub.Text);
+  cqrini.WriteString('Clubs', 'Second', cmbSecondClub.Text);
+  cqrini.WriteString('Clubs', 'Third', cmbThirdClub.Text);
+  cqrini.WriteString('Clubs', 'Fourth', cmbFourthClub.Text);
+  cqrini.WriteString('Clubs', 'Fifth', cmbFifthClub.Text);
+  cqrini.WriteBool('Clubs', 'CheckForUpdate', chkCheckMembershipUpdate.Checked)
+end;
+
+procedure TfrmPreferences.LoadMebershipCombo;
+var
+  i : Integer;
+  Club1 : String;
+  Club2 : String;
+  Club3 : String;
+  Club4 : String;
+  Club5 : String;
+begin
+  Club1 := cmbFirstClub.Text;
+  Club2 := cmbSecondClub.Text;
+  Club3 := cmbThirdClub.Text;
+  Club4 := cmbFourthClub.Text;
+  Club5 := cmbFifthClub.Text;
+
+  cmbSecondClub.Items.Clear;
+  cmbThirdClub.Items.Clear;
+  cmbFourthClub.Items.Clear;
+  cmbFifthClub.Items.Clear;
+
+  dmMembership.ReadMemberList(cmbFirstClub);
+  for i := 0 to cmbFirstClub.Items.Count - 1 do
+  begin
+    cmbSecondClub.Items.Add(cmbFirstClub.Items[i]);
+    cmbThirdClub.Items.Add(cmbFirstClub.Items[i]);
+    cmbFourthClub.Items.Add(cmbFirstClub.Items[i]);
+    cmbFifthClub.Items.Add(cmbFirstClub.Items[i]);
+  end;
+
+  cmbFirstClub.ItemIndex  := cmbFirstClub.Items.IndexOf(Club1);
+  cmbSecondClub.ItemIndex := cmbSecondClub.Items.IndexOf(Club2);
+  cmbThirdClub.ItemIndex  := cmbThirdClub.Items.IndexOf(Club3);
+  cmbFourthClub.ItemIndex := cmbFourthClub.Items.IndexOf(Club4);
+  cmbFifthClub.ItemIndex  := cmbFifthClub.Items.IndexOf(Club5)
+end;
+
+procedure TfrmPreferences.LoadMembersFromCombo(ClubComboText, ClubNumber : String);
+var
+  MemberFileName : String;
+begin
+  if (ClubComboText = '') or (Pos('---', ClubComboText) > 0) then
+    exit;
+
+  MemberFileName := dmMembership.GetClubFileName(ClubComboText);
+  with TfrmLoadClub.Create(self) do
+  try
+    TypOfLoad := 0;
+    DBnum := ClubNumber;
+    SourceFile := MemberFileName;
+    ShowModal
+  finally
+    Free
+  end;
+
+  if not FileExists(dmData.MembersDir + MemberFileName) then
+    CopyFile(dmData.GlobalMembersDir + MemberFileName, dmData.MembersDir + MemberFileName);
+
+  LoadMebershipCombo
 end;
 
 end.

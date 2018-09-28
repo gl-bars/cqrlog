@@ -38,7 +38,7 @@ const
     ':', '|', '-', '=', '+', '@', '#', '*', '%', '_', '(', ')', '$', '<', '>'];
   empty_freq = '0.00000';
   empty_azimuth = '0.0';
-  cMaxModes = 44; //was 39 //was 42
+  cMaxModes = 45; //was 39 //was 42
   cModes: array [0..cMaxModes] of string =
     ('CW', 'SSB', 'AM', 'FM', 'RTTY', 'SSTV', 'PACTOR', 'PSK', 'ATV', 'CLOVER', 'GTOR', 'MTOR',
     'PSK31', 'HELL', 'MT63',
@@ -46,7 +46,7 @@ const
     'THROB', 'BPSK63', 'PACKET',
     'OLIVIA', 'MFSK16', 'JT4','JT6M', 'JT65', 'JT65A', 'JT65B', 'JT65C',
     'JT9', 'QRA64', 'ISCAT', 'MSK144', 'FT8', 'FSK441', 'PSK125',
-    'PSK63', 'WSPR', 'PSK250', 'ROS');
+    'PSK63', 'WSPR', 'PSK250', 'ROS', 'DIGITALVOICE');
   cMaxBandsCount = 27; //26 bands
 
   cDefaultFreq =
@@ -153,7 +153,6 @@ type
     procedure EnterFreq;
     procedure LoadFontSettings(aForm: TForm);
     procedure LoadBandLabelSettins;
-    procedure ReadMemberList(cmbMemebers: TComboBox);
     procedure SortList(l: TStringList);
     procedure RunXplanet;
     procedure CloseXplanet;
@@ -175,6 +174,7 @@ type
     procedure LoadRigsToComboBox(CurrentRigId : String; RigCtlBinaryPath : String; RigComboBox : TComboBox);
     procedure GetShorterCoordinates(latitude,longitude : Currency; var lat, long : String);
     procedure LoadVisibleColumnsConfiguration(var aColumns : array of TVisibleColumn);
+    procedure LoadListOfFiles(Path, Mask : String; ListOfFiles : TStringList);
 
 
     function  StrToDateFormat(sDate : String) : TDateTime;
@@ -256,6 +256,9 @@ type
     function  GetDescKeyFromCode(key : Word) : String;
     function  EncodeURLData(data : String) : String;
     function  GetRigIdFromComboBoxItem(ItemText : String) : String;
+    function  GetDataFromHttp(Url : String; var data : String) : Boolean;
+    function  MyStrToDateTime(DateTime : String) : TDateTime;
+    function  MyDateTimeToStr(DateTime : TDateTime) : String;
 end;
 
 var
@@ -2073,43 +2076,6 @@ begin
   begin
     //Writeln('Lat:  ',latitude);
     //Writeln('Long: ',longitude);
-  end;
-end;
-
-procedure TdmUtils.ReadMemberList(cmbMemebers: TComboBox);
-var
-  res: byte;
-  SearchRec: TSearchRec;
-  f: TextFile;
-  ShortName: string = '';
-  LongName: string = '';
-  Ts: TStringList;
-  i: integer = 0;
-begin
-  cmbMemebers.Clear;
-  cmbMemebers.Items.Add('');
-  Ts := TStringList.Create;
-  try
-    res := FindFirst(dmData.MembersDir + '*.txt', faAnyFile, SearchRec);
-    while Res = 0 do
-    begin
-      if FileExists(dmData.MembersDir + SearchRec.Name) then
-      begin
-        AssignFile(f, dmData.MembersDir + SearchRec.Name);
-        Reset(f);
-        ReadLn(f, ShortName);
-        ReadLn(f, LongName);
-        Ts.Add(ShortName + ';' + LongName);
-        CloseFile(f);
-      end;
-      Res := FindNext(SearchRec);
-    end;
-    Ts.Sort;
-    for i := 0 to Ts.Count - 1 do
-      cmbMemebers.Items.Add(Ts.Strings[i])
-  finally
-    FindClose(SearchRec);
-    Ts.Free
   end;
 end;
 
@@ -4345,9 +4311,94 @@ begin
   aColumns[37].FieldName := 'COUNTRY';
   aColumns[37].Visible   := cqrini.ReadBool('Columns','Country',False);
 
+  aColumns[38].FieldName := 'PROP_MODE';
+  aColumns[38].Visible   := cqrini.ReadBool('Columns', 'Propagation', False);
+
+  aColumns[39].FieldName := 'RXFREQ';
+  aColumns[39].Visible   := cqrini.ReadBool('Columns', 'RXFreq', False);
+
+  aColumns[40].FieldName := 'SATELLITE';
+  aColumns[40].Visible   := cqrini.ReadBool('Columns', 'SatelliteName', False);
+
   for i:=0 to Length(aColumns)-1 do
     aColumns[i].Exists := False
 end;
 
+function TdmUtils.GetDataFromHttp(Url : String; var data : String) : Boolean;
+var
+  HTTP   : THTTPSend;
+  m      : TStringList;
+begin
+  Result := False;
+  data   := '';
+  http   := THTTPSend.Create;
+  m      := TStringList.Create;
+  try
+    HTTP.ProxyHost := cqrini.ReadString('Program','Proxy','');
+    HTTP.ProxyPort := cqrini.ReadString('Program','Port','');
+    HTTP.UserName  := cqrini.ReadString('Program','User','');
+    HTTP.Password  := cqrini.ReadString('Program','Passwd','');
+    if HTTP.HTTPMethod('GET', Url) then
+    begin
+      m.LoadFromStream(HTTP.Document);
+      data   := trim(m.Text);
+      Result := True
+    end
+  finally
+    http.Free;
+    m.Free
+  end
+end;
+
+function TdmUtils.MyStrToDateTime(DateTime : String) : TDateTime;
+var
+  tmp: string;
+begin
+  tmp := FormatSettings.ShortDateFormat;
+  try
+    FormatSettings.ShortDateFormat := 'YYYY-MM-DD';
+    try
+      Result := StrToDateTime(DateTime)
+    except
+      Result := StrToDate('1980-01-01 00:00:01')
+    end
+  finally
+    FormatSettings.ShortDateFormat := tmp
+  end
+end;
+
+function TdmUtils.MyDateTimeToStr(DateTime : TDateTime) : String;
+var
+  tmp: string;
+begin
+  tmp := FormatSettings.ShortDateFormat;
+  try
+    FormatSettings.ShortDateFormat := 'YYYY-MM-DD';
+    Result := DateTimeToStr(DateTime)
+  finally
+    FormatSettings.ShortDateFormat := tmp
+  end
+end;
+
+procedure TdmUtils.LoadListOfFiles(Path, Mask : String; ListOfFiles : TStringList);
+var
+  res: byte;
+  SearchRec: TSearchRec;
+begin
+  ListOfFiles.Clear;
+  try
+    res := FindFirst(Path + Mask, faAnyFile, SearchRec);
+    while res = 0 do
+    begin
+      if FileExists(Path + SearchRec.Name) then
+        ListOfFiles.Add(Path + SearchRec.Name);
+
+      Res := FindNext(SearchRec)
+    end;
+    ListOfFiles.Sort;
+  finally
+    FindClose(SearchRec)
+  end
+end;
 
 end.

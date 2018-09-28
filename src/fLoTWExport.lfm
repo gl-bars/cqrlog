@@ -12,7 +12,7 @@ object frmLoTWExport: TfrmLoTWExport
   OnCloseQuery = FormCloseQuery
   OnCreate = FormCreate
   OnShow = FormShow
-  LCLVersion = '1.6.0.4'
+  LCLVersion = '1.8.0.6'
   object pgLoTWExport: TPageControl
     Left = 0
     Height = 509
@@ -37,9 +37,9 @@ object frmLoTWExport: TfrmLoTWExport
         TabOrder = 0
         object rbFileExportAll: TRadioButton
           Left = 14
-          Height = 22
+          Height = 24
           Top = 6
-          Width = 129
+          Width = 137
           Caption = ' Export all QSOs'
           Checked = True
           TabOrder = 0
@@ -47,9 +47,9 @@ object frmLoTWExport: TfrmLoTWExport
         end
         object rbFileExportNotExported: TRadioButton
           Left = 14
-          Height = 22
+          Height = 24
           Top = 39
-          Width = 356
+          Width = 374
           Caption = 'Export only QSOs which have never been uploaded'
           TabOrder = 1
         end
@@ -57,7 +57,7 @@ object frmLoTWExport: TfrmLoTWExport
       object GroupBox2: TGroupBox
         Left = 7
         Height = 105
-        Top = 96
+        Top = 160
         Width = 459
         Anchors = [akTop, akLeft, akRight]
         ClientHeight = 101
@@ -65,58 +65,61 @@ object frmLoTWExport: TfrmLoTWExport
         TabOrder = 1
         object Label1: TLabel
           Left = 14
-          Height = 18
+          Height = 17
           Top = 4
-          Width = 64
+          Width = 69
           Caption = 'Export to:'
           ParentColor = False
         end
         object edtFileName: TEdit
           Left = 14
           Height = 27
-          Top = 21
+          Top = 23
           Width = 431
           Anchors = [akTop, akLeft, akRight]
           TabOrder = 0
         end
         object btnFileBrowse: TButton
-          Left = 370
-          Height = 25
-          Top = 45
-          Width = 75
+          Left = 379
+          Height = 29
+          Top = 56
+          Width = 64
           Anchors = [akTop, akRight]
+          AutoSize = True
           Caption = 'Browse'
           OnClick = btnFileBrowseClick
           TabOrder = 1
         end
       end
       object GroupBox3: TGroupBox
-        Left = 7
-        Height = 105
-        Top = 206
+        Left = 8
+        Height = 56
+        Top = 96
         Width = 459
         Anchors = [akTop, akLeft, akRight]
-        ClientHeight = 101
+        ClientHeight = 52
         ClientWidth = 455
         TabOrder = 2
         object chkFileMarkAfterExport: TCheckBox
-          Left = 8
-          Height = 22
-          Top = 7
-          Width = 258
+          Left = 13
+          Height = 24
+          Top = 16
+          Width = 273
           Caption = 'Mark QSOs as exported after export'
           TabOrder = 0
         end
-        object btnFileExport: TButton
-          Left = 370
-          Height = 25
-          Top = 55
-          Width = 75
-          Anchors = [akTop, akRight]
-          Caption = 'Export'
-          OnClick = btnFileExportClick
-          TabOrder = 1
-        end
+      end
+      object btnFileExport: TButton
+        Left = 380
+        Height = 49
+        Top = 272
+        Width = 79
+        Anchors = [akTop, akRight]
+        AutoSize = True
+        BorderSpacing.InnerBorder = 10
+        Caption = 'Export'
+        OnClick = btnFileExportClick
+        TabOrder = 3
       end
     end
     object tabUpload: TTabSheet
@@ -136,7 +139,7 @@ object frmLoTWExport: TfrmLoTWExport
           Left = 14
           Height = 24
           Top = 6
-          Width = 134
+          Width = 137
           Caption = ' Export all QSOs'
           TabOrder = 0
         end
@@ -144,7 +147,7 @@ object frmLoTWExport: TfrmLoTWExport
           Left = 14
           Height = 24
           Top = 31
-          Width = 361
+          Width = 374
           Caption = 'Export only QSOs which have never been uploaded'
           Checked = True
           TabOrder = 1
@@ -164,7 +167,7 @@ object frmLoTWExport: TfrmLoTWExport
           Left = 6
           Height = 17
           Top = 7
-          Width = 202
+          Width = 207
           Caption = 'tqsl command line arguments:'
           ParentColor = False
         end
@@ -172,7 +175,7 @@ object frmLoTWExport: TfrmLoTWExport
           Left = 14
           Height = 34
           Top = 56
-          Width = 311
+          Width = 323
           Caption = '"your qth name" means the qth which you have '#10'defined in tqsl QTH profile'
           ParentColor = False
         end
