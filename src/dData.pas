@@ -52,6 +52,9 @@ type
   end;
 
 type
+  TMySQLConnectionClass = class of TSQLConnection;
+
+type
 
   { TdmData }
 
@@ -268,7 +271,7 @@ type
     function  RbnCallExistsInLog(callsign,band,mode,LastDate,LastTime : String) : Boolean;
     function  CallNoteExists(Callsign : String) : Boolean;
     function  GetNewLogNumber : Integer;
-    function  getNewMySQLConnectionObject : TMySQL57Connection;
+    function  getNewMySQLConnectionObject(MySQLConnectionClass: TMySQLConnectionClass): TSQLConnection;
 
     procedure SaveQSO(date : TDateTime; time_on,time_off,call : String; freq : Currency;mode,rst_s,
                       rst_r, stn_name,qth,qsl_s,qsl_r,qsl_via,iota,pwr : String; itu,waz : Integer;
@@ -1114,6 +1117,44 @@ begin
   end;
 
   lib := MYSQL_EMBEDDED_LIB;
+  try try
+    c := TConnectionName.Create(nil);
+    MySQLVer := copy(c.ClientInfo,1,3);
+
+    if fDebugLevel>=1 then
+    begin
+      Writeln('**************************');
+      Writeln('MySQL version: ',MySQLVer);
+      Writeln('**************************')
+    end;
+
+    if MySQLVer = '10.' then
+      MySQLVer := '5.6';
+    if MySQLVer = '10.1' then
+      MySQLVer := '5.7'
+
+  except
+    on E : Exception do
+    begin
+      Writeln('FATAL ERROR: Can not get MySQL client library version version!',LineEnding,
+              'Setting to default version (5.1)');
+      MySQLVer := '5.1'
+    end
+  end
+  finally
+    FreeAndNil(c)
+  end;
+
+  if not TryStrToCurr(MySQLVer,fMySQLVersion) then
+    fMySQLVersion := 5.6;
+
+  if fDebugLevel>=1 then
+  begin
+    Writeln('**********************************');
+    Writeln('MySQL version assigned: ',FloatToStr(fMySQLVersion));
+    Writeln('**********************************')
+  end;
+
   fHomeDir    := GetAppConfigDir(False);
   fDataDir    := fHomeDir+'database/';
   fUsrHomeDir := copy(fHomeDir,1,Pos('.config',fHomeDir)-1);
@@ -4206,12 +4247,23 @@ begin
 end;
 
 procedure TdmData.CreateDBConnections;
+var
+  MySQLConnectionClass: TMySQLConnectionClass;
 begin
-  MainCon      := getNewMySQLConnectionObject();
-  BandMapCon   := getNewMySQLConnectionObject();
-  RbnMonCon    := getNewMySQLConnectionObject();
-  LogUploadCon := getNewMySQLConnectionObject();
-  dbDXC        := getNewMySQLConnectionObject();
+  if fMySQLVersion < 5.5 then
+    MySQLConnectionClass := TMySQL51Connection
+  else  if fMySQLVersion < 5.6 then
+    MySQLConnectionClass := TMySQL55Connection
+  else if fMySQLVersion < 5.7 then
+    MySQLConnectionClass := TMySQL56Connection
+  else
+    MySQLConnectionClass := TMySQL57Connection;
+
+  MainCon      := getNewMySQLConnectionObject(MySQLConnectionClass);
+  BandMapCon   := getNewMySQLConnectionObject(MySQLConnectionClass);
+  RbnMonCon    := getNewMySQLConnectionObject(MySQLConnectionClass);
+  LogUploadCon := getNewMySQLConnectionObject(MySQLConnectionClass);
+  dbDXC        := getNewMySQLConnectionObject(MySQLConnectionClass);
 end;
 
 
@@ -4299,15 +4351,11 @@ begin
     QSOColorDate := now
 end;
 
-function TdmData.getNewMySQLConnectionObject : TMySQL57Connection;
-var
-  Connection : TMySQL57Connection;
+function TdmData.getNewMySQLConnectionObject(MySQLConnectionClass: TMySQLConnectionClass): TSQLConnection;
 begin
-  Connection := TMySQL57Connection.Create(self);
-  Connection.SkipLibraryVersionCheck := True;
-  Connection.KeepConnection := True;
-
-  result := Connection
+  Result := MySQLConnectionClass.Create(self);
+  //Connection.SkipLibraryVersionCheck := True;
+  Result.KeepConnection := True;
 end;
 
 end.
