@@ -107,62 +107,63 @@ begin
     Writeln(f, 'Copyright (C) ',YearOf(now),' by Petr, OK7AN and Martin, OK1RR');
     Writeln(f);
     Writeln(f, 'Internet: http://www.cqrlog.com');
-    Writeln(f, '<ADIF_VER:5>2.2.1');
+    Writeln(f, '<ADIF_VER:5>3.1.0');
+    Writeln(f,'<CREATED_TIMESTAMP:15>',FormatDateTime('YYYYMMDD hhmmss',dmUtils.GetDateTime(0)));
     Writeln(f, '<PROGRAMID:6>CQRLOG');
     Writeln(f, '<PROGRAMVERSION:',Length(cVERSION),'>',cVERSION);
     Writeln(f);
-    Writeln(f,'<EQSL_USER'+dmUtils.StringToADIF(cqrini.ReadString('LoTW','eQSLName','')));
-    Writeln(f,'<EQSL_PSWD'+dmUtils.StringToADIF(EncodeURL(cqrini.ReadString('LoTW','eQSLPass',''))));
+    Writeln(f,dmUtils.StringToADIF('<EQSL_USER',cqrini.ReadString('LoTW','eQSLName','')));
+    Writeln(f,dmUtils.StringToADIF('<EQSL_PSWD',EncodeURL(cqrini.ReadString('LoTW','eQSLPass',''))));
     Writeln(f,'<EOH>');
     while not dmData.Q.Eof do
     begin
       lblInfo.Caption := 'Exporting QSO nr. ' + IntToStr(Nr);
       tmp :=  dmData.Q.FieldByName('qsodate').AsString;
       tmp := copy(tmp,1,4) + copy(tmp,6,2) +copy(tmp,9,2);
-      tmp := '<QSO_DATE'+ dmUtils.StringToADIF(tmp);
+      tmp := dmUtils.StringToADIF('<QSO_DATE',tmp);
       Writeln(f, tmp);
 
       tmp := dmData.Q.FieldByName('time_on').AsString;
       tmp := copy(tmp,1,2) + copy(tmp,4,2);
-      tmp := '<TIME_ON'+ dmUtils.StringToADIF(tmp);
+      tmp := dmUtils.StringToADIF('<TIME_ON',tmp);
       Writeln(f, tmp);
 
-      tmp := '<CALL' + dmUtils.StringToADIF(dmUtils.RemoveSpaces(dmData.Q.FieldByName('callsign').AsString));
+      tmp := dmUtils.StringToADIF('<CALL' ,dmUtils.RemoveSpaces(dmData.Q.FieldByName('callsign').AsString));
       Writeln(f,tmp);
 
-      tmp := '<MODE' + dmUtils.StringToADIF(dmData.Q.FieldByName('mode').AsString);
+      tmp :=  dmUtils.StringToADIF('<MODE' ,dmData.Q.FieldByName('mode').AsString);
       Writeln(f,tmp);
 
-      tmp := '<BAND' + dmUtils.StringToADIF(dmData.Q.FieldByName('band').AsString);
+      tmp := dmUtils.StringToADIF('<BAND' ,dmData.Q.FieldByName('band').AsString);
       Writeln(f,tmp);
 
-      tmp := '<FREQ' + dmUtils.StringToADIF(dmData.Q.FieldByName('freq').AsString);
+      tmp := dmUtils.StringToADIF( '<FREQ' ,dmData.Q.FieldByName('freq').AsString);
       Writeln(f,tmp);
 
-      tmp := '<RST_SENT' + dmUtils.StringToADIF(dmData.Q.FieldByName('rst_s').AsString);
+      tmp := dmUtils.StringToADIF('<RST_SENT' , dmData.Q.FieldByName('rst_s').AsString);
       Writeln(f,tmp);
 
-      tmp := '<RST_RCVD' + dmUtils.StringToADIF(dmData.Q.FieldByName('rst_r').AsString);
+      tmp := dmUtils.StringToADIF('<RST_RCVD' ,dmData.Q.FieldByName('rst_r').AsString);
       Writeln(f,tmp);
 
       if (dmData.Q.FieldByName('prop_mode').AsString <> '') then
-        Writeln(f, '<PROP_MODE' + dmUtils.StringToADIF(dmData.Q.FieldByName('prop_mode').AsString));
+        Writeln(f, dmUtils.StringToADIF('<PROP_MODE' ,dmData.Q.FieldByName('prop_mode').AsString));
 
       if (dmData.Q.FieldByName('satellite').AsString <> '') then
-        Writeln(f, '<SAT_NAME' + dmUtils.StringToADIF(dmData.Q.FieldByName('satellite').AsString));
+        Writeln(f, dmUtils.StringToADIF('<SAT_NAME' ,dmData.Q.FieldByName('satellite').AsString));
 
       if (dmData.Q.FieldByName('rxfreq').AsString <> '') then
-        Writeln(f, '<FREQ_RX' + dmUtils.StringToADIF(dmData.Q.FieldByName('rxfreq').AsString));
+        Writeln(f, dmUtils.StringToADIF('<FREQ_RX' ,dmData.Q.FieldByName('rxfreq').AsString));
 
       if (dmData.Q.FieldByName('remarks').AsString<>'') and cqrini.ReadBool('LoTW', 'ExpComment', True) then
       begin
-        tmp := '<COMMENT' + dmUtils.StringToADIF(dmData.Q.FieldByName('remarks').AsString);
+        tmp := dmUtils.StringToADIF('<COMMENT' ,dmData.Q.FieldByName('remarks').AsString);
         Writeln(f,tmp);
-        tmp := '<QSLMSG' + dmUtils.StringToADIF(dmData.Q.FieldByName('remarks').AsString);
+        tmp := dmUtils.StringToADIF('<QSLMSG' ,dmData.Q.FieldByName('remarks').AsString);
         Writeln(f,tmp)
       end;
 
-      tmp := '<APP_EQSL_QTH_NICKNAME'+dmUtils.StringToADIF(edtQTH.Text);
+      tmp := dmUtils.StringToADIF('<APP_EQSL_QTH_NICKNAME',edtQTH.Text);
       Writeln(f,tmp);
 
       Writeln(f,'<EOR>');
@@ -194,7 +195,20 @@ end;
 procedure TfrmeQSLUpload.FormShow(Sender : TObject);
 begin
   dmUtils.LoadWindowPos(frmeQSLUpload);
-  edtQTH.Text := cqrini.ReadString('eQSL','QTH','')
+  edtQTH.Text := cqrini.ReadString('eQSL','QTH','');
+  if dmData.IsFilter then
+    begin
+      rbWebExportNotExported.Caption:='Export all QSOs which have never been uploaded (bypass filter results)';
+      rbWebExportAll.Caption:='Export QSOs from filter result';
+      rbWebExportAll.Checked:=true;
+    end
+   else
+    begin
+      rbWebExportNotExported.Caption:='Export only QSOs which have never been uploaded';
+      rbWebExportAll.Caption:='Export all QSOs in log';
+      rbWebExportNotExported.Checked:=true;
+    end;
+
 end;
 
 procedure TfrmeQSLUpload.FormClose(Sender : TObject;
@@ -285,8 +299,11 @@ begin
     HTTP.MimeType := 'multipart/form-data; boundary=' + Bound;
     //eQSL server can handle only 1000QSO per minute
     HTTP.Timeout := 100000*((QSOCount div 1000)+1);
-    Writeln('Timeout:',HTTP.Timeout div 1000, 's');
-    Writeln('QSO count:',QSOCount);
+    if dmData.DebugLevel>=1 then
+     begin
+        Writeln('Timeout:',HTTP.Timeout div 1000, 's');
+        Writeln('QSO count:',QSOCount);
+     end;
     Result := HTTP.HTTPMethod('POST', URL);
     if Result then
       ResultData.LoadFromStream(HTTP.Document)
@@ -323,7 +340,7 @@ begin
   lblInfo.Caption := '';
   Application.ProcessMessages;
   mStat.Lines.Add('');
-  url  := 'http://www.eqsl.cc/qslcard/ImportADIF.cfm';
+  url  := 'https://www.eqsl.cc/qslcard/ImportADIF.cfm';
   mStat.Lines.Add('eQSL server can process about 1000 QSO per minute. If you have ');
   mStat.Lines.Add('a lot of QSO to upload, it will take long time. So please be patient.');
   mStat.Lines.Add('');

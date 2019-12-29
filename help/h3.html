@@ -21,9 +21,7 @@
 <table style="text-align: left; width: 100%;" border="0" cellpadding="2" cellspacing="2">
     <tbody>
     <tr>
-        <td width="33%" align="left">&nbsp;&lt;<a href="h24.html"> Prev</a></td>
-        <td width="33%" align="center">[<a href="index.html#aa">Menu</a>]</td>
-        <td width="33%" align="right"><a href="h4.html">Next </a>&gt;</td>
+        <td width="33%" align="center">[<a href="index_right.html">Menu</a>]</td>
     </tr>
     </tbody>
 </table>
@@ -38,6 +36,10 @@
     in a contest (any modern contesting program has the ADIF export facility, some older
     programs may need a third party conversion utility).
     <br><br>
+    Cqrlog now follows ADIF 3.1.0 specification of special UTF8 characters. Mainly they can be found from Name, QTH, Comment and Notes fields. Specification says that when there is special character(s) some adif tags may have suffix _INTL to show this. Like &lt;QTH_INTL:6&gt;Pyhtää
+    <br>If pure ASCII charcters are found the usual tag format is used. Like &lt;QTH:4&gt;Pori
+    <br>Every time special UTF8 character is found in tags, where specification allows, UTF8 printing routines are used and the _INTL suffix is added.
+    <br>At import side tags with suffix _INTL are read with UTF8 routines. Without _INTL with normal ASCII routines. This makes importing backward compatible with old cqrlog exports that have set tag lenght wrong if there has been special UTF8 characters in tag data.<br><br>
     Go to QSO list (Ctrl+O on the main logging screen or File -> Show QSO list from the menu).
     <br><br>
     <img src="img/h39.png" border="0"><br><br>
@@ -45,8 +47,10 @@
     Click on 'ADIF' and an 'Open file' dialog appears.<br><br>
     <img src="img/h40.png" border="0"><br><br>Navigate to the file you want to import and
     click 'Open'. You will see a new dialog, click the 'Import' button here. You can also
-    add a QTH profile and a note ('Remarks:') which will appear on any imported QSO record.
-    Using this option, a portable, mobile or QRP operation can be clearly marked.<br><br>
+    add a QTH profile and a note ('Comment to QSO(s):') which will appear on every imported QSO record.
+    Using this option, a portable, mobile or QRP operation can be clearly marked.
+    <br>
+    You can also filter by date range of adif file records. Checking "No check for duplicates" and "ADIF file contains..." may speed up big ADIF imports.<br><br>
     <img src="img/h41.png" border="0"><br><br>
     If you import a huge file, you will see a progress bar, however import of a small file
     is so fast that you never notice the progress indicator.<br><br>
@@ -66,11 +70,38 @@
     <img src=img/h45.png><br><br>
     Choose 'ADIF'. An usual a dialog appears (depending on the desktop used). Choose a
     location and file name.<br><br>
+    <img src=img/h45b.png><br><br>
+    <img src=img/h45c.png><br><br>
+    When <b>OK</b> is pressed export begins.<br><br>
     <p align=center><img src=img/line.png></p>
     <a name=ah26><strong>HTML export</strong></a><br><br>
-    The same as above, only difference is to choose the 'HTML' option.<br><br>
+    The same as above, only difference is to set column names and widths (in character counts). Note that contest Nr and Msg column names will get "R" or "S" added as last letter of column name.
+    <br><br>
+    <img src=img/h45d.png><br><br>
+    If "HTML auto size columns" is checked width setting is ignored and column width is set by longest text (in header or data).
+    <br><br>
+    <img src=img/h45e.png><br><br>
+    Choose the 'HTML' option from QSO list Export menu.<br><br>
     <p align=center><img src=img/line.png></p>
-    <strong>How to update Country files:</strong><br>
+    <p><a name=ah27><strong>Program version update:</strong></a><br><br>
+    Ubuntu 16.04, 17.10, 18.04 users can use CQRLOG’s repository on Launchpad. To add repository to your system, put into terminal this:<br/>
+    <br>sudo add-apt-repository ppa:ok2cqr/ppa;sudo apt-get update;sudo apt-get install cqrlog<br>
+    <br>For those who does not use Ubuntu, load install package, or binaries, from: Cqrlog.com <a href="https://www.cqrlog.com/download" target="_new"> download page.</a><br>
+    <br>The binaries should work in any distribution. Please don't forget to install MySQL server, MySQL client, Hamlib libraries and if LoTW support is desired, trustedqsl package and libssl-devel must be installed.</p>
+    <table width="100%" border="0" cellpadding="5" cellspacing="2">
+        <tbody>
+        <tr>
+            <td valign="top"><img src="img/note.png"></td>
+            <td style="width: 100%; text-align: justify; background-color: rgb(204, 255, 255);">
+                <strong><font color="blue">Note:</font></strong> Very often Cqrlog version update requires just file /usr/bin/cqrlog change to latest version. If your package manager does not support latest version and you have well running old version in use just copy folder ~/.config/cqrlog with all files and subfolders to safe place as backup. Copy also 
+                /usr/bin/cqrlog to same place. Then download the tgz file "Complete application directory for other distributions", extract file /usr/bin/cqrlog from there and copy it to your /usr/bin folder (you need to use root priveleges I.E sudo for that).
+                If everything works you have latest version. If not, just copy back your saved folder ~/.config/cqrlog and the old /usr/bin/cqrlog.
+            </td>
+        </tr>
+        </tbody>
+    </table>
+    <p align=center><img src=img/line.png></p>    
+    <a name=ah28><strong>How to update Country files:</strong></a><br>
     <ol>
         <li>Unpack and copy all the files into the /ctyfiles folder in your CQRLOG main folder.
             The purpose of this folder is to store these files only, it is not bound to CQRLOG and
@@ -143,7 +174,7 @@
     <em>File -> Show QSO list</em>) and choose the <em>File -> Import -> Import
     qsl managers database</em>.<br><br>
     A manual update is also possible if you download a recent version from the CQRLOG site
-    <a href=http://www.cqrlog.com><strong>http://www.cqrlog.com</strong></a>.<br><br>
+    <a href=http://www.cqrlog.com target="_new"><strong>http://www.cqrlog.com</strong></a>.<br><br>
     <img src=img/h107.png><br><br>
     The QSL Manager database format is as follows:<br>
 <pre>
@@ -285,9 +316,7 @@ High Speed Club</pre>
 <table style="text-align: left; width: 100%;" border="0" cellpadding="2" cellspacing="2">
     <tbody>
     <tr>
-        <td width="33%" align="left">&nbsp;&lt;<a href="h24.html"> Prev</a></td>
-        <td width="33%" align="center">[<a href="index.html#aa">Menu</a>]</td>
-        <td width="33%" align="right"><a href="h4.html">Next </a>&gt;</td>
+        <td width="33%" align="center">[<a href="index_right.html">Menu</a>]</td>
     </tr>
     </tbody>
 </table>

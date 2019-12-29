@@ -99,8 +99,8 @@ type
     function ParseColumnsString: boolean;
     procedure DoImport;
     procedure InsertHeaderFromFile(var IntoList: TStringList);
-    function MakeRecord(out d:Tnejakyzaznam; var ErrorMessage: string): boolean;
-    procedure AddNewRecord(var d: Tnejakyzaznam);
+    function MakeRecord(out d: TnewQSOEntry; var ErrorMessage: string): boolean;
+    procedure AddNewRecord(var d: TnewQSOEntry);
     procedure ApplyLrsGridWorkaround;
 
     procedure InitQSOLinesIterator;
@@ -465,7 +465,7 @@ end;
 
 procedure TfrmCabrilloImport.DoImport;
 var
-  d: Tnejakyzaznam;
+  d: TnewQSOEntry;
   ErrorMessage: string;
 begin
   GlobalProfile := dmData.GetNRFromProfile(cmbProfiles.Text);
@@ -529,13 +529,13 @@ begin
   end;
 end;
 
-function TfrmCabrilloImport.MakeRecord(out d:Tnejakyzaznam; var ErrorMessage: string): boolean;
+function TfrmCabrilloImport.MakeRecord(out d: TnewQSOEntry; var ErrorMessage: string): boolean;
 var
   Freq: double;
   Mode: string;
 begin
   Result:=true;
-  d:=Default(Tnejakyzaznam);
+  d:=Default(TnewQSOEntry);
   with QSOIter do begin
     Mode:=Fields['Mo'];
     if ReplaceModePH and (Mode='PH') then
@@ -572,7 +572,7 @@ begin
   end;
 end;
 
-procedure TfrmCabrilloImport.AddNewRecord(var d: Tnejakyzaznam);
+procedure TfrmCabrilloImport.AddNewRecord(var d: TnewQSOEntry);
 const
   F_FIELD = 'field';
 var

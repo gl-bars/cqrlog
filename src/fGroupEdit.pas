@@ -17,7 +17,7 @@ interface
 
 uses
   Classes, SysUtils, LResources, Forms, Controls, Graphics, Dialogs, StdCtrls,
-  ExtCtrls, lcltype;
+  ExtCtrls, lcltype, strutils;
 
 type
 
@@ -35,6 +35,7 @@ type
     Panel1: TPanel;
     procedure btnApplyClick(Sender: TObject);
     procedure cmbFieldChange(Sender: TObject);
+    procedure cmbValueChange(Sender: TObject);
     procedure FormShow(Sender: TObject);
   private
     { private declarations }
@@ -55,47 +56,66 @@ uses dUtils, dData, dDXCC, fMain;
 procedure TfrmGroupEdit.cmbFieldChange(Sender: TObject);
 begin
   cmbValue.Clear;
-  cmbValue.ReadOnly := False;
+  cmbValue.Style:= csDropDown;
   case cmbField.ItemIndex of
      5 : begin
            dmUtils.InsertModes(cmbValue);
-           cmbValue.ReadOnly := True
+           cmbValue.Style:=csDropDownList;
          end;
     10 : begin
            dmUtils.InsertQSL_S(cmbValue);
            cmbValue.ItemIndex := 0;
-           cmbValue.ReadOnly := True
+           cmbValue.Style:=csDropDownList;
          end;
     11 : begin
            dmUtils.InsertQSL_R(cmbValue);
            cmbValue.ItemIndex := 0;
-           cmbValue.ReadOnly := True
+           cmbValue.Style:=csDropDownList;
          end;
  18,28 : begin
            cmbValue.Items.Add('Y');
            cmbValue.Items.Add('N');
            cmbValue.ItemIndex := 0;
-           cmbValue.ReadOnly  := True
+           cmbValue.Style:=csDropDownList;
          end;
     19 : begin
            cmbValue.Items.Add('L');
            cmbValue.Items.Add('N');
            cmbValue.ItemIndex := 0;
-           cmbValue.ReadOnly  := True
+           cmbValue.Style:=csDropDownList;
          end;
     25 : begin
            dmData.InsertProfiles(cmbValue,False);
            cmbValue.ItemIndex := 0;
-           cmbValue.ReadOnly  := True
+           cmbValue.Style:=csDropDownList;
          end;
     30 : begin
            cmbValue.Items.Add('E');
            cmbValue.Items.Add('N');
            cmbValue.ItemIndex := 0;
-           cmbValue.ReadOnly  := True
-         end
-   end
+           cmbValue.Style:=csDropDownList;
+         end;
+    32 : begin
+           dmUtils.InsertContests(cmbValue);
+           cmbValue.Style:=csDropDown;
+         end;
+   end;
+   lblInfo.Caption := 'Backup your log! Operations can not be undone!';
+   lblInfo.Repaint;
 end;
+
+procedure TfrmGroupEdit.cmbValueChange(Sender: TObject);
+begin
+  lblInfo.Caption := 'Backup your log! Operations can not be undone!';
+  lblInfo.Repaint;
+
+  if (cmbField.ItemIndex=23) or (cmbField.ItemIndex=24) then
+  begin
+    cmbValue.Text :=dmUtils.StdFormatLocator(cmbValue.Text);
+    cmbValue.SelStart := Length(cmbValue.Text);
+  end;
+end;
+
 {eQSL sent        28
  eQSL sent date   29
  eQSL rcvd        30
@@ -103,7 +123,9 @@ end;
  }
 procedure TfrmGroupEdit.FormShow(Sender: TObject);
 begin
-  dmUtils.LoadFontSettings(self)
+  dmUtils.LoadFontSettings(self);
+  lblInfo.Caption := 'Backup your log! Operations can not be undone!';
+  lblInfo.Repaint;
 end;
 
 procedure TfrmGroupEdit.btnApplyClick(Sender: TObject);
@@ -367,7 +389,7 @@ begin
               exit
             end
           end;
-          sql := 'my_loc='+QuotedStr(UpperCase(cmbValue.Text))
+          sql := 'my_loc='+QuotedStr(cmbValue.Text)
         end;
    24 : begin
           if (cmbValue.Text <> '') then
@@ -387,7 +409,7 @@ begin
               exit
             end
           end;
-          sql := 'loc='+QuotedStr(UpperCase(cmbValue.Text))
+          sql := 'loc='+QuotedStr(cmbValue.Text)
         end;
    25 : begin
           sql := 'profile=' + IntToStr(dmData.GetNRFromProfile(cmbValue.Text))
@@ -456,6 +478,13 @@ begin
             sql := 'eqsl_qsl_rcvd='+QuotedStr('E')+',eqsl_qslrdate='+
                    QuotedStr(cmbValue.Text)
         end;
+   32 : begin
+           if (cmbValue.Text='') and (Application.MessageBox('Dou you really want to clear Contest name field?',
+              'Question ...',mb_YesNo+mb_IconQuestion)=idNo) then
+             exit;
+           sql := 'contestname='+QuotedStr(ExtractWord(1,cmbValue.Text,['|']));
+         end;
+
 {eQSL sent        28
  eQSL sent date   29
  eQSL rcvd        30
@@ -489,6 +518,8 @@ begin
     dmData.qCQRLOG.EnableControls;
     frmMain.acRefresh.Execute
   end;
+  lblInfo.Caption := 'Edit done! (Press Cancel to exit)';
+  lblInfo.Repaint;
 end;
 
 end.

@@ -20,13 +20,15 @@ type
     chSpace: TCheckBox;
     chLoc: TCheckBox;
     chNRInc: TCheckBox;
+    cmbContestName: TComboBox;
     edtCall: TEdit;
     edtRSTs: TEdit;
     edtSTX: TEdit;
-    edtSTX2: TEdit;
+    edtSTX_str: TEdit;
     edtRSTr: TEdit;
     edtSRX: TEdit;
     edtSRX2: TEdit;
+    lblContestName: TLabel;
     lblCall: TLabel;
     lblRSTs: TLabel;
     lblMSGs: TLabel;
@@ -44,8 +46,9 @@ type
     procedure edtCallExit(Sender: TObject);
     procedure edtCallKeyDown(Sender: TObject; var Key: word; Shift: TShiftState);
     procedure edtCallKeyPress(Sender: TObject; var Key: char);
+    procedure edtSRX2Change(Sender: TObject);
     procedure edtSRXExit(Sender: TObject);
-    procedure edtSTX2Exit(Sender: TObject);
+    procedure edtSTX_strExit(Sender: TObject);
     procedure edtSTXExit(Sender: TObject);
     procedure edtSTXKeyPress(Sender: TObject; var Key: char);
     procedure FormClose(Sender: TObject; var CloseAction: TCloseAction);
@@ -74,7 +77,7 @@ implementation
 
 {$R *.lfm}
 
-uses dData, dUtils, fNewQSO;
+uses dData, dUtils, fNewQSO, fWorkedGrids, strutils;
 
 procedure TfrmContest.FormKeyDown(Sender: TObject; var Key: word; Shift: TShiftState);
 var
@@ -126,8 +129,9 @@ begin
     else
     if Assigned(frmNewQSO.CWint) then
       frmNewQSO.CWint.SendText(dmUtils.GetCWMessage(
-        dmUtils.GetDescKeyFromCode(Key), frmNewQSO.edtCall.Text, frmNewQSO.edtHisRST.Text,
-        frmNewQSO.edtName.Text, frmNewQSO.lblGreeting.Caption, ''));
+        dmUtils.GetDescKeyFromCode(Key),frmNewQSO.edtCall.Text,
+      frmNewQSO.edtHisRST.Text, frmNewQSO.edtContestSerialSent.Text,frmNewQSO.edtContestExchangeMessageSent.Text,
+      frmNewQSO.edtName.Text,frmNewQSO.lblGreeting.Caption,''));
     key := 0;
   end;
 
@@ -153,21 +157,56 @@ begin
     key := 0;
   end;
 
+  if ((Shift = [ssCtrl]) and (key = VK_A)) then
+  begin
+    frmNewQSO.acAddToBandMap.Execute;
+    key := 0
+  end;
 end;
 
 
 procedure TfrmContest.edtCallExit(Sender: TObject);
 begin
-  frmNewQSO.edtCall.Text := edtCall.Text;
-
-  case frmNewQSO.cmbMode.Items[frmNewQSO.cmbMode.ItemIndex] of            //report in NEwQSO changes to 59 to late (after passing cmbMode)
-  'SSB','AM','FM' : Begin
-                         edtRSTs.Text := copy(edtRSTs.Text,0,2);
-                         edtRSTr.Text := copy(edtRSTr.Text,0,2);
-                    end;
+  // if frmNewQSO is in viewmode or editmode it overwrites old data or will not save
+  // because saving is disabled in view mode. this if statement starts a fresh newqso form
+  if frmNewQSO.ViewQSO or frmNewQSO.EditQSO then
+  begin
+    frmNewQSO.Caption := dmUtils.GetNewQSOCaption('New QSO');
+    frmNewQSO.UnsetEditLabel;
+    frmNewQSO.BringToFront;
+    frmNewQSO.ClearAll;
+    edtCallExit(nil);
   end;
 
-  frmNewQSO.edtHisRST.Text := edtRSTs.Text + ' ' + edtSTX.Text + ' ' + edtSTX2.Text;
+  frmNewQSO.edtCall.Text := edtCall.Text;
+
+  //dupe check
+  if frmWorkedGrids.WkdCall(edtCall.Text, dmUtils.GetBandFromFreq(frmNewQSO.cmbFreq.Text) ,frmNewQSO.cmbMode.Text) = 1 then
+       Begin        //dupe
+         edtCall.Font.Color:=clRed;
+         edtCall.Font.Style:= [fsBold];
+       end
+    else
+      Begin         //clear dupe if user press 1xESC and change call not to be dupe
+         edtCall.Font.Color:=clDefault;
+         edtCall.Font.Style:= [];
+      end;
+
+  //report in NEwQSO changes to 59 to late (after passing cmbMode)
+  //NOTE! if mode is not in list program dies! In that case skip next
+  if frmNewQSO.cmbMode.ItemIndex >=0 then
+   begin
+     case frmNewQSO.cmbMode.Items[frmNewQSO.cmbMode.ItemIndex] of
+          'SSB','AM','FM' : Begin
+                                 edtRSTs.Text := copy(edtRSTs.Text,0,2);
+                                 edtRSTr.Text := copy(edtRSTr.Text,0,2);
+                            end;
+     end;
+   end;
+
+  frmNewQSO.edtHisRST.Text := edtRSTs.Text;
+  frmNewQSO.edtContestSerialSent.Text := edtSTX.Text;
+  frmNewQSO.edtContestExchangeMessageSent.Text := edtSTX_str.Text;
   //so that CW macros work
   frmNewQSO.edtCallExit(nil);
   frmContest.ShowOnTop;
@@ -176,15 +215,16 @@ end;
 
 procedure TfrmContest.btSaveClick(Sender: TObject);
 begin
-  frmNewQSO.edtHisRST.Text := edtRSTs.Text + ' ' + edtSTX.Text + ' ' + edtSTX2.Text;
-  //this should be ok before
   if chLoc.Checked then
-  begin
-    frmNewQSO.edtMyRST.Text := edtRSTr.Text + ' ' + edtSRX.Text;
     frmNewQSO.edtGrid.Text := edtSRX2.Text;
-  end
-  else
-    frmNewQSO.edtMyRST.Text := edtRSTr.Text + ' ' + edtSRX.Text + ' ' + edtSRX2.Text;
+
+  frmNewQSO.edtHisRST.Text := edtRSTs.Text;
+  frmNewQSO.edtMyRST.Text := edtRSTr.Text;
+  frmNewQSO.edtContestSerialReceived.Text := edtSRX.Text;
+  frmNewQSO.edtContestSerialSent.Text := edtSTX.Text;
+  frmNewQSO.edtContestExchangeMessageReceived.Text := edtSRX2.Text;
+  frmNewQSO.edtContestExchangeMessageSent.Text := edtSTX_str.Text;
+  frmNewQSO.edtContestName.Text := ExtractWord(1,cmbContestName.Text,['|']);
 
   frmNewQSO.btnSave.Click;
   if dmData.DebugLevel >= 1 then
@@ -282,12 +322,20 @@ begin
     key := #0;
 end;
 
+procedure TfrmContest.edtSRX2Change(Sender: TObject);
+begin
+  if chLoc.Checked then
+  begin
+   edtSRX2.Text := dmUtils.StdFormatLocator(edtSRX2.Text);
+   edtSRX2.SelStart := Length(edtSRX2.Text);
+  end;
+end;
 procedure TfrmContest.edtSRXExit(Sender: TObject);
 begin
   ChkSerialNrUpd(False); //just save it
 end;
 
-procedure TfrmContest.edtSTX2Exit(Sender: TObject);
+procedure TfrmContest.edtSTX_strExit(Sender: TObject);
 begin
   ChkSerialNrUpd(False); //just save it
 end;
@@ -307,22 +355,24 @@ end;
 procedure TfrmContest.FormCreate(Sender: TObject);
 begin
   frmContest.KeyPreview := True;
+  dmUtils.InsertContests(cmbContestName);
 end;
 
 procedure TfrmContest.FormClose(Sender: TObject; var CloseAction: TCloseAction);
 begin
   dmUtils.SaveWindowPos(frmContest);
-
 end;
 
 procedure TfrmContest.FormHide(Sender: TObject);
 begin
+  frmNewQSO.gbContest.Visible := false;
   dmUtils.SaveWindowPos(frmContest);
   frmContest.Hide;
 end;
 
 procedure TfrmContest.FormShow(Sender: TObject);
 begin
+  frmNewQSO.gbContest.Visible := true;
   dmUtils.LoadWindowPos(frmContest);
   InitInput;
 end;
@@ -348,9 +398,11 @@ begin
   if not ((edtSTX.Text <> '') and (RSTstx = ''))  then
     edtSTX.Text := RSTstx;
 
-  edtSTX2.Text := RSTstxAdd;
+  edtSTX_str.Text := RSTstxAdd;
   edtSRX.Text := '';
   edtSRX2.Text := '';
+  edtCall.Font.Color:=clDefault;
+  edtCall.Font.Style:= [];
   edtCall.Clear;
   EscFirstTime := True;
   {
@@ -359,16 +411,10 @@ begin
   either (dbg msg:input finale):
 
   NOTE: Window with stalled focus found!, faking focus-out event
-  NOTE: Window with stalled focus found!, faking focus-out event
-  NOTE: Window with stalled focus found!, faking focus-out event
-  (cqrlog:2643): Pango-CRITICAL **: pango_layout_get_cursor_pos: assertion 'index >= 0 && index <= layout->length' failed
-  (cqrlog:2643): Pango-CRITICAL **: pango_layout_get_cursor_pos: assertion 'index >= 0 && index <= layout->length' failed
-  (cqrlog:2643): Pango-CRITICAL **: pango_layout_get_cursor_pos: assertion 'index >= 0 && index <= layout->length' failed
   (cqrlog:2643): Pango-CRITICAL **: pango_layout_get_cursor_pos: assertion 'index >= 0 && index <= layout->length' failed
   ----
   or(dbg msg: Clear all done next focus ):
 
-  NOTE: Window with stalled focus found!, faking focus-out event
   NOTE: Window with stalled focus found!, faking focus-out event
 
   ----
@@ -419,7 +465,7 @@ begin
   end;
 
   RSTstx := stx;
-  RSTstxAdd := edtSTX2.Text;
+  RSTstxAdd := edtSTX_str.Text;
 
   if dmData.DebugLevel >= 1 then
     Writeln(' Inc number is: ', IncNr);

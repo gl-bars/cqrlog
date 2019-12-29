@@ -18,7 +18,7 @@ interface
 uses
   Classes, SysUtils, LResources, Forms, Controls, Graphics, Dialogs, Menus,
   ActnList, ExtCtrls, StdCtrls, ComCtrls, DBGrids, Buttons, LCLType, IniFiles, process,
-  Grids, DBCtrls, dLogUpload;
+  Grids, DBCtrls, dLogUpload,db,synacode;
 
 type
 
@@ -80,6 +80,7 @@ type
     acMarkAllHrdLog: TAction;
     acMarkAll: TAction;
     acMarkAlleQSL: TAction;
+    acAutoSizeColumns: TAction;
     acImportCabrillo: TAction;
     acUploadAllToLoTW: TAction;
     acUploadToAll: TAction;
@@ -112,6 +113,10 @@ type
     Image1:     TImage;
     imgMain:    TImageList;
     imgMain1:   TImageList;
+    lblDist: TLabel;
+    lblDistance: TLabel;
+    lblLongest: TLabel;
+    lblLongestDist: TLabel;
     lblQSOInLog:     TLabel;
     lblDXCCWorked:     TLabel;
     lblCommentForQSO:    TLabel;
@@ -124,10 +129,13 @@ type
     lblDXCCCmf: TLabel;
     lblDXCC:    TLabel;
     lblQSOCount: TLabel;
+    lblSumDist: TLabel;
+    lblSumDistances: TLabel;
     MenuItem1:  TMenuItem;
     MenuItem10: TMenuItem;
     MenuItem100: TMenuItem;
     MenuItem101: TMenuItem;
+    mnueQSLView: TMenuItem;
     MenuItem11: TMenuItem;
     MenuItem12: TMenuItem;
     MenuItem13: TMenuItem;
@@ -212,7 +220,7 @@ type
     MenuItem86: TMenuItem;
     MenuItem87: TMenuItem;
     MenuItem88 : TMenuItem;
-    MenuItem89 : TMenuItem;
+    mnuHamQth : TMenuItem;
     MenuItem90 : TMenuItem;
     MenuItem91 : TMenuItem;
     MenuItem92 : TMenuItem;
@@ -264,6 +272,7 @@ type
     dlgOpen:    TOpenDialog;
     Panel1:     TPanel;
     Panel3: TPanel;
+    pnlDistance: TPanel;
     pnlDetails: TPanel;
     pnlButtons: TPanel;
     Panel2:     TPanel;
@@ -292,6 +301,7 @@ type
     ToolButton34 : TToolButton;
     ToolButton35 : TToolButton;
     ToolButton36 : TToolButton;
+    ToolButton37: TToolButton;
     toolMain:   TToolBar;
     ToolButton1: TToolButton;
     ToolButton10: TToolButton;
@@ -329,6 +339,7 @@ type
     procedure acRemoveDupesExecute(Sender: TObject);
     procedure acSOTAExportExecute(Sender : TObject);
     procedure acSQLExecute(Sender: TObject);
+    procedure acAutoSizeColumnsExecute(Sender: TObject);
     procedure acUploadAllToLoTWExecute(Sender: TObject);
     procedure acUploadToAllExecute(Sender: TObject);
     procedure acUploadToClubLogExecute(Sender: TObject);
@@ -367,6 +378,7 @@ type
     procedure acWACCfmExecute(Sender: TObject);
     procedure acWASCfmExecute(Sender: TObject);
     procedure acWAZCfmExecute(Sender: TObject);
+    procedure mnueQSLViewClick(Sender: TObject);
     procedure mnuIK3AQRClick(Sender: TObject);
     procedure mnuHelpIndexClick(Sender: TObject);
     procedure mnuIOTAStatClick(Sender: TObject);
@@ -377,6 +389,7 @@ type
     procedure FormActivate(Sender: TObject);
     procedure FormKeyDown(Sender: TObject; var Key: word; Shift: TShiftState);
     procedure mnuOQRSClick(Sender : TObject);
+    procedure popWebSearchPopup(Sender: TObject);
     procedure Timer1Timer(Sender: TObject);
     procedure acAboutExecute(Sender: TObject);
     procedure acCallBookExecute(Sender: TObject);
@@ -423,16 +436,18 @@ type
   private
     InRefresh  : Boolean;
     WhatUpNext : TWhereToUpload;
-
+    DistColumnIndex :integer;
     procedure ChechkSelRecords;
     { private declarations }
   public
+    ShowWidths : Boolean;
     procedure RefreshQSODXCCCount;
     procedure MarkQSLSend(symbol: string);
     procedure ShowFields;
     procedure ReloadGrid;
     procedure CheckAttachment;
-
+    function  CalcQrb(Myloc,loc:string;showUnits:boolean):string;
+    procedure eQSLView(QSODate,QSOTime,CallsignFrom,QSOBand,QSOMode:String);
     { public declarations }
   end;
 
@@ -449,7 +464,7 @@ uses fNewQSO, fPreferences, dUtils, dData, dDXCC, dDXCluster, fMarkQSL, fDXCCSta
   fQSODetails, fWAZITUStat, fIOTAStat, fDatabaseUpdate, fExLabelPrint,
   fImportLoTWWeb, fLoTWExport, fGroupEdit, fCustomStat, fSQLConsole, fCallAttachment,
   fEditDetails, fQSLViewer, uMyIni, fRebuildMembStat, fAbout, fBigSquareStat,
-  feQSLUpload, feQSLDownload, fSOTAExport, fRotControl, fLogUploadStatus, fExportPref;
+  feQSLUpload, feQSLDownload, fSOTAExport, fRotControl, fLogUploadStatus, fExportPref,uVersion;
 
 procedure TfrmMain.ReloadGrid;
 begin
@@ -458,10 +473,30 @@ begin
 end;
 
 procedure TfrmMain.RefreshQSODXCCCount;
+var
+   SumDist: int64;
+   Longest,
+   MainLocCount : integer;
+   qrb,
+   qrc,
+   Myloc,
+   loc          : String;
 begin
   lblQSOCount.Caption := IntToStr(dmData.GetQSOCount);
   lblDXCC.Caption     := IntToStr(dmDXCC.DXCCCount);
-  lblDXCCCmf.Caption  := IntToStr(dmDXCC.DXCCCmfCount)
+  lblDXCCCmf.Caption  := IntToStr(dmDXCC.DXCCCmfCount);
+  if pnlDistance.Visible then
+   Begin
+    dmData.GetQSODistanceSum(SumDist,Longest,MainLocCount);
+    if cqrini.ReadBool('Program','ShowMiles',False) then
+      lblSumDist.Caption := FloatToStr(dmUtils.KmToMiles(SumDist)) + 'mi'
+     else
+      lblSumDist.Caption := IntToStr(SumDist) + 'km';
+    if cqrini.ReadBool('Program','ShowMiles',False) then
+      lblLongest.Caption := FloatToStr(dmUtils.KmToMiles(Longest)) + 'mi'
+     else
+       lblLongest.Caption := IntToStr(Longest) + 'km';
+   end;
 end;
 
 procedure TfrmMain.acPreferencesExecute(Sender: TObject);
@@ -604,8 +639,9 @@ var
 begin
   tmp   := '';
   sDate := '';
-  dmUtils.DateInRightFormat(now, tmp, sDate);
-  sbMain.Panels[0].Text := sDate;
+  dmUtils.DateInRightFormat(now , tmp, sDate);
+  //sbMain.Panels[0].Text :=sDate;              //why we have 2 timers for showing date in panel???
+  sbMain.Panels[0].Text :=uVersion.cBUILD_DATE;
 end;
 
 procedure TfrmMain.tmrUploadAllTimer(Sender: TObject);
@@ -629,6 +665,7 @@ begin
   end
 end;
 
+
 procedure TfrmMain.acNewQSOExecute(Sender: TObject);
 begin
   frmNewQSO.Caption := dmUtils.GetNewQSOCaption('New QSO');
@@ -641,7 +678,7 @@ procedure TfrmMain.acEditQSOExecute(Sender: TObject);
 begin
   if dmData.qCQRLOG.RecordCount > 0 then
   begin
-    if (frmNewQSO.mnuRemoteMode.Checked) or (frmNewQSO.mnuRemoteModeWsjt.Checked) then
+    if frmNewQSO.AnyRemoteOn then
     begin
       Application.MessageBox('Log is in remote mode, please disable it.','Info ...',mb_ok + mb_IconInformation);
       exit
@@ -733,7 +770,7 @@ procedure TfrmMain.acViewExecute(Sender: TObject);
 begin
   if dmData.qCQRLOG.RecordCount = 0 then
     exit;
-  if (frmNewQSO.mnuRemoteMode.Checked) or (frmNewQSO.mnuRemoteModeWsjt.Checked) then
+  if frmNewQSO.AnyRemoteOn then
   begin
       Application.MessageBox('Log is in remote mode, please disable it.','Info ...',mb_ok + mb_IconInformation);
     exit
@@ -770,6 +807,15 @@ begin
   MarkQSLSend('OQRS')
 end;
 
+procedure TfrmMain.popWebSearchPopup(Sender: TObject);
+begin
+    mnueQSLView.Visible :=  ((pos('E',dmData.qCQRLOG.FieldByName('eqsl_qsl_rcvd').AsString)>0)
+                             and (dbgrdMain.SelectedRows.Count = 1));
+    if dmData.DebugLevel>=1 then writeln( dbgrdMain.SelectedRows.Count,' ',
+                                         dmData.qCQRLOG.FieldByName('callsign').AsString,' ',
+                                         dmData.qCQRLOG.FieldByName('eqsl_qsl_rcvd').AsString );
+ end;
+
 procedure TfrmMain.Timer1Timer(Sender: TObject);
 var
   sDate: string;
@@ -780,7 +826,7 @@ begin
   sDate := '';
   Date  := dmUtils.GetDateTime(0);
   dmUtils.DateInRightFormat(date, tmp, sDate);
-  sbMain.Panels[4].Text := sDate + '  ' + TimeToStr(Date)
+  sbMain.Panels[4].Text := sDate + '  ' + TimeToStr(Date);
 end;
 
 procedure TfrmMain.acAboutExecute(Sender: TObject);
@@ -1072,7 +1118,7 @@ begin
     while not dbgrdMain.DataSource.DataSet.EOF do
     begin
       dbgrdMain.SelectedRows.CurrentRowSelected := True;
-      dbgrdMain.DataSource.DataSet.Next
+      dbgrdMain.DataSource.DataSet.Next;
     end
   finally
     dbgrdMain.DataSource.Dataset.EnableControls;
@@ -1146,16 +1192,83 @@ begin
   end
 end;
 
+procedure TfrmMain.mnueQSLViewClick(Sender: TObject);
+var
+  QSOmode:String;
+begin
+    QSOMode :=       dmData.qCQRLOG.FieldByName('mode').AsString;
+    if ((upcase(QSOMode) = 'JS8') or (upcase(QSOMode) = 'FT4')) then QSOMode := 'MFSK';
+
+    eQSLView( dmData.qCQRLOG.FieldByName('qsodate').AsString,
+              dmData.qCQRLOG.FieldByName('time_on').AsString,
+              dmData.qCQRLOG.FieldByName('callsign').AsString,
+              dmData.qCQRLOG.FieldByName('band').AsString,
+              QSOMode);
+
+end;
+procedure TfrmMain.eQSLView(QSODate,QSOTime,CallsignFrom,QSOBand,QSOMode:String);
+var
+  AProcess: TProcess;
+  url,      //        https://www.eQSL.cc/qslcard/GeteQSL.cfm
+  Username, //        The callsign of the recipient of the eQSL
+  Password, //        The password of the user's account
+            //        The callsign of the sender of the eQSL
+  QSOYear,  //        YYYY OR YY format date of the QSO
+  QSOMonth, //        MM format
+  QSODay,   //        DD format
+  QSOHour,  //        HH format (24-hour time)
+  QSOMinute //        MM format
+            //        20m, 80M, 70cm, etc. (case insensitive) band
+            //        Must match exactly and should be an ADIF-compatible mode
+  : String;
+begin
+    Username := cqrini.ReadString('LoTW','eQSLName','');
+    Password := cqrini.ReadString('LoTW','eQSLPass','');
+    if (Username = '') or (Password='') then
+    begin
+      MessageDlg(Caption, ' eQSL Username or Password not set!'+#10+
+                          '(see: preferences|LoTW/eQSL support)', mtError, [mbOK], 0);
+      exit
+    end;
+    QSOYear := copy(QSODate,1,4);
+    QSOMonth:= copy(QSODate,6,2);
+    QSOday  := copy(QSODate,9,2);
+    QSOHour := copy(QSOTime,1,2);
+    QSOMinute:= copy(QSOTime,4,2);
+    url := cqrini.ReadString('LoTW', 'eQSViewAddr','https://www.eQSL.cc/qslcard/GeteQSL.cfm')+
+           '?UserName='+Username+
+           '&Password='+EncodeURL(Password)+
+           '&CallsignFrom='+CallsignFrom+
+           '&QSOYear='+QSOYear+
+           '&QSOMonth='+QSOMonth +
+           '&QSODay='+QSODay+
+           '&QSOHour='+QSOHour +
+           '&QSOMinute='+QSOMinute+
+           '&QSOBand='+QSOBand+
+           '&QSOMode='+QSOMode;
+
+  if dmData.DebugLevel>=1 then Writeln(url);
+  AProcess := TProcess.Create(nil);
+  try
+    AProcess.Executable := cqrini.ReadString('Program', 'WebBrowser', 'firefox');
+    AProcess.Parameters.Add(url);
+    if dmData.DebugLevel>=1 then Writeln('AProcess.Executable: ',AProcess.Executable,' Parameters: ',AProcess.Parameters.Text);
+    AProcess.Execute
+  finally
+    AProcess.Free
+  end
+
+end;
+
 procedure TfrmMain.mnuIK3AQRClick(Sender: TObject);
 var
   AProcess: TProcess;
 begin
   AProcess := TProcess.Create(nil);
   try
-    AProcess.CommandLine := cqrini.ReadString('Program', 'WebBrowser', 'firefox') +
-      ' http://www.ik3qar.it/manager/man_result.php?call=' +
-      dmData.qCQRLOG.Fields[4].AsString;
-    Writeln('Command line: ', AProcess.CommandLine);
+    AProcess.Executable := cqrini.ReadString('Program', 'WebBrowser', 'firefox');
+    AProcess.Parameters.Add('http://www.ik3qar.it/manager/man_result.php?call=' + dmData.qCQRLOG.Fields[4].AsString);
+    if dmData.DebugLevel>=1 then Writeln('AProcess.Executable: ',AProcess.Executable,' Parameters: ',AProcess.Parameters.Text);
     AProcess.Execute
   finally
     AProcess.Free
@@ -1384,6 +1497,26 @@ begin
   end
 end;
 
+procedure TfrmMain.acAutoSizeColumnsExecute(Sender: TObject);
+var
+   AutoSz :boolean;
+begin
+  AutoSz :=  cqrini.ReadBool('Main', 'AutoSizeColumns', false);
+  //called from formShow (with nil) just sets saved value.
+  if Sender <> nil then  AutoSz := not AutoSz;
+  cqrini.WriteBool('Main', 'AutoSizeColumns', AutoSz);
+  if AutoSz then
+  begin
+    ToolButton37.ImageIndex:=33;
+    dbgrdMain.Options:=[dgTitles,dgIndicator,dgColumnResize,dgColumnMove,dgColLines,dgRowLines,dgTabs,dgRowSelect,dgAlwaysShowSelection,dgConfirmDelete,dgCancelOnExit,dgMultiselect,dgAutoSizeColumns];
+  end
+ else
+  Begin
+      ToolButton37.ImageIndex:=34;
+      dbgrdMain.Options:=[dgTitles,dgIndicator,dgColumnResize,dgColumnMove,dgColLines,dgRowLines,dgTabs,dgRowSelect,dgAlwaysShowSelection,dgConfirmDelete,dgCancelOnExit,dgMultiselect];
+  end;
+end;
+
 procedure TfrmMain.acUploadAllToLoTWExecute(Sender: TObject);
 begin
   if Application.MessageBox('Do you really want to mark all QSO as uploaded to LoTW?','Question ...',mb_YesNo + mb_IconQuestion) = idYes then
@@ -1450,162 +1583,153 @@ var
   time    : String = '';
   id1     : Integer = 0;
   call    : String = '';
+  counted : Integer = 0;
 begin
+  if StrToInt(lblQSOCount.Caption) = 0 then
+     exit;
+
   if ((key = VK_END) and (Shift = [ssCtrl])) and (not dmData.IsFilter) then
   begin
-    if StrToInt(lblQSOCount.Caption) = 0 then
-      exit;
-    try
-      dmData.qCQRLOG.DisableControls;
-      dmData.trCQRLOG.Rollback;
-      dmData.qCQRLOG.Close;
-      if dmData.SortType = stDate then
-        dmData.qCQRLOG.SQL.Text := 'select * from (select * from view_cqrlog_main_by_qsodate order by qsodate, time_on LIMIT '+IntToStr(cDB_LIMIT)+
-                      ') as foo order by qsodate DESC,time_on DESC'
-      else
-        dmData.qCQRLOG.SQL.Text := 'select * from (select * from view_cqrlog_main_by_callsign order by callsign DESC LIMIT '+IntToStr(cDB_LIMIT)+') as foo order by callsign';
-      dmData.trCQRLOG.StartTransaction;
-      dmData.qCQRLOG.Open;
-      dmData.qCQRLOG.Last
-    finally
-      dmData.qCQRLOG.EnableControls
-    end
+    dmData.trCQRLOG.Rollback;
+    dmData.qCQRLOG.Close;
+    if dmData.SortType = stDate then
+      dmData.qCQRLOG.SQL.Text := 'select * from (select * from view_cqrlog_main_by_qsodate order by qsodate, time_on LIMIT '+IntToStr(cDB_LIMIT)+
+                    ') as foo order by qsodate DESC,time_on DESC'
+    else
+      dmData.qCQRLOG.SQL.Text := 'select * from (select * from view_cqrlog_main_by_callsign order by callsign DESC LIMIT '+IntToStr(cDB_LIMIT)+') as foo order by callsign';
+    dmData.trCQRLOG.StartTransaction;
+    dmData.qCQRLOG.Open;
+    dmData.qCQRLOG.Last
   end;
+
   if ((key = VK_HOME) and (Shift = [ssCtrl])) and (not dmData.IsFilter) then
   begin
-    if StrToInt(lblQSOCount.Caption) = 0 then
+    dmData.trCQRLOG.Rollback;
+    dmData.qCQRLOG.Close;
+    if dmData.SortType =  stDate then
+      dmData.qCQRLOG.SQL.Text := 'select * from view_cqrlog_main_by_qsodate LIMIT '+IntToStr(cDB_LIMIT)
+    else
+      dmData.qCQRLOG.SQL.Text := 'select * from view_cqrlog_main_by_callsign LIMIT '+IntToStr(cDB_LIMIT);
+    dmData.trCQRLOG.StartTransaction;
+    dmData.qCQRLOG.Open
+  end;
+
+  if (((key = VK_UP) or (key = 33)) and dmData.qCQRLOG.BOF) and (not dmData.IsFilter) then
+  begin
+    id      := dmData.qCQRLOG.Fields[0].AsInteger;
+    time    := dmData.qCQRLOG.Fields[2].AsString;
+    qsodate := dmData.qCQRLOG.Fields[1].AsDateTime;
+    call    := dmData.qCQRLOG.Fields[4].AsString;
+    ///////
+    if dmData.SortType =  stDate then
+      dmData.Q1.SQL.Text := 'select id_cqrlog_main from view_cqrlog_main_by_qsodate LIMIT 1'
+    else
+      dmData.Q1.SQL.Text := 'select id_cqrlog_main from view_cqrlog_main_by_callsign LIMIT 1';
+    dmData.trQ1.StartTransaction;
+    dmData.Q1.Open;
+    id1 := dmData.Q1.Fields[0].AsInteger;
+    dmData.Q1.Close;
+    dmData.trQ1.Rollback;
+    ///////
+    if id1=id then //we are on the begining of dataset
       exit;
-    try
-      dmData.qCQRLOG.DisableControls;
-      dmData.trCQRLOG.Rollback;
-      dmData.qCQRLOG.Close;
+
+    // count
+    if dmData.SortType =  stDate then
+      dmData.Q1.SQL.Text := 'select count(*) from (select * from cqrlog_main where (qsodate = '+QuotedStr(DateToStr(qsodate))+
+                    'and time_on >= '+QuotedStr(time)+') or qsodate > '+QuotedStr(DateToStr(qsodate))+
+                    ' order by qsodate, time_on LIMIT '+IntToStr(cDB_LIMIT)+') as foo order by qsodate DESC,time_on DESC'
+    else
+      dmData.Q1.SQL.Text := 'select count(*) from (select * from cqrlog_main where callsign <= ' +QuotedStr(call)+
+                    ' order by callsign DESC LIMIT '+IntToStr(cDB_LIMIT)+') as foo order by callsign';
+    dmData.trQ1.StartTransaction;
+    dmData.Q1.Open;
+    counted := dmData.Q1.Fields[0].AsInteger;
+    dmData.Q1.Close;
+    dmData.trQ1.Rollback;
+
+    dmData.qCQRLOG.Close;
+    dmData.trCQRLOG.Rollback;
+    if counted < cDB_LIMIT then
+    begin
       if dmData.SortType =  stDate then
         dmData.qCQRLOG.SQL.Text := 'select * from view_cqrlog_main_by_qsodate LIMIT '+IntToStr(cDB_LIMIT)
       else
-        dmData.qCQRLOG.SQL.Text := 'select * from view_cqrlog_main_by_callsign LIMIT '+IntToStr(cDB_LIMIT);
-      dmData.trCQRLOG.StartTransaction;
-      dmData.qCQRLOG.Open
-    finally
-      dmData.qCQRLOG.EnableControls
+        dmData.qCQRLOG.SQL.Text := 'select * from view_cqrlog_main_by_callsign LIMIT '+IntToStr(cDB_LIMIT)
     end
-  end;
-  if (((key = VK_UP) or (key = 33)) and dmData.qCQRLOG.BOF) and (not dmData.IsFilter) then
-  begin
-    if StrToInt(lblQSOCount.Caption) = 0 then
-      exit;
-    try
-      dmData.qCQRLOG.DisableControls;
-      id      := dmData.qCQRLOG.Fields[0].AsInteger;
-      time    := dmData.qCQRLOG.Fields[2].AsString;
-      qsodate := dmData.qCQRLOG.Fields[1].AsDateTime;
-      call    := dmData.qCQRLOG.Fields[4].AsString;
-      ///////
+    else begin
       if dmData.SortType =  stDate then
-        dmData.Q1.SQL.Text := 'select id_cqrlog_main from view_cqrlog_main_by_qsodate LIMIT 1'
-      else
-        dmData.Q1.SQL.Text := 'select id_cqrlog_main from view_cqrlog_main_by_callsign LIMIT 1';
-      dmData.trQ1.StartTransaction;
-      dmData.Q1.Open;
-      id1 := dmData.Q1.Fields[0].AsInteger;
-      dmData.trQ1.Rollback;
-      dmData.Q1.Close;
-      ///////
-      if id1=id then //we are on the begining of dataset
-        exit;
-      dmData.qCQRLOG.Close;
-      dmData.trCQRLOG.Rollback;
-      dmData.trCQRLOG.StartTransaction;
-      if dmData.SortType =  stDate then
-        dmData.qCQRLOG.SQL.Text := 'select count(*) from (select * from cqrlog_main where (qsodate = '+QuotedStr(DateToStr(qsodate))+
+        dmData.qCQRLOG.SQL.Text := 'select * from (select * from view_cqrlog_main_by_qsodate where (qsodate = '+QuotedStr(DateToStr(qsodate))+
                       'and time_on >= '+QuotedStr(time)+') or qsodate > '+QuotedStr(DateToStr(qsodate))+
                       ' order by qsodate, time_on LIMIT '+IntToStr(cDB_LIMIT)+') as foo order by qsodate DESC,time_on DESC'
       else
-        dmData.qCQRLOG.SQL.Text := 'select count(*) from (select * from cqrlog_main where callsign <= ' +QuotedStr(call)+
-                      ' order by callsign DESC LIMIT '+IntToStr(cDB_LIMIT)+') as foo order by callsign';
-      dmData.qCQRLOG.Open;
-      if dmData.qCQRLOG.Fields[0].AsInteger < cDB_LIMIT then
-      begin
-        dmData.qCQRLOG.Close;
-        if dmData.SortType =  stDate then
-          dmData.qCQRLOG.SQL.Text := 'select * from view_cqrlog_main_by_qsodate LIMIT '+IntToStr(cDB_LIMIT)
-        else
-          dmData.qCQRLOG.SQL.Text := 'select * from view_cqrlog_main_by_callsign LIMIT '+IntToStr(cDB_LIMIT)
-      end
-      else begin
-        dmData.qCQRLOG.Close;
-        if dmData.SortType =  stDate then
-          dmData.qCQRLOG.SQL.Text := 'select * from (select * from view_cqrlog_main_by_qsodate where (qsodate = '+QuotedStr(DateToStr(qsodate))+
-                        'and time_on >= '+QuotedStr(time)+') or qsodate > '+QuotedStr(DateToStr(qsodate))+
-                        ' order by qsodate, time_on LIMIT '+IntToStr(cDB_LIMIT)+') as foo order by qsodate DESC,time_on DESC'
-        else
-          dmData.qCQRLOG.SQL.Text := 'select * from (select * from view_cqrlog_main_by_callsign where callsign <= '+QuotedStr(call) +
-                        ' order by callsign DESC LIMIT ' + IntToStr(cDB_LIMIT) + ') as foo order by callsign'
-      end;
-      dmData.qCQRLOG.Open;
-      dmData.QueryLocate(dmData.qCQRLOG,'id_cqrlog_main',id,False)
-    finally
-      dmData.qCQRLOG.EnableControls
-    end
+        dmData.qCQRLOG.SQL.Text := 'select * from (select * from view_cqrlog_main_by_callsign where callsign <= '+QuotedStr(call) +
+                      ' order by callsign DESC LIMIT ' + IntToStr(cDB_LIMIT) + ') as foo order by callsign'
+    end;
+    dmData.trCQRLOG.StartTransaction;
+    dmData.qCQRLOG.Open;
+    dmData.QueryLocate(dmData.qCQRLOG,'id_cqrlog_main',id,False)
   end;
 
   if (((key = VK_DOWN) or (key = 34)) and dmData.qCQRLOG.EOF) and (not dmData.IsFilter) then
   begin
-    if StrToInt(lblQSOCount.Caption) = 0 then
+    id      := dmData.qCQRLOG.Fields[0].AsInteger;
+    time    := dmData.qCQRLOG.Fields[2].AsString;
+    qsodate := dmData.qCQRLOG.Fields[1].AsDateTime;
+    call    := dmData.qCQRLOG.Fields[4].AsString;
+    ///////
+    if dmData.SortType =  stDate then
+      dmData.Q1.SQL.Text := 'select id_cqrlog_main from cqrlog_main order by qsodate,time_on LIMIT 1'
+    else
+      dmData.Q1.SQL.Text := 'select id_cqrlog_main from cqrlog_main order by callsign DESC LIMIT 1';
+    dmData.trQ1.StartTransaction;
+    dmData.Q1.Open;
+    id1 := dmData.Q1.Fields[0].AsInteger;
+    dmData.Q1.Close;
+    dmData.trQ1.Rollback;
+    ///////
+    if id1=id then //we are on the end of dataset
       exit;
-    try
-      dmData.qCQRLOG.DisableControls;
-      id      := dmData.qCQRLOG.Fields[0].AsInteger;
-      time    := dmData.qCQRLOG.Fields[2].AsString;
-      qsodate := dmData.qCQRLOG.Fields[1].AsDateTime;
-      call    := dmData.qCQRLOG.Fields[4].AsString;
-      ///////
+
+    //count
+    if dmData.SortType =  stDate then
+      dmData.Q1.SQL.Text := 'select count(*) from cqrlog_main where (qsodate = '+QuotedStr(DateToStr(qsodate))+
+                    'and time_on <= '+QuotedStr(time)+') or qsodate < '+QuotedStr(DateToStr(qsodate))+
+                    ' order by qsodate DESC, time_on DESC LIMIT '+IntToStr(cDB_LIMIT)
+    else
+      dmData.Q1.SQL.Text := 'select count(*) from cqrlog_main where callsign >= '+QuotedStr(call)+
+                    ' order by callsign LIMIT '+IntToStr(cDB_LIMIT);
+    dmData.trQ1.StartTransaction;
+    dmData.Q1.Open;
+    counted := dmData.Q1.Fields[0].AsInteger;
+    dmData.Q1.Close;
+    dmData.trQ1.Rollback;
+
+    dmData.qCQRLOG.Close;
+    dmData.trCQRLOG.Rollback;
+    if counted < cDB_LIMIT then
+    begin
       if dmData.SortType =  stDate then
-        dmData.Q1.SQL.Text := 'select id_cqrlog_main from cqrlog_main order by qsodate,time_on LIMIT 1'
+        dmData.qCQRLOG.SQL.Text := 'select * from (select * from view_cqrlog_main_by_qsodate order by qsodate, time_on LIMIT '+
+                       IntToStr(cDB_LIMIT)+') as foo order by qsodate DESC,time_on DESC'
       else
-        dmData.Q1.SQL.Text := 'select id_cqrlog_main from cqrlog_main order by callsign DESC LIMIT 1';
-      dmData.trQ1.StartTransaction;
-      dmData.Q1.Open;
-      id1 := dmData.Q1.Fields[0].AsInteger;
-      dmData.Q1.Close;
-      dmData.trQ1.Rollback;
-      ///////
-      if id1=id then //we are on the end of dataset
-        exit;
-      dmData.qCQRLOG.Close;
-      if dmData.SortType =  stDate then
-        dmData.qCQRLOG.SQL.Text := 'select count(*) from cqrlog_main where (qsodate = '+QuotedStr(DateToStr(qsodate))+
-                      'and time_on <= '+QuotedStr(time)+') or qsodate < '+QuotedStr(DateToStr(qsodate))+
-                      ' order by qsodate DESC, time_on DESC LIMIT '+IntToStr(cDB_LIMIT)
-      else
-        dmData.qCQRLOG.SQL.Text := 'select count(*) from cqrlog_main where callsign >= '+QuotedStr(call)+
-                      ' order by callsign LIMIT '+IntToStr(cDB_LIMIT);
-      dmData.qCQRLOG.Open;
-      if dmData.qCQRLOG.Fields[0].AsInteger < cDB_LIMIT then
-      begin
-        dmData.qCQRLOG.Close;
-        if dmData.SortType =  stDate then
-          dmData.qCQRLOG.SQL.Text := 'select * from (select * from view_cqrlog_main_by_qsodate order by qsodate, time_on LIMIT '+
-                         IntToStr(cDB_LIMIT)+') as foo order by qsodate DESC,time_on DESC'
-        else
-          dmData.qCQRLOG.SQL.Text := 'select * from (select * from view_cqrlog_main_by_callsign order by callsign DESC LIMIT '+
-                        IntToStr(cDB_LIMIT)+') as foo order by callsign'
-      end
-      else begin
-        dmData.qCQRLOG.Close;
-        if dmData.SortType =  stDate then
-          dmData.qCQRLOG.SQL.Text := 'select * from view_cqrlog_main_by_qsodate where (qsodate = '+QuotedStr(DateToStr(qsodate))+
-                        'and time_on <= '+QuotedStr(time)+') or qsodate < '+QuotedStr(DateToStr(qsodate))+
-                        ' LIMIT '+IntToStr(cDB_LIMIT)
-        else
-          dmData.qCQRLOG.SQL.Text := 'select * from view_cqrlog_main_by_callsign where (callsign >= '+QuotedStr(call)+
-                        ') LIMIT '+IntToStr(cDB_LIMIT)
-      end;
-      dmData.qCQRLOG.Open;
-      dmData.QueryLocate(dmData.qCQRLOG,'id_cqrlog_main',id,False)
-    finally
-      dmData.qCQRLOG.EnableControls
+        dmData.qCQRLOG.SQL.Text := 'select * from (select * from view_cqrlog_main_by_callsign order by callsign DESC LIMIT '+
+                      IntToStr(cDB_LIMIT)+') as foo order by callsign'
     end
+    else begin
+      if dmData.SortType =  stDate then
+        dmData.qCQRLOG.SQL.Text := 'select * from view_cqrlog_main_by_qsodate where (qsodate = '+QuotedStr(DateToStr(qsodate))+
+                      'and time_on <= '+QuotedStr(time)+') or qsodate < '+QuotedStr(DateToStr(qsodate))+
+                      ' LIMIT '+IntToStr(cDB_LIMIT)
+      else
+        dmData.qCQRLOG.SQL.Text := 'select * from view_cqrlog_main_by_callsign where (callsign >= '+QuotedStr(call)+
+                      ') LIMIT '+IntToStr(cDB_LIMIT)
+    end;
+    dmData.trCQRLOG.StartTransaction;
+    dmData.qCQRLOG.Open;
+    dmData.QueryLocate(dmData.qCQRLOG,'id_cqrlog_main',id,False)
   end;
+
   CheckAttachment
 end;
 
@@ -1669,6 +1793,8 @@ begin
   end;
   dmData.IsFilter  := False;
   dmData.IsSFilter := False;
+  lblDist.Caption :='';
+  lblDistance.Visible:=(lblDist.Caption <>'');
   RefreshQSODXCCCount
 end;
 
@@ -1679,6 +1805,9 @@ end;
 
 procedure TfrmMain.acCreateFilterExecute(Sender: TObject);
 begin
+  lblDist.Caption :='';
+  lblDistance.Visible:=(lblDist.Caption <>'');
+
   with TfrmFilter.Create(self) do
   try
     ShowModal;
@@ -1709,7 +1838,7 @@ begin
   dlgSave.Filter     := 'ADIF|*.adi;*.ADI';
   if dlgSave.Execute then
   begin
-
+    ShowWidths:=false;
     frmExportPref := TfrmExportPref.Create(frmMain);
     try
       if frmExportPref.ShowModal = mrCancel then
@@ -1738,7 +1867,7 @@ begin
 
   if dlgSave.Execute then
   begin
-
+    ShowWidths:=true;
     frmExportPref := TfrmExportPref.Create(frmMain);
     try
       if frmExportPref.ShowModal = mrCancel then
@@ -1780,6 +1909,7 @@ begin
       lblFileName.Caption := dlgOpen.FileName;
       lblErrors.Caption := '0';
       lblCount.Caption := '0';
+      lblFilteredOutCount.Caption := '0';
       ShowModal
     finally
       Free
@@ -1918,6 +2048,10 @@ begin
   dbtQSLSDate.DataField  := 'qsls_date';
   dbtQSLRDate.DataField  := 'qslr_date';
 
+  lblDist.Caption := '';
+  lblSumDist.Caption := '';
+  lblLongest.Caption := '';
+
   sbMain.Panels[1].Text := 'Ver. ' + dmData.VersionString;
   sbMain.Panels[1].Width := 140;
   tmrTime.Enabled := True;
@@ -1944,7 +2078,9 @@ begin
 
   CheckAttachment;
   mnuShowButtons.Checked := pnlButtons.Visible;
-  mnuShowToolBar.Checked := toolMain.Visible
+  mnuShowToolBar.Checked := toolMain.Visible;
+  //Sets AutoSizeColumns to saved value
+  acAutoSizeColumnsExecute(nil);
 end;
 
 procedure TfrmMain.ShowFields;
@@ -2034,6 +2170,7 @@ procedure TfrmMain.ShowFields;
         dbgrdMain.Columns[i].Alignment := taCenter;
         dbgrdMain.Columns[i].Title.Alignment := taCenter;
       end;
+
       if (UpperCase(dbgrdMain.Columns[i].DisplayName) = 'WAZ') then
       begin
         dbgrdMain.Columns[i].Alignment := taCenter;
@@ -2092,6 +2229,8 @@ procedure TfrmMain.ShowFields;
   end;
 
 begin
+  pnlDistance.Visible := cqrini.ReadBool('Columns', 'Distance', False);
+
   dbgrdMain.DataSource := dmData.dsrMain;
   dbgrdMain.ResetColWidths;
   dmUtils.LoadForm(frmMain);
@@ -2134,7 +2273,12 @@ begin
   ChangeVis('COUNTRY',cqrini.ReadBool('Columns','Country',False));
   ChangeVis('PROP_MODE', cqrini.ReadBool('Columns', 'Propagation', False));
   ChangeVis('RXFREQ', cqrini.ReadBool('Columns', 'RXFreq', False));
-  ChangeVis('SATELLITE', cqrini.ReadBool('Columns', 'SatelliteName', False))
+  ChangeVis('SATELLITE', cqrini.ReadBool('Columns', 'SatelliteName', False));
+  ChangeVis('CONTESTNAME', cqrini.ReadBool('Columns', 'ContestName', False));
+  ChangeVis('STX',cqrini.ReadBool('Columns', 'STX', False));
+  ChangeVis('SRX',cqrini.ReadBool('Columns', 'SRX', False));
+  ChangeVis('STX_STRING',cqrini.ReadBool('Columns', 'ContMsgSent', False));
+  ChangeVis('SRX_STRING',cqrini.ReadBool('Columns', 'ContMsgRcvd', False));
 end;
 
 procedure TfrmMain.MarkQSLSend(symbol: string);
@@ -2196,14 +2340,28 @@ end;
 
 procedure TfrmMain.ChechkSelRecords;
 begin
+
   if dbgrdMain.SelectedRows.Count > 1 then
+   begin
+    lblDist.Visible :=False;
+    lblDistance.Visible:=False;
     sbMain.Panels[3].Text := IntToStr(dbgrdMain.SelectedRows.Count) + ' records selected'
+   end
   else
+   begin
     sbMain.Panels[3].Text := '';
+    lblDist.Visible :=True;
+    lblDistance.Visible:=True;
+   end;
 end;
 
 procedure TfrmMain.CheckAttachment;
+var
+   qrb:String;
+   f :integer;
+
 begin
+
   if not dmData.qCQRLOG.Active then
     exit;
   if dmData.qCQRLOG.RecordCount = 0 then
@@ -2220,9 +2378,34 @@ begin
       acQSLImage.Enabled := True
     else
       acQSLImage.Enabled := False
-  end
+  end;
+
+  if pnlDistance.Visible then
+   begin
+      qrb := CalcQrb(dmData.qCQRLOG.Fields[19].AsString,dmData.qCQRLOG.Fields[18].AsString,True);
+      lblDistance.Visible:=(qrb<>'') and (sbMain.Panels[3].Text = '');
+      lblDist.Caption := qrb
+   end
 end;
+function TfrmMain.CalcQrb(Myloc,loc:string;showUnits:boolean):string;
+ var
+  qrb,             //distance
+  qrc: String;      //direction
+  Begin
+     if length(Myloc) = 4 then Myloc := Myloc +'LL';
+     if length(loc) = 4 then loc := loc +'LL';
+     qrb:='';
+     dmUtils.DistanceFromLocator(Myloc,loc,qrb,qrc);
+     if qrb <>'' then
+      if cqrini.ReadBool('Program','ShowMiles',False) then
+        Begin
+         qrb :=  FloatToStr(dmUtils.KmToMiles(StrToInt(qrb)));
+         if showUnits then qrb:= qrb + 'mi';
+        end
+     else
+         if showUnits then qrb := qrb + 'km';
+     Result := qrb;
+  end;
 
 end.
-
 

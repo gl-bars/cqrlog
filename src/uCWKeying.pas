@@ -52,6 +52,7 @@ type
       fActive : Boolean;
       fSpeed  : Word;
       ser     : TBlockSerial;
+
     public
       constructor Create; override;
       destructor  Destroy; override;
@@ -121,6 +122,7 @@ type
       fActive : Boolean;
       fSpeed  : Word;
       tcp     : TLTCPComponent;
+      Rmsg    : String;
       procedure OnReceived(aSocket: TLSocket);
       procedure OnHamLibConnect(aSocket: TLSocket);
       procedure OnHamLibError(const msg: AnsiString; aSocket: TLSocket);
@@ -145,6 +147,7 @@ type
 
 implementation
 
+uses fTRXControl;
 
 constructor TCWWinKeyerUSB.Create;
 begin
@@ -390,7 +393,6 @@ begin
     Close();
   FreeAndNil(ser)
 end;
-
 
 constructor TCWDaemon.Create;
 begin
@@ -707,12 +709,16 @@ begin
 end;
 
 procedure TCWHamLib.OnReceived(aSocket: TLSocket);
-var
-  msg : String;
+
 begin
-  if aSocket.GetMessage(msg) > 0 then
+  if aSocket.GetMessage(Rmsg) > 0 then
     if DebugMode then
-       Writeln('Whole MSG:|',msg,'|');
+       Writeln('HLresp MSG:|',Rmsg,'|');
+
+  //at this point no proper buffer overflow handling implemented.
+  //RPRT -9 comes here too late and can not control sed loop
+  //Now just tries stop CW so that operator knows he is sending too long text and resuld may be chaos
+  if pos('RPRT -9',Rmsg)>0 then  StopSending;
 end;
 
 
@@ -747,24 +753,56 @@ end;
 
 procedure TCWHamLib.TuneStart;
 begin
-  //not supported
+  //supported via AM mode
+  frmTRXControl.HLTune(true);
 end;
 
 procedure TCWHamLib.TuneStop;
 begin
-  //not supported
+  //supported via AM mode
+  frmTRXControl.HLTune(false);
 end;
 
 procedure TCWHamLib.StopSending;
 begin
-  //not implemented
+  //not implemented in hamlib command set
+  //sending 0xFF as text works with Icom
+  tcp.SendMessage('b'+#$0FF+LineEnding);
+  //All chrs are spaces stops cw for kenwood. Empty chrs (max24) in buffer are filled with spaces.
+  // (info by ts480 manual, not tested)
+  tcp.SendMessage('b '+LineEnding);
 end;
 
 procedure TCWHamLib.SendText(text : String);
+var c:integer;
+
 begin
-  tcp.SendMessage('b '+text+LineEnding);
-  if fDebugMode then
-    Writeln('Sending message:',text)
+   if text<>'' then
+       begin
+        c:= length(text);
+        if c>10 then
+         Begin
+        //different rigs support different length of b-command. 10chr should be safe for all
+        repeat
+          Begin
+            Rmsg :='';
+            tcp.SendMessage('b'+copy(text,1,10)+LineEnding);
+            if fDebugMode then
+               Begin
+                 Writeln('Sending HL-block:',copy(text,1,10));
+               end;
+            text := copy(text,11,length(text));
+            c:= length(text);
+          end;
+        until c=0;
+        end
+        else
+         Begin
+           tcp.SendMessage('b'+text+LineEnding);
+           if fDebugMode then  Writeln('Sending HL-message:','b'+text+LineEnding);
+         end;
+       end
+        else  if fDebugMode then  Writeln('Empty message!');
 end;
 
 procedure TCWHamLib.Close;

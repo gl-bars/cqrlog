@@ -19,7 +19,7 @@ uses
   Classes, SysUtils, LResources, Forms, Controls, Dialogs, StdCtrls, iniFiles,
   DBGrids, aziloc, azidis3, process, DB, sqldb, Grids, Buttons, spin, colorbox,
   Menus, Graphics, Math, LazHelpHTML, lNet, DateUtils, fileutil, httpsend,
-  XMLRead, DOM, sqlscript, BaseUnix, Unix, LazFileUtils;
+  XMLRead, DOM, sqlscript, BaseUnix, Unix, LazFileUtils, LazUTF8;
 
 type
   TExplodeArray = array of string;
@@ -31,6 +31,9 @@ type
     Exists    : Boolean;
   end;
 
+type
+  TColumnVisibleArray = array of TVisibleColumn;
+
 const
   MyWhiteSpace = [#0..#31];
   AllowedCallChars = ['A'..'Z', '0'..'9', '/'];
@@ -38,14 +41,14 @@ const
     ':', '|', '-', '=', '+', '@', '#', '*', '%', '_', '(', ')', '$', '<', '>'];
   empty_freq = '0.00000';
   empty_azimuth = '0.0';
-  cMaxModes = 45; //was 39 //was 42
+  cMaxModes = 47; //last added FT4 and JS8
   cModes: array [0..cMaxModes] of string =
     ('CW', 'SSB', 'AM', 'FM', 'RTTY', 'SSTV', 'PACTOR', 'PSK', 'ATV', 'CLOVER', 'GTOR', 'MTOR',
     'PSK31', 'HELL', 'MT63',
     'QRSS', 'CWQ', 'BPSK31', 'MFSK', 'JT44', 'FSK44', 'WSJT', 'AMTOR',
     'THROB', 'BPSK63', 'PACKET',
-    'OLIVIA', 'MFSK16', 'JT4','JT6M', 'JT65', 'JT65A', 'JT65B', 'JT65C',
-    'JT9', 'QRA64', 'ISCAT', 'MSK144', 'FT8', 'FSK441', 'PSK125',
+    'OLIVIA', 'MFSK16', 'JS8', 'JT4','JT6M', 'JT65', 'JT65A', 'JT65B', 'JT65C',
+    'JT9', 'QRA64', 'ISCAT', 'MSK144', 'FT8', 'FT4', 'FSK441', 'PSK125',
     'PSK63', 'WSPR', 'PSK250', 'ROS', 'DIGITALVOICE');
   cMaxBandsCount = 27; //26 bands
 
@@ -67,6 +70,14 @@ const
   C_RBN_BANDS = '630M,160M,80M,40M,30M,20M,17M,15M,12M,10M,6M,2M';
   C_RBN_MODES = 'CW,RTTY,PSK31';
 
+  C_CONTEST_LIST_FILE_NAME = 'ContestName.tab';
+
+  Adif_intls: array[0 .. 18] of string = (
+    'ADDRESS_INTL', 'COUNTRY_INTL',   'COMMENT_INTL',    'MY_ANTENNA_INTL',
+    'MY_CITY_INTL', 'MY_COUNTRY_INTL','MY_NAME_INTL',    'MY_POSTAL_CODE_INTL',
+    'MY_RIG_INTL',  'MY_SIG_INTL',    'MY_SIG_INFO_INTL','MY_STREET_INTL',
+    'NAME_INTL',    'NOTES_INTL',     'QSLMSG_INTL',     'QTH_INTL',
+    'RIG_INTL',     'SIG_INTL',       'SIG_INFO_INTL');
 
 type
 
@@ -130,6 +141,7 @@ type
     property GrayLineOffset: currency read fGraylineOffset write fGrayLineOffset;
     property SysUTC: boolean read fSysUTC write fSysUTC;
 
+    procedure InsertContests(cmbContestName: TComboBox);
     procedure InsertModes(cmbMode: TComboBox);
     procedure InsertQSL_S(QSL_S: TComboBox);
     procedure InsertQSL_R(QSL_R: TcomboBox);
@@ -166,6 +178,7 @@ type
     procedure LoadWindowPos(a: TForm);
     procedure ShowQSLWithExtViewer(Call: string);
     procedure ShowQRZInBrowser(call: string);
+    procedure ShowLocatorMapInBrowser(locator: string);
     procedure LoadBandsSettings;
     procedure FillBandCombo(cmb : TComboBox);
     procedure ShowHamQTHInBrowser(call : String);
@@ -173,7 +186,6 @@ type
     procedure OpenInApp(what : String);
     procedure LoadRigsToComboBox(CurrentRigId : String; RigCtlBinaryPath : String; RigComboBox : TComboBox);
     procedure GetShorterCoordinates(latitude,longitude : Currency; var lat, long : String);
-    procedure LoadVisibleColumnsConfiguration(var aColumns : array of TVisibleColumn);
     procedure LoadListOfFiles(Path, Mask : String; ListOfFiles : TStringList);
 
 
@@ -201,7 +213,7 @@ type
     function  StripHTML(S: string): string;
     function  ExtractQTH( qth : String) : String;
     function  GetModeFromFreq(freq : String) : String;
-    function  StringToADIF(text : String) : String;
+    function  StringToADIF(ATag, Text : String) : String;
     function  MyTrim(text : String) : String;
     function  ReplaceSpace(txt : String) : String;
     function  ReplaceEnter(txt : String) : String;
@@ -227,7 +239,7 @@ type
     function  ExtractZipCode(qth : String; Position : Integer) : String;
     function  GetLabelBand(freq : String) : String;
     function  GetAdifBandFromFreq(MHz : string): String;
-    function  GetCWMessage(Key,call,rst_s,HisName,HelloMsg, text : String; QSONR : String = '') : String;
+    function  GetCWMessage(Key,call,rst_s,stx,stx_str,HisName,HelloMsg, text: String) : String;
     function  RigGetcmd(r : String): String;
     function  GetLastQSLUpgradeDate : TDateTime;
     function  CallTrim(call : String) : String;
@@ -259,6 +271,8 @@ type
     function  GetDataFromHttp(Url : String; var data : String) : Boolean;
     function  MyStrToDateTime(DateTime : String) : TDateTime;
     function  MyDateTimeToStr(DateTime : TDateTime) : String;
+    function  LoadVisibleColumnsConfiguration :  TColumnVisibleArray;
+    function  StdFormatLocator(loc:string):String;
 end;
 
 var
@@ -552,7 +566,28 @@ begin
   USstates[49] := 'WV, West Virginia';
   USstates[50] := 'WY, Wyoming';
 end;
-
+procedure TdmUtils.InsertContests(cmbContestName: TComboBox);
+var
+    ListOfContests : TStringList;
+    s: string;
+    Contestfile :TextFile;
+begin
+  // loading the contest list from ~/.config/cqrlog/ContestNames.tab
+  // Format of File   CONTEST_ID|CONTEST_DESCRIPTION
+  // see ADIF 3.0.9 http://www.adif.org/309/ADIF_309.htm#Contest_ID
+  // File have to be UTF8 without BOM
+  ListOfContests:= TStringList.Create;
+  ListOfContests.Clear;
+  ListOfContests.Sorted:=True;
+  if FileExists(dmData.HomeDir + C_CONTEST_LIST_FILE_NAME) then
+  begin
+       ListOfContests.LoadFromFile(dmData.HomeDir + C_CONTEST_LIST_FILE_NAME);
+       cmbContestName.Clear;
+       cmbContestName.Items := ListOfContests;
+       cmbContestName.Items.Insert(0,'');
+  end;
+  ListOfContests.Free;
+end;
 procedure TdmUtils.InsertModes(cmbMode: TComboBox);
 var
   i: integer;
@@ -1018,6 +1053,19 @@ begin
   end
   else
     Result := False;
+end;
+function TdmUtils.StdFormatLocator(loc:string):String;
+// Format locator to standard form BL11bh16 See:
+// https://en.wikipedia.org/wiki/Maidenhead_Locator_System#Description_of_the_system
+// Check TEdit CharCase to be ecNormal, othewise you get runtime error!
+var
+  s :String;
+begin
+  Result := loc;
+  if loc = '' then exit;
+  s :=  Upcase(copy(loc,1,4));
+  s:= s + lowercase(copy(loc,5,6));   //max loc length 10 in database
+  Result := trim(s);
 end;
 
 procedure TdmUtils.GetCoordinate(pfx: string; var latitude, longitude: currency);
@@ -1597,9 +1645,38 @@ begin
   end;
 end;
 
-function TdmUtils.StringToADIF(Text: string): string;
+function TdmUtils.StringToADIF(ATag,Text: string): string;
+var
+   t:string;
+   i:integer;
+   b:boolean;
 begin
-  Result := ':' + IntToStr(Length(Text)) + '>' + Text;
+
+  if UTF8Length(Text) <> Length(Text) then
+   Begin
+      t:= copy(Atag,2,length(ATag)); // leave '<'
+      b :=false;
+      for i:=0 to 18 do
+        if pos(uppercase(t),adif_intls[i]) > 0 then
+          Begin
+            b:=true;
+            break;
+          end;
+    if b then // tag in _intl allowed list
+      begin
+       Result := ATag+'_INTL:' + IntToStr(UTF8Length(Text)) + '>' + Text
+      end
+     else
+      begin
+       Result := ATag+':' + IntToStr(Length(Text)) + '>' + Text;
+      end;
+   end
+  else
+   begin
+    Result := ATag+':' + IntToStr(Length(Text)) + '>' + Text;
+   end;
+
+  //if dmData.DebugLevel >=1 then Writeln(Result);
 end;
 
 function TdmUtils.MyTrim(Text: string): string;
@@ -1833,7 +1910,8 @@ begin
     end;
     ////////////////////////////////////////////////////////
     //statistics
-    if (aForm.Components[i] is TStringGrid) then
+    if (aForm.Components[i] is TStringGrid)
+      and not ((aForm.Components[i] as TStringGrid).Name = 'sgMonitor') then
     begin
       (aForm.Components[i] as TStringGrid).Font.Name := fGrids;
       (aForm.Components[i] as TStringGrid).Font.Size := fgSize;
@@ -2370,6 +2448,7 @@ end;
 function TdmUtils.GetXplanetCommand: string;
 var
   myloc: string = '';
+  customloc: string = '';
   lat, long: currency;
   wait: string;
   geom: string;
@@ -2378,6 +2457,7 @@ begin
   Result := '';
   Result := cqrini.ReadString('xplanet', 'path', '/usr/bin/xplanet');
   myloc := cqrini.ReadString('Station', 'LOC', '');
+  customloc := cqrini.ReadString('xplanet', 'loc', '');
   if not FileExists(Result) then
   begin
     Result := '';
@@ -2387,7 +2467,12 @@ begin
     cqrini.ReadString('xplanet', 'height', '100') + '+' +
     cqrini.ReadString('xplanet', 'left', '10') +
     '+' + cqrini.ReadString('xplanet', 'top', '10');
-  if IsLocOK(myloc) then
+  if IsLocOK(customloc) then
+  begin
+    CoordinateFromLocator(CompleteLoc(customloc), lat, long);
+    myloc := ' -longitude ' + CurrToStr(long) + ' -latitude ' + CurrToStr(lat);
+  end
+  else if IsLocOK(myloc) then
   begin
     CoordinateFromLocator(CompleteLoc(myloc), lat, long);
     myloc := ' -longitude ' + CurrToStr(long) + ' -latitude ' + CurrToStr(lat);
@@ -2397,6 +2482,7 @@ begin
     1: proj := ' -projection azimuthal -background ' + dmData.HomeDir +
         'xplanet' + PathDelim + 'bck.png';
     2: proj := ' -projection azimuthal';
+    3: proj := ' -projection rectangular';
   end; //case
   wait := '-wait ' + cqrini.ReadString('xplanet', 'refresh', '5');
   Result := Result + ' -config ' + dmData.HomeDir +
@@ -2407,14 +2493,26 @@ end;
 procedure TdmUtils.RunXplanet;
 var
   AProcess: TProcess;
+  index     :integer;
+  paramList :TStringList;
 begin
+  if dmData.DebugLevel>=1 then Writeln('RunXplanet - start');
+  if (GetXplanetCommand = '') then exit;
   AProcess := TProcess.Create(nil);
   try
-    AProcess.CommandLine := GetXplanetCommand;
-    if dmData.DebugLevel >= 1 then
-      Writeln('Command line: ', AProcess.CommandLine);
-    if (AProcess.CommandLine = '') then
-      exit;
+    index:=0;
+    paramList := TStringList.Create;
+    paramList.Delimiter := ' ';
+    paramList.DelimitedText := GetXplanetCommand;
+    AProcess.Parameters.Clear;
+    while index < paramList.Count do
+    begin
+      if (index = 0) then AProcess.Executable := paramList[index]
+        else AProcess.Parameters.Add(paramList[index]);
+      inc(index);
+    end;
+    paramList.Free;
+    if dmData.DebugLevel>=1 then Writeln('AProcess.Executable: ',AProcess.Executable,' Parameters: ',AProcess.Parameters.Text);
     AProcess.Execute;
   finally
     AProcess.Free;
@@ -2427,10 +2525,10 @@ var
 begin
   AProcess := TProcess.Create(nil);
   try
-    AProcess.CommandLine := 'killall xplanet';
+    AProcess.Executable  := 'killall';
+    AProcess.Parameters.Add('xplanet');
     AProcess.Options := [poNoConsole, poNewProcessGroup];
-    if dmData.DebugLevel >= 1 then
-      Writeln('Command line: ', AProcess.CommandLine);
+    if dmData.DebugLevel>=1 then Writeln('AProcess.Executable: ',AProcess.Executable,' Parameters: ',AProcess.Parameters.Text);
     AProcess.Execute;
   finally
     AProcess.Free
@@ -2476,6 +2574,12 @@ begin
     older := FileAge(dir + 'CallResolution.tbl');
   if older < FileAge(dir + 'Country.tab') then
     older := FileAge(dir + 'Country.tab');
+  if older < FileAge(dir + 'prop_mode.tab') then
+    older := FileAge(dir + 'prop_mode.tab');
+  if older < FileAge(dir + 'sat_name.tab') then
+    older := FileAge(dir + 'sat_name.tab');
+  if older < FileAge(dir + 'ContestName.tab') then
+    older := FileAge(dir + 'ContestName.tab');
   Result := FileDateToDateTime(older) + 1;
 end;
 
@@ -2501,11 +2605,13 @@ begin
   SetCurrentDir(TargetDir);
   AProcess := TProcess.Create(nil);
   try
-    AProcess.CommandLine := 'tar -xvzf ' + FileName;
+    AProcess.Parameters.Clear;
+    AProcess.Executable := 'tar';
+    AProcess.Parameters.Add('-xvzf');
+    AProcess.Parameters.Add(FileName);
     AProcess.Options := [poNoConsole, poNewProcessGroup, poWaitOnExit];
-    if dmData.DebugLevel >= 1 then
-      Writeln('Command line: ', AProcess.CommandLine);
-    try
+    if dmData.DebugLevel>=1 then Writeln('AProcess.Executable: ',AProcess.Executable,' Parameters: ',AProcess.Parameters.Text);
+   try
       AProcess.Execute;
     except
       Result := False
@@ -2582,19 +2688,24 @@ begin
   Result := LowerCase(GetBandFromFreq(freq));
 end;
 
-function TdmUtils.GetCWMessage(Key,call,rst_s,HisName,HelloMsg, text : String; QSONR : String = '') : String;
+function TdmUtils.GetCWMessage(Key,call,rst_s,stx,stx_str,HisName,HelloMsg, text : String) : String;
 {
  %mc - my callsign
  %mn - my name
  %mq - my qth
- %nr - qso number
-
+ %ml - my locator
  %r  - rst send
- %rs - rst send sends N instead of 9
+ %rs - rst send sends N instead of 9 (sends also 0 as T, but does not exist in normal report)
+
  %n  - name
  %c  - callsign
+ %h - greeting GM/GA/GE calculated from the %c station location time
 
- %h - greeting GM/GA/GE calculated from the station location time
+ %xn  - contest exchenge serial number
+ %xm  - contest exchange message
+ %xns - contest exchenge serial number sends 9->N and 0->T
+ %xrs - full contest exchange RST+SerialNR+Message sends 9->N and 0->T.
+        Can be used "always" as if serNR and/or Message are empty just sends plain report.
 
 if text is not empty and we didn't send any key (F1 etc.) we can
 use this function to prepare every text wee need to send
@@ -2602,11 +2713,16 @@ use this function to prepare every text wee need to send
 
 var
   mycall : String = '';
+  myloc  : String = '';
   myname : String = '';
   myqth  : String = '';
   rst_sh : String = '';
+  stx_sh : String = '';
+  con_ex : String = '';
+
 begin
   mycall := cqrini.ReadString('Station', 'Call', '');
+  myloc := cqrini.ReadString('Station', 'LOC', '');
   myname := cqrini.ReadString('Station', 'Name', '');
   myqth := cqrini.ReadString('Station', 'QTH', '');
   if key <> '' then
@@ -2614,21 +2730,33 @@ begin
   else
     Result := text;
 
-  rst_sh := StringReplace(rst_s,'9','N',[rfReplaceAll, rfIgnoreCase]);
-  rst_sh := StringReplace(rst_sh,'0','T',[rfReplaceAll, rfIgnoreCase]);//replace zeros, too
+    rst_sh := StringReplace(rst_s,'9','N',[rfReplaceAll, rfIgnoreCase]);
+    rst_sh := StringReplace(rst_sh,'0','T',[rfReplaceAll, rfIgnoreCase]);//replace zeros, too
 
-  Result := StringReplace(Result,'%mc',mycall,[rfReplaceAll, rfIgnoreCase]);
-  Result := StringReplace(Result,'%mn',myname,[rfReplaceAll, rfIgnoreCase]);
-  Result := StringReplace(Result,'%mq',myqth,[rfReplaceAll, rfIgnoreCase]);
-  Result := StringReplace(Result,'%nr',QSONR,[rfReplaceAll, rfIgnoreCase]);
+    stx_sh := StringReplace(stx,'9','N',[rfReplaceAll, rfIgnoreCase]);
+    stx_sh := StringReplace(stx_sh,'0','T',[rfReplaceAll, rfIgnoreCase]);//replace zeros, too
 
-  Result := StringReplace(Result,'%rs',rst_sh,[rfReplaceAll, rfIgnoreCase]);
-  Result := StringReplace(Result,'%r',rst_s,[rfReplaceAll, rfIgnoreCase]);
-  Result := StringReplace(Result,'%n',HisName,[rfReplaceAll, rfIgnoreCase]);
-  Result := StringReplace(Result,'%c',call,[rfReplaceAll, rfIgnoreCase]);
-  Result := StringReplace(Result,'%h',HelloMsg,[rfReplaceAll, rfIgnoreCase]);
+    con_ex := rst_sh;
+    if stx_sh <>'' then con_ex:=con_ex+' '+stx_sh;
+    if stx_str <>'' then con_ex:=con_ex+' '+stx_str;
 
-  if dmData.DebugLevel>=1 then Writeln('Sending:',Result)
+    Result := StringReplace(Result,'%mc',mycall,[rfReplaceAll, rfIgnoreCase]);
+    Result := StringReplace(Result,'%ml',myloc,[rfReplaceAll, rfIgnoreCase]);
+    Result := StringReplace(Result,'%mn',myname,[rfReplaceAll, rfIgnoreCase]);
+    Result := StringReplace(Result,'%mq',myqth,[rfReplaceAll, rfIgnoreCase]);
+
+    Result := StringReplace(Result,'%xrs',con_ex,[rfReplaceAll, rfIgnoreCase]);
+    Result := StringReplace(Result,'%rs',rst_sh,[rfReplaceAll, rfIgnoreCase]);
+    Result := StringReplace(Result,'%r',rst_s,[rfReplaceAll, rfIgnoreCase]);
+    Result := StringReplace(Result,'%n',HisName,[rfReplaceAll, rfIgnoreCase]);
+    Result := StringReplace(Result,'%c',call,[rfReplaceAll, rfIgnoreCase]);
+    Result := StringReplace(Result,'%h',HelloMsg,[rfReplaceAll, rfIgnoreCase]);
+
+    Result := StringReplace(Result,'%xns',stx_sh,[rfReplaceAll, rfIgnoreCase]);
+    Result := StringReplace(Result,'%xn',stx,[rfReplaceAll, rfIgnoreCase]);
+    Result := StringReplace(Result,'%xm',stx_str,[rfReplaceAll, rfIgnoreCase]);
+
+    if dmData.DebugLevel>=1 then Writeln('Sending:',Result)
 end;
 
 function TdmUtils.RigGetcmd(r : String) : String;
@@ -2886,12 +3014,24 @@ end;
 procedure TdmUtils.ExecuteCommand(cmd: string);
 var
   AProcess: TProcess;
+  index     :integer;
+  paramList : TStringList;
 begin
   AProcess := TProcess.Create(nil);
   try
-    AProcess.CommandLine := cmd;
-    if dmData.DebugLevel >= 1 then
-      Writeln('Command line: ', AProcess.CommandLine);
+    index:=0;
+    paramList := TStringList.Create;
+    paramList.Delimiter := ' ';
+    paramList.DelimitedText := cmd;
+    AProcess.Parameters.Clear;
+    while index < paramList.Count do
+    begin
+      if (index = 0) then AProcess.Executable := paramList[index]
+        else AProcess.Parameters.Add(paramList[index]);
+      inc(index);
+    end;
+    paramList.Free;
+    if dmData.DebugLevel>=1 then Writeln('AProcess.Executable: ',AProcess.Executable,' Parameters: ',AProcess.Parameters.Text);
     AProcess.Options := AProcess.Options + [poWaitOnExit];
     AProcess.Execute
   finally
@@ -2954,14 +3094,26 @@ end;
 procedure TdmUtils.RunOnBackgroud(path: string);
 var
   AProcess: TProcess;
+  index     :integer;
+  paramList : TStringList;
 begin
+  if dmData.DebugLevel>=1 then Writeln('RunOnBackgroud -start');
+  if (path = '') then exit;
   AProcess := TProcess.Create(nil);
   try
-    AProcess.CommandLine := path;
-    if dmData.DebugLevel >= 1 then
-      Writeln('Command line: ', AProcess.CommandLine);
-    if (AProcess.CommandLine = '') then
-      exit;
+      index:=0;
+      paramList := TStringList.Create;
+      paramList.Delimiter := ' ';
+      paramList.DelimitedText := path;
+      AProcess.Parameters.Clear;
+      while index < paramList.Count do
+      begin
+        if (index = 0) then AProcess.Executable := paramList[index]
+          else AProcess.Parameters.Add(paramList[index]);
+        inc(index);
+      end;
+      paramList.Free;
+    if dmData.DebugLevel>=1 then Writeln('AProcess.Executable: ',AProcess.Executable,' Parameters: ',AProcess.Parameters.Text);
     AProcess.Execute
   finally
     AProcess.Free
@@ -3302,10 +3454,24 @@ var
 begin
   AProcess := TProcess.Create(nil);
   try
-    AProcess.CommandLine := cqrini.ReadString('Program', 'WebBrowser', 'firefox') +
-      ' http://www.qrz.com/db/' + GetIDCall(call);
-    if dmData.DebugLevel >= 1 then
-      Writeln('Command line: ', AProcess.CommandLine);
+    AProcess.Executable := cqrini.ReadString('Program', 'WebBrowser', 'firefox');
+    AProcess.Parameters.Add('http://www.qrz.com/db/' + GetIDCall(call));
+    if dmData.DebugLevel>=1 then Writeln('AProcess.Executable: ',AProcess.Executable,' Parameters: ',AProcess.Parameters.Text);
+    AProcess.Execute
+  finally
+    AProcess.Free
+  end;
+end;
+
+procedure TdmUtils.ShowLocatorMapInBrowser(locator: string);
+var
+  AProcess: TProcess;
+begin
+  AProcess := TProcess.Create(nil);
+  try
+    AProcess.Executable := cqrini.ReadString('Program', 'WebBrowser', 'firefox');
+    AProcess.Parameters.Add('https://www.k7fry.com/grid/?qth=' + locator);
+    if dmData.DebugLevel>=1 then Writeln('AProcess.Executable: ',AProcess.Executable,' Parameters: ',AProcess.Parameters.Text);
     AProcess.Execute
   finally
     AProcess.Free
@@ -3647,7 +3813,7 @@ begin
     http.UserName := cqrini.ReadString('Program', 'User', '');
     http.Password := cqrini.ReadString('Program', 'Passwd', '');
     req := 'http://www.hamqth.com/xml.php?u=' + cqrini.ReadString('CallBook', 'CBUser', '') +
-      '&p=' + cqrini.ReadString('CallBook', 'CBPass', '') + '&prg=cqrlog';
+      '&p=' + EncodeURLData(cqrini.ReadString('CallBook', 'CBPass', '')) + '&prg=cqrlog';
     //Writeln(req);
     if not HTTP.HTTPMethod('GET', req) then
       ErrMsg := '(' + IntToStr(http.ResultCode) + '):' + http.ResultString
@@ -3771,10 +3937,9 @@ var
 begin
   AProcess := TProcess.Create(nil);
   try
-    AProcess.CommandLine := cqrini.ReadString('Program', 'WebBrowser', 'firefox') +
-      ' http://www.hamqth.com/' + GetIDCall(call);
-    if dmData.DebugLevel >= 1 then
-      Writeln('Command line: ', AProcess.CommandLine);
+    AProcess.Executable  := cqrini.ReadString('Program', 'WebBrowser', 'firefox');
+    AProcess.Parameters.Add(' http://www.hamqth.com/' + GetIDCall(call));
+    if dmData.DebugLevel>=1 then Writeln('AProcess.Executable: ',AProcess.Executable,' Parameters: ',AProcess.Parameters.Text);
     AProcess.Execute
   finally
     AProcess.Free
@@ -4195,10 +4360,14 @@ begin
     long := FloatToStr(longitude)
 end;
 
-procedure TdmUtils.LoadVisibleColumnsConfiguration(var aColumns : Array of TVisibleColumn);
+function TdmUtils.LoadVisibleColumnsConfiguration : TColumnVisibleArray;
+const
+  COLUMN_COUNT = 46;
 var
   i : Integer;
+  aColumns : TColumnVisibleArray;
 begin
+  SetLength(aColumns, COLUMN_COUNT);
 
   aColumns[0].FieldName := 'QSODATE';
   aColumns[0].Visible   := cqrini.ReadBool('Columns','qsodate',True);
@@ -4320,8 +4489,25 @@ begin
   aColumns[40].FieldName := 'SATELLITE';
   aColumns[40].Visible   := cqrini.ReadBool('Columns', 'SatelliteName', False);
 
+  aColumns[41].FieldName := 'SRX';
+  aColumns[41].Visible   := cqrini.ReadBool('Columns', 'SRX', False);
+
+  aColumns[42].FieldName := 'STX';
+  aColumns[42].Visible   := cqrini.ReadBool('Columns', 'STX', False);
+
+  aColumns[43].FieldName := 'SRX_STRING';
+  aColumns[43].Visible   := cqrini.ReadBool('Columns', 'ContMsgRcvd', False);
+
+  aColumns[44].FieldName := 'STX_STRING';
+  aColumns[44].Visible   := cqrini.ReadBool('Columns', 'ContMsgSent', False);
+
+  aColumns[45].FieldName := 'CONTESTNAME';
+  aColumns[45].Visible   := cqrini.ReadBool('Columns', 'ContestName', False);
+
   for i:=0 to Length(aColumns)-1 do
-    aColumns[i].Exists := False
+    aColumns[i].Exists := False;
+
+  Result := aColumns;
 end;
 
 function TdmUtils.GetDataFromHttp(Url : String; var data : String) : Boolean;

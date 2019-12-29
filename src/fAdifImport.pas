@@ -17,12 +17,16 @@ interface
 
 uses
   Classes, SysUtils, LResources, Forms, Controls, Graphics, Dialogs, StdCtrls,
-  Buttons, lcltype, ComCtrls, iniFiles, sqldb, dateutils;
+  Buttons, lcltype, ComCtrls, ExtCtrls, EditBtn, iniFiles, sqldb, dateutils,
+  strutils, LazUTF8;
 
 {$include uADIFhash.pas}
 
-type Tnejakyzaznam=record
-      st:longint; // pocet pridanych polozek;
+type
+  TDateString = string[10]; //Date in yyyy-mm-dd format
+
+type TnewQSOEntry=record   //represents a new qso entry in the log
+      st:longint; // pocet pridanych polozek  number of items added;
       BAND:string[10];
       CALL:string[30];
       CNTY:string[50];
@@ -60,6 +64,7 @@ type Tnejakyzaznam=record
       SRX_STRING:string[250];
       STX:string[6];
       STX_STRING:string[250];
+      CONTEST_ID:string[250];
       TIME_OFF:string[5];
       TIME_ON:string[5];
       TX_PWR:string[5];
@@ -86,46 +91,64 @@ type
   { TfrmAdifImport }
 
   TfrmAdifImport = class(TForm)
-    btnImport: TButton;
     btnClose: TButton;
+    btnImport: TButton;
+    chkFilterDateRange: TCheckBox;
     chkLotOfQSO: TCheckBox;
+    chkNoCheckOnDuplicates: TCheckBox;
     cmbProfiles: TComboBox;
+    edtDateFrom: TDateEdit;
+    edtDateTo: TDateEdit;
     edtRemarks: TEdit;
-    Label1: TLabel;
-    Label2: TLabel;
-    Label3: TLabel;
-    Label4: TLabel;
-    Label5: TLabel;
-    lblErrorLog: TLabel;
+    lbFile: TLabel;
     lblComplete: TLabel;
     lblCount: TLabel;
+    lblDateFrom: TLabel;
+    lblError: TLabel;
+    lblErrorLog: TLabel;
     lblErrors: TLabel;
     lblFileName: TLabel;
+    lblFilteredOut: TLabel;
+    lblFilteredOutCount: TLabel;
+    lblImport: TLabel;
+    lblDateTo: TLabel;
+    lblQthProfile: TLabel;
+    lblRemaks: TLabel;
+    pnlAll: TPanel;
+    pnlFilterDateRange: TPanel;
     Q1: TSQLQuery;
     Q2: TSQLQuery;
     Q3: TSQLQuery;
     Q4: TSQLQuery;
     sb: TStatusBar;
     tr: TSQLTransaction;
+    procedure chkFilterDateRangeChange(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure FormShow(Sender: TObject);
     procedure btnImportClick(Sender: TObject);
   private
+    AbortImport : boolean;
     ERR_FILE : String;
     WrongRecNr : Integer;
     RecNR      : Integer;
     GlobalProfile : Integer;
+    FMyPower: String;
+    FMyLoc: String;
     NowDate : String;
+    FFilteredOutRecNr: integer;
+    FFilterByDate: boolean;
+    FFilterDateRange: array [0..1] of TDateString;
+    function ValidateFilter: boolean;
     procedure WriteWrongADIF(lines : Array of String; error : String);
 
-    function pochash(aaa:String):longint;
-    function vratzaznam(var vstup,prik,data:string):boolean;
-    function zpracuj(h:longint;var data:string;var D:Tnejakyzaznam):boolean;
-    procedure smazzaznam(var d:Tnejakyzaznam);
-    function novyzaznam(var d:Tnejakyzaznam; var err : String) : Boolean;
+    function generateAdifTagHash(aaa:String):longint;
+    function fillTypeVariableWithTagData(h:longint;var data:string;var D:TnewQSOEntry):boolean;
+    procedure initializeTypeVariable(var d:TnewQSOEntry);
+    function saveNewEntryFromADIFinDatabase(var d:TnewQSOEntry; var err : String) : Boolean;
 
     { private declarations }
   public
+    function getNextAdifTag(var vstup,prik,data:string):boolean;
     { public declarations }
   end; 
 
@@ -137,7 +160,11 @@ implementation
 
 uses dData, dUtils, dDXCC, fMain, uMyIni, uVersion;
 
-function TfrmAdifImport.pochash(aaa:String):longint;
+resourcestring
+  INVALID_DATE_RANGE_ENTERED = 'Invalid date range is entered';
+
+
+function TfrmAdifImport.generateAdifTagHash(aaa:String):longint;
 var z,x:longint;
 begin
   x:=0;
@@ -147,25 +174,30 @@ begin
     x:=x xor (x shr 16);
     x:=x and $FFFF;
   end;
-  pochash:=x;
+  generateAdifTagHash:=x;
 end;
 
-function TfrmAdifImport.vratzaznam(var vstup,prik,data:string):boolean;
+function TfrmAdifImport.getNextAdifTag(var vstup,prik,data:string):boolean;
+// vstup - remaining text have to be searched for next tag
+// prik - deliveres back the extracted ADIF tag name
+// data - deliveres back the extracted ADIF information of the tag
+
 var z,x:longint;
     aaa:string;
     i : Integer;
     slen : String = '';
     DataLen : Word = 0;
   begin
-    vratzaznam:=false;
+    getNextAdifTag:=false;
     z:=pos('<',vstup);
-    if z=0 then exit;// neni dalsi zaznam - mizim.
+    if z=0 then exit;//  there is no other record - disappearing.
 
     aaa:=copy(vstup,z+1,length(vstup));
     z:=pos(':',aaa);
     x:=pos('>',aaa);
-    if (x=0) then exit; // zaznam nebyl ukoncen ... mizim
+    if (x=0) then exit; //  the record was not terminated ... disappearing
 
+    //detect length of ADIF Data
     for i:=z+1 to x do
     begin
       if (aaa[i] in ['0'..'9']) then
@@ -175,31 +207,50 @@ var z,x:longint;
       DataLen := 0
     else
       DataLen := StrToInt(slen);
+    //if dmData.DebugLevel >=1 then Write('Got length:',DataLen);
 
     if z<>0 then
-      prik:=copy(aaa,1,z-1)
+      prik:=trim(copy(aaa,1,z-1))
     else
-      prik:=copy(aaa,1,x-1);
+      prik:=trim(copy(aaa,1,x-1));
 
     aaa:=copy(aaa,x+1,length(aaa));
 
     z:=pos('<',aaa);
+    i:= pos('_INTL',upcase(prik));
+    //if dmData.DebugLevel >=1 then Write(' pos INTL:',i);
     if z=0 then
     begin
-      data:=copy(aaa,1,DataLen);
+      if i>0 then  //tags with '_intl' have UTF8 charactes
+       Begin
+        prik:= copy(prik,1,i-1); //remove '_INTL'
+        data:=UTF8copy(aaa,1,DataLen);
+        //if dmData.DebugLevel >=1 then Write(' as UTF8');
+       end
+      else
+        data:=copy(aaa,1,DataLen);
       vstup:=''
     end
     else begin
+      if i>0 then  //tags with '_intl' have UTF8 charactes
+       Begin
+        prik:= copy(prik,1,i-1); //remove '_INTL'
+        data:=UTF8copy(aaa,1,DataLen);
+        //if dmData.DebugLevel >=1 then Write(' as UTF8');
+       end
+      else
         data:=copy(aaa,1,DataLen);
-        vstup:=copy(aaa,z,length(aaa))
+      vstup:=copy(aaa,z,length(aaa))
     end;
-    vratzaznam:=true
+    data :=trim(data);
+    //if dmData.DebugLevel >=1 then Writeln(' for tag:',prik,' with data:',data);
+    getNextAdifTag:=true
   end;
 
-function TfrmAdifImport.zpracuj(h:longint;var data:string;var D:Tnejakyzaznam):boolean;
+function TfrmAdifImport.fillTypeVariableWithTagData(h:longint;var data:string;var D:TnewQSOEntry):boolean;
   begin
-    if (h=h_EOH) or (h=h_EOR) then begin zpracuj:=false;exit;end;
-    zpracuj:=true;
+    if (h=h_EOH) or (h=h_EOR) then begin fillTypeVariableWithTagData:=false;exit;end;
+    fillTypeVariableWithTagData:=true;
     data := trim(data);
     case h of
       h_BAND:d.BAND:=data;
@@ -213,7 +264,7 @@ function TfrmAdifImport.zpracuj(h:longint;var data:string;var D:Tnejakyzaznam):b
       h_EQSL_QSL_RCVD:d.EQSL_QSL_RCVD:=data;
       h_EQSL_QSL_SENT:d.EQSL_QSL_SENT:=data;
       h_FREQ:d.FREQ:=data;
-      h_GRIDSQUARE:d.GRIDSQUARE:=data;
+      h_GRIDSQUARE:d.GRIDSQUARE:=dmUtils.StdFormatLocator(data);
       h_IOTA:d.IOTA:=data;
       h_ITUZ:d.ITUZ:=data;
       h_LOTW_QSLRDATE:d.LOTW_QSLRDATE:=data;
@@ -221,7 +272,7 @@ function TfrmAdifImport.zpracuj(h:longint;var data:string;var D:Tnejakyzaznam):b
       h_LOTW_QSL_RCVD:d.LOTW_QSL_RCVD:=data;
       h_LOTW_QSL_SENT:d.LOTW_QSL_SENT:=data;
       h_MODE:d.MODE:=data;
-      h_MY_GRIDSQUARE:d.MY_GRIDSQUARE:=data;
+      h_MY_GRIDSQUARE:d.MY_GRIDSQUARE:=dmUtils.StdFormatLocator(data);
       h_NAME:d.NAME:=data;
       h_NOTES:d.NOTES:=data;
       h_PFX:d.PFX:=data;
@@ -239,6 +290,7 @@ function TfrmAdifImport.zpracuj(h:longint;var data:string;var D:Tnejakyzaznam):b
       h_SRX_STRING:d.SRX_STRING:=data;
       h_STX:d.STX:=data;
       h_STX_STRING:d.STX_STRING:=data;
+      h_CONTEST_ID:d.CONTEST_ID:=data;
       h_TIME_OFF:d.TIME_OFF:=data;
       h_TIME_ON:d.TIME_ON:=data;
       h_TX_PWR:d.TX_PWR:=data;
@@ -257,21 +309,20 @@ function TfrmAdifImport.zpracuj(h:longint;var data:string;var D:Tnejakyzaznam):b
       h_APP_N1MM_EXCHANGE1: d.EXCH1:=data;
       h_APP_N1MM_EXCHANGE2: d.EXCH2:=data;
       else
-        begin{ writeln('Neznam...>',pom,'<');zpracuj:=false;exit;}end;
+        begin{ writeln('Unnamed...>',pom,'<');fillTypeVariableWithTagData:=false;exit;}end;
     end;//case
     d.st:=d.st+1;
   end;
 
 
-procedure TfrmAdifImport.smazzaznam(var d:Tnejakyzaznam);
-  begin
-    fillchar(d,sizeof(d),0);
-  end;
+procedure TfrmAdifImport.initializeTypeVariable(var d:TnewQSOEntry);
+// fills the type with 0 values
+begin
+  fillchar(d,sizeof(d),0);
+end;
 
-function TfrmAdifImport.novyzaznam(var d:Tnejakyzaznam; var err : String) : Boolean;
+function TfrmAdifImport.saveNewEntryFromADIFinDatabase(var d:TnewQSOEntry; var err : String) : Boolean;
 var
-  MyPower : String;
-  MyLoc   : String;
   Lines   : Array of String;
   pAr : TExplodeArray;
   pProf : String;
@@ -279,7 +330,6 @@ var
   pQTH : String;
   pEq  : String;
   pNote : String;
-  First : Boolean = False;
   freq  : String = '';
   Band  : String;
   dxcc,id_waz,id_itu : String;
@@ -288,15 +338,20 @@ var
   dxcc_adif  : Integer;
   len        : Integer=0;
   RxFreq : Double = 0;
+
+  function IsQsoDateInRange: boolean;
+  begin
+    Result := (not FFilterByDate) or
+      ((FFilterDateRange[0] <= d.QSO_DATE) and (d.QSO_DATE <= FFilterDateRange[1]));
+  end;
+
 begin
   Result := True;
   if (d.st>0) and (d.CALL <> '') and (d.QSO_DATE <> '') then
   begin
-    MyPower := cqrini.ReadString('NewQSO','PWR','5 W');
-    MyLoc   := cqrini.ReadString('Station','LOC','');
-
+    //filling and optimize data in variable d
     if not dmUtils.IsLocOK(d.MY_GRIDSQUARE) then
-      d.MY_GRIDSQUARE := MyLoc;
+      d.MY_GRIDSQUARE := FMyLoc;
     d.CALL := UpperCase(d.CALL);
     if (d.MODE = 'USB') or (d.MODE ='LSB') then
       d.MODE := 'SSB';
@@ -304,6 +359,11 @@ begin
       d.FREQ := dmUtils.FreqFromBand(d.BAND,d.MODE);
 
     d.QSO_DATE      := dmUtils.ADIFDateToDate(d.QSO_DATE);
+    if not IsQsoDateInRange then
+    begin
+      Inc(FFilteredOutRecNr);
+      exit;
+    end;
     d.LOTW_QSLSDATE := dmUtils.ADIFDateToDate(d.LOTW_QSLSDATE);
     d.LOTW_QSLRDATE := dmUtils.ADIFDateToDate(d.LOTW_QSLRDATE);
     d.QSLSDATE      := dmUtils.ADIFDateToDate(d.QSLSDATE);
@@ -351,10 +411,8 @@ begin
     if edtRemarks.Text <> '' then
       d.COMMENT := edtRemarks.Text + ' ' + d.COMMENT;
     if d.TX_PWR = '' then
-      d.TX_PWR := MyPower;
-
-    Writeln('d.TX_PWR:',d.TX_PWR);
-    Writeln('MyPower: ',MyPower);
+      d.TX_PWR := FMyPower;
+    d.COMMENT := copy(d.COMMENT, 1, 200);
 
     d.MODE := UpperCase(d.MODE);
 
@@ -369,7 +427,7 @@ begin
       Application.ProcessMessages;
       Result := False;
       SetLength(Lines,0);
-      smazzaznam(d);
+      initializeTypeVariable(d);
       exit
     end;
 
@@ -442,34 +500,42 @@ begin
       else
         profile := '0'
     end;
-    if First then
+
+    // begin proof if qso allready exist in log
+    if Not chkNoCheckOnDuplicates.Checked then
     begin
-      First := False;
       dmData.Q.Close;
       dmData.Q.SQL.Text := 'SELECT COUNT(*) FROM cqrlog_main WHERE qsodate = ' + QuotedStr(d.QSO_DATE) +
                            ' AND time_on = ' + QuotedStr(d.TIME_ON) + ' AND callsign = '+QuotedStr(d.CALL);
-      if dmData.DebugLevel >=1 then
-      begin
-        Writeln(dmData.Q.SQL.Text)
-      end;
+
+      if dmData.DebugLevel >=1 then Writeln(dmData.Q.SQL.Text);
       if dmData.trQ.Active then
         dmData.trQ.Rollback;
       dmData.trQ.StartTransaction;
       dmData.Q.Open;
       if dmData.Q.Fields[0].AsInteger > 0 then
       begin
-        if Application.MessageBox('It looks like this QSOs are in the log.'#13'Do you really want to inport it again?',
-                                  'Question',MB_ICONQUESTION + MB_YESNO) = idNo then
-        begin
-          btnImport.Enabled := True;
-          dmData.Q.Close();
-          dmData.trQ.Rollback;
-          exit
-        end
+        case Application.MessageBox('It looks like this QSO is in the log.'#13'Do you really want to import it again?',
+                                  'Question',MB_ICONQUESTION +  MB_YESNOCANCEL) of
+        idNo        :begin
+                      btnImport.Enabled := True;
+                      dmData.Q.Close();
+                      dmData.trQ.Rollback;
+                      exit;
+                     end;
+        idCancel    :begin
+                      btnImport.Enabled := True;
+                      dmData.Q.Close();
+                      dmData.trQ.Rollback;
+                      AbortImport :=true;
+                      exit;
+                     end;
+        end;
       end;
       dmData.Q.Close();
       dmData.trQ.Rollback
     end;
+
     if Pos(',',d.FREQ) > 0 then
       d.FREQ[Pos(',',d.FREQ)] := '.';
     freq := FormatFloat('0.0000;;',StrToFloat(d.FREQ));
@@ -491,13 +557,14 @@ begin
                    'rst_s,rst_r,name,qth,qsl_s,qsl_r,qsl_via,iota,pwr,itu,waz,loc,my_loc,'+
                    'remarks,county,adif,idcall,award,band,state,cont,profile,lotw_qslsdate,lotw_qsls,'+
                    'lotw_qslrdate,lotw_qslr,qsls_date,qslr_date,eqsl_qslsdate,eqsl_qsl_sent,'+
-                   'eqsl_qslrdate,eqsl_qsl_rcvd, prop_mode, satellite, rxfreq,'+
+                   'eqsl_qslrdate,eqsl_qsl_rcvd, prop_mode, satellite, rxfreq, stx, srx, stx_string, srx_string, contestname,'+
                    'exch1,exch2) values('+
                    ':qsodate,:time_on,:time_off,:callsign,:freq,:mode,:rst_s,:rst_r,:name,:qth,'+
                    ':qsl_s,:qsl_r,:qsl_via,:iota,:pwr,:itu,:waz,:loc,:my_loc,:remarks,:county,:adif,'+
                    ':idcall,:award,:band,:state,:cont,:profile,:lotw_qslsdate,:lotw_qsls,:lotw_qslrdate,'+
                    ':lotw_qslr,:qsls_date,:qslr_date,:eqsl_qslsdate,:eqsl_qsl_sent,:eqsl_qslrdate,'+
-                   ':eqsl_qsl_rcvd, :prop_mode, :satellite, :rxfreq,'+
+                   ':eqsl_qsl_rcvd, :prop_mode, :satellite, :rxfreq, :stx, :srx, :stx_string, :srx_string,'+
+                   ':contestname,'+
                    ':exch1,:exch2)';
     if dmData.DebugLevel >=1 then Writeln(Q1.SQL.Text);
     Q1.Prepare;
@@ -538,7 +605,6 @@ begin
     Q1.Params[25].AsString  := d.STATE;
     Q1.Params[26].AsString  := UpperCase(d.CONT);
     Q1.Params[27].AsInteger := StrToInt(profile);
-    Writeln(1);
     if dmUtils.IsDateOK(d.LOTW_QSLSDATE) then
     begin
       Q1.Params[28].AsString  := d.LOTW_QSLSDATE;
@@ -555,7 +621,6 @@ begin
         Q1.Params[29].AsString := ''
       end
     end;
-    Writeln(2);
     if dmUtils.IsDateOK(d.LOTW_QSLRDATE) then
     begin
       Q1.Params[30].AsString  := d.LOTW_QSLRDATE;
@@ -572,7 +637,6 @@ begin
         Q1.Params[31].AsString  := ''
       end
     end;
-    Writeln(3);
     if dmUtils.IsDateOK(d.QSLSDATE) then
       Q1.Params[32].AsString  := d.QSLSDATE
     else
@@ -581,7 +645,6 @@ begin
       Q1.Params[33].AsString  := d.QSLRDATE
     else
       Q1.Params[33].Clear;
-    Writeln(4);
     if dmUtils.IsDateOK(d.EQSL_QSLSDATE) then
     begin
       Q1.Params[34].AsString  := d.EQSL_QSLSDATE;
@@ -598,7 +661,6 @@ begin
         Q1.Params[35].AsString  := ''
       end
     end;
-        Writeln(5);
     if dmUtils.IsDateOK(d.EQSL_QSLRDATE) then
     begin
       Q1.Params[36].AsString  := d.EQSL_QSLRDATE;
@@ -622,6 +684,12 @@ begin
     else
       Q1.Params[40].AsFloat := 0;
 
+    Q1.Params[41].AsString := d.STX;
+    Q1.Params[42].AsString := d.SRX;
+    Q1.Params[43].AsString := d.STX_STRING;
+    Q1.Params[44].AsString := d.SRX_STRING;
+    Q1.Params[45].AsString := d.CONTEST_ID;
+
     if Length(d.EXCH1)>0 then
        Q1.Params[38].AsString := d.EXCH1 else
        Q1.Params[38].Clear;
@@ -632,36 +700,42 @@ begin
     if dmData.DebugLevel >=1 then Writeln(Q1.SQL.Text);
     Q1.ExecSQL;
     inc(RecNR);
-    lblCount.Caption := IntToStr(RecNR);
     if (RecNR mod 100 = 0) then
     begin
+      lblCount.Caption := IntToStr(RecNR);
       Repaint;
       Application.ProcessMessages
     end
   end;
-  smazzaznam(d)
+  initializeTypeVariable(d)
 end;
 
 procedure TfrmAdifImport.btnImportClick(Sender: TObject);
 var
-  sou:textfile;
-  aaa,prik,data:String;
+  textFileIn:textfile;         //the ADIF file
+  oneTextRow,adifTag,data:String;
   h:longint;
-  D:Tnejakyzaznam;
+  D:TnewQSOEntry;
   err : Boolean = False;
   dt : TDateTime;
   hh,m,s,ms : Word;
   ErrText : String = '';
   tmp : String='';
 begin
+  AbortImport := false;
   lblComplete.Visible := False;
   GlobalProfile := dmData.GetNRFromProfile(cmbProfiles.Text);
+  FMyPower := cqrini.ReadString('NewQSO', 'PWR', '5 W');
+  FMyLoc   := cqrini.ReadString('Station', 'LOC', '');
   RecNR := 0;
   WrongRecNr := 0;
+  FFilteredOutRecNr := 0;
+  if not ValidateFilter then
+    exit;
   try try
-    system.assign(sou,lblFileName.Caption);
-    system.reset(sou);
-    smazzaznam(d);
+    system.assign(textFileIn,lblFileName.Caption);
+    system.reset(textFileIn);
+    initializeTypeVariable(d);
     if chkLotOfQSO.Checked then
     begin
       sb.Panels[0].Text := 'Deleting indexes ...';
@@ -674,23 +748,23 @@ begin
     sb.Panels[0].Text := 'Importing data ...';
     Application.ProcessMessages;
     Repaint;
-    while not eof(sou) do
+    while not eof(textFileIn) and not (AbortImport)do
     begin
-      readln(sou,aaa);
-      if Pos('<EOH>',UpperCase(aaa)) > 0 then
+      readln(textFileIn,oneTextRow);
+      if Pos('<EOH>',UpperCase(oneTextRow)) > 0 then
         tmp := ''
       else
-        tmp := tmp + aaa;
-      while vratzaznam(aaa,prik,data) do
+        tmp := tmp + oneTextRow;
+      while getNextAdifTag(oneTextRow,adifTag,data) and not (AbortImport) do
       begin
-        h:=pochash(prik);
+        h:=generateAdifTagHash(adifTag);
         if (h=h_EOH) or (h=h_EOR) then
         begin
-          if not novyzaznam(d,ErrText) then
+          if not saveNewEntryFromADIFinDatabase(d,ErrText) then
             WriteWrongADIF(tmp,ErrText);
           tmp:=''
         end;
-        zpracuj(h,data,d)
+        fillTypeVariableWithTagData(h,data,d)
       end;
     end
   except
@@ -703,12 +777,16 @@ begin
     end
   end
   finally
-    closeFile(sou);
+    closeFile(textFileIn);
     if not err then
       tr.Commit;
     dt := dt - now;
     DecodeTime(dt,hh,m,s,ms);
-    WriteLn('It takes about ',m,' minutes and ',s,' seconds ',ms,' milliseconds');
+    if dmData.DebugLevel >=1 then WriteLn('It takes about ',m,' minutes and ',s,' seconds ',ms,' milliseconds');
+    lblCount.Caption := IntToStr(RecNR);
+    lblFilteredOut.Visible := FFilterByDate;
+    lblFilteredOutCount.Visible := FFilterByDate;
+    lblFilteredOutCount.Caption := IntToStr(FFilteredOutRecNr);
     if chkLotOfQSO.Checked then
     begin
       sb.Panels[0].Text := 'Recreating indexes ...';
@@ -718,7 +796,24 @@ begin
     end;
     sb.Panels[0].Text := 'Done ...';
     lblComplete.Visible := True
-  end
+  end;
+end;
+
+function TfrmAdifImport.ValidateFilter: boolean;
+begin
+  Result := true;
+  FFilterByDate := chkFilterDateRange.Checked;
+  if FFilterByDate then
+  begin
+    FFilterDateRange[0] := IfThen(edtDateFrom.Date <> NullDate, dmUtils.MyDateToStr(edtDateFrom.Date));
+    FFilterDateRange[1] := IfThen(edtDateTo.Date <> NullDate, dmUtils.MyDateToStr(edtDateTo.Date));
+    if not ((Length(FFilterDateRange[0]) > 0) and (Length(FFilterDateRange[1]) > 0) and
+      (FFilterDateRange[0] <= FFilterDateRange[1])) then
+    begin
+      MessageDlg(Caption, INVALID_DATE_RANGE_ENTERED, mtError, [mbOK], 0);
+      Result := false;
+    end;
+  end;
 end;
 
 procedure TfrmAdifImport.FormCreate(Sender: TObject);
@@ -744,6 +839,11 @@ begin
   end
 end;
 
+procedure TfrmAdifImport.chkFilterDateRangeChange(Sender: TObject);
+begin
+  pnlFilterDateRange.Enabled := chkFilterDateRange.Checked;
+end;
+
 procedure TfrmAdifImport.FormShow(Sender: TObject);
 begin
   lblComplete.Visible := False;
@@ -756,7 +856,7 @@ var
   i : Integer;
 begin
     for i:= 0 to Length(lines)-1 do
-      WriteLn(lines[i]);
+      if dmData.DebugLevel >=1 then WriteLn(lines[i]);
 
   if FileExists(dmData.UsrHomeDir + ERR_FILE) then
   begin
@@ -776,7 +876,8 @@ begin
     Writeln(f,'Internet: http://www.cqrlog.com');
     Writeln(f,'');
     Writeln(f,'ERROR QSOs FROM ADIF IMPORT');
-    Writeln(f,'<ADIF_VER:5>2.2.1');
+    Writeln(f,'<ADIF_VER:5>3.1.0');
+    Writeln(f,'<CREATED_TIMESTAMP:15>',FormatDateTime('YYYYMMDD hhmmss',dmUtils.GetDateTime(0)));
     Writeln(f, '<PROGRAMID:6>CQRLOG');
     Writeln(f, '<PROGRAMVERSION:',Length(cVERSION),'>',cVERSION);
     Writeln(f,'');
@@ -791,4 +892,5 @@ begin
 end;
 
 end.
+
 

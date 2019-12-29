@@ -18,7 +18,7 @@ interface
 uses
   Classes, SysUtils, LResources, Forms, Controls, Graphics, Dialogs, ComCtrls,
   ExtCtrls, StdCtrls, Buttons, inifiles, DB, process, Spin, ColorBox, lcltype,
-  uCWKeying, frExportPref, types, fileutil, LazFileUtils;
+  Calendar, EditBtn, uCWKeying, frExportPref, types, fileutil, LazFileUtils;
 
 type
 
@@ -119,6 +119,15 @@ type
     cb125m: TCheckBox;
     cb60m: TCheckBox;
     cb30cm: TCheckBox;
+    cgLimit: TCheckGroup;
+    chkShowOwnPos: TCheckBox;
+    chkDistance: TCheckBox;
+    chkSTX: TCheckBox;
+    chkSRX: TCheckBox;
+    chkSTX_str: TCheckBox;
+    chkSRX_str: TCheckBox;
+    chkContestName: TCheckBox;
+    chkShowB4call: TCheckBox;
     chkRXFreq : TCheckBox;
     chkSatellite : TCheckBox;
     chkPropagation : TCheckBox;
@@ -477,7 +486,12 @@ type
     cmbDataBitsR1: TComboBox;
     cl10db : TColorBox;
     cmbModelRig1: TComboBox;
+    DateEditCall: TDateEdit;
+    DateEditLoc: TDateEdit;
     dlgColor : TColorDialog;
+    edteQSLDnlAddr: TEdit;
+    edteQSLStartAddr: TEdit;
+    edteQSLViewAddr: TEdit;
     edtStartConCmd: TEdit;
     edtDropSyncErr: TSpinEdit;
     edtQSOColorDate : TEdit;
@@ -569,14 +583,17 @@ type
     edtK3NGPort: TEdit;
     edtK3NGSpeed: TSpinEdit;
     edtFldigiIp: TEdit;
+    edtn1mmIp: TEdit;
     edtWsjtPath: TEdit;
     edtWsjtPort: TEdit;
     edtFldigiPort: TEdit;
+    edtN1MMPort: TEdit;
     edtXRefresh: TEdit;
     edtXLastSpots: TEdit;
     edtXTop: TEdit;
     edtXWidth: TEdit;
     edtXHeight: TEdit;
+    edtXplanetLoc: TEdit;
     edtXplanetPath: TEdit;
     edtFirst: TEdit;
     edtSecond: TEdit;
@@ -604,7 +621,7 @@ type
     edtName: TEdit;
     edtRST_R: TEdit;
     dlgFont: TFontDialog;
-    fraExportSettings : TfraExportPref;
+    fraExportPref1: TfraExportPref;
     gbProfiles1: TGroupBox;
     grbSerialR2: TGroupBox;
     grbSerialR3: TGroupBox;
@@ -629,7 +646,7 @@ type
     GroupBox25: TGroupBox;
     GroupBox26: TGroupBox;
     GroupBox27: TGroupBox;
-    GroupBox28: TGroupBox;
+    gbLoTW: TGroupBox;
     GroupBox29: TGroupBox;
     GroupBox3: TGroupBox;
     GroupBox30: TGroupBox;
@@ -638,7 +655,7 @@ type
     GroupBox33: TGroupBox;
     GroupBox34: TGroupBox;
     GroupBox35: TGroupBox;
-    GroupBox36: TGroupBox;
+    gbeQSL: TGroupBox;
     GroupBox37: TGroupBox;
     GroupBox38: TGroupBox;
     GroupBox39: TGroupBox;
@@ -661,11 +678,15 @@ type
     GroupBox52: TGroupBox;
     gbDXCConnect: TGroupBox;
     gbDXCSpots: TGroupBox;
+    GroupBox53: TGroupBox;
     GroupBox7: TGroupBox;
     GroupBox8: TGroupBox;
     GroupBox9: TGroupBox;
     Label1: TLabel;
-    Label10: TLabel;
+    lbleQSLDnlAddr: TLabel;
+    lbleQSLStartAddr: TLabel;
+    lbleQSLViewAddr: TLabel;
+    lblLoTWBkg: TLabel;
     Label100: TLabel;
     Label101: TLabel;
     Label102: TLabel;
@@ -674,8 +695,8 @@ type
     Label105: TLabel;
     Label106: TLabel;
     Label107: TLabel;
-    Label108: TLabel;
-    Label109: TLabel;
+    lbleQSLUsr: TLabel;
+    lbleQSLPass: TLabel;
     Label11: TLabel;
     Label110: TLabel;
     Label111: TLabel;
@@ -696,7 +717,7 @@ type
     Label125: TLabel;
     Label126: TLabel;
     Label127: TLabel;
-    Label128: TLabel;
+    lbleQSLBkg: TLabel;
     Label129: TLabel;
     Label13: TLabel;
     Label130: TLabel;
@@ -777,12 +798,14 @@ type
     Label200: TLabel;
     Label201: TLabel;
     Label202: TLabel;
-    Label203: TLabel;
+    lbln1mmport: TLabel;
+    lbln1mmaddr: TLabel;
+    lblwsjtport: TLabel;
     Label204: TLabel;
     Label205: TLabel;
     Label206 : TLabel;
     Label207: TLabel;
-    Label26: TLabel;
+    lblwsjtaddr: TLabel;
     Label46 : TLabel;
     Label47 : TLabel;
     Label48: TLabel;
@@ -840,7 +863,7 @@ type
     lblEdits: TLabel;
     lblStatistics: TLabel;
     lblQSOList: TLabel;
-    Label81: TLabel;
+    lblLoTWpass: TLabel;
     Label82: TLabel;
     Label83: TLabel;
     Label84: TLabel;
@@ -880,7 +903,7 @@ type
     Label78: TLabel;
     Label79: TLabel;
     Label8: TLabel;
-    Label80: TLabel;
+    lblLoUsr: TLabel;
     Label9: TLabel;
     lbleFont1: TLabel;
     lbPreferences: TListBox;
@@ -1003,6 +1026,7 @@ type
     procedure cmbStopBitsR1Change(Sender : TObject);
     procedure cmbStopBitsR2Change(Sender : TObject);
     procedure edtK3NGSerSpeedChange(Sender: TObject);
+    procedure edtLocChange(Sender: TObject);
     procedure edtR1RigCtldArgsChange(Sender: TObject);
     procedure edtR1RigCtldPortChange(Sender : TObject);
     procedure edtR2RigCtldArgsChange(Sender : TObject);
@@ -1014,6 +1038,7 @@ type
     procedure edtWinMinSpeedChange(Sender: TObject);
     procedure edtWinPortChange(Sender: TObject);
     procedure edtWinSpeedChange(Sender: TObject);
+    procedure edtXplanetLocChange(Sender: TObject);
     procedure lbPreferencesClick(Sender: TObject);
     procedure btnDefineProfileClick(Sender: TObject);
     procedure btnHelpClick(Sender: TObject);
@@ -1041,6 +1066,7 @@ type
     procedure FormShow(Sender: TObject);
     procedure edtPoll2Exit(Sender: TObject);
     procedure edtPoll1Exit(Sender: TObject);
+    procedure Panel1Click(Sender: TObject);
     procedure pgPreferencesChange(Sender: TObject);
     procedure pnlQSOColorClick(Sender : TObject);
   private
@@ -1098,6 +1124,7 @@ begin
   cqrini.WriteBool('NewQSO', 'SkipModeFreq', chkSkipModeFreq.Checked);
   cqrini.WriteBool('NewQSO', 'AutoSearch', chkAutoSearch.Checked);
   cqrini.WriteBool('NewQSO', 'ShowRecentQSOs', chkShowRecentQSOs.Checked);
+  cqrini.Writebool('NewQSO', 'ShowB4call', chkShowB4call.Checked);
   cqrini.WriteString('NewQSO', 'RecQSOsNum', edtRecetQSOs.Text);
   cqrini.WriteBool('NewQSO', 'IgnoreQRZ', chkIgnoreQRZQSL.Checked);
   cqrini.WriteBool('NewQSO', 'MvToRem', chkMvToRem.Checked);
@@ -1147,6 +1174,7 @@ begin
   cqrini.WriteBool('Columns', 'QSL_VIA', chkQSL_VIA.Checked);
   cqrini.WriteBool('Columns', 'Locator', chkLoc.Checked);
   cqrini.WriteBool('Columns', 'MyLoc', chkMyLoc.Checked);
+  cqrini.WriteBool('Columns', 'Distance', chkDistance.Checked);
   cqrini.WriteBool('Columns', 'IOTA', chkIOTA.Checked);
   cqrini.WriteBool('Columns', 'Award', chkAward.Checked);
   cqrini.WriteBool('Columns', 'Power', chkPower.Checked);
@@ -1172,6 +1200,11 @@ begin
   cqrini.WriteBool('Columns', 'Propagation', chkPropagation.Checked);
   cqrini.WriteBool('Columns', 'SatelliteName', chkSatellite.Checked);
   cqrini.WriteBool('Columns', 'RXFreq', chkRXFreq.Checked);
+  cqrini.WriteBool('Columns', 'ContestName', chkContestName.Checked);
+  cqrini.WriteBool('Columns', 'STX', chkSTX.Checked);
+  cqrini.WriteBool('Columns', 'SRX', chkSRX.Checked);
+  cqrini.WriteBool('Columns', 'ContMsgSent', chkSTX_str.Checked);
+  cqrini.WriteBool('Columns', 'ContMsgRcvd', chkSRX_str.Checked);
 
   cqrini.WriteBool('Bands', '137kHz', cb136kHz.Checked);
   cqrini.WriteBool('Bands', '472kHz', cb472kHz.Checked);
@@ -1393,6 +1426,8 @@ begin
   cqrini.WriteInteger('xplanet', 'ShowFrom', rgShowFrom.ItemIndex);
   cqrini.WriteInteger('xplanet', 'color', cmbXplanetColor.Selected);
   cqrini.WriteBool('xplanet', 'UseDefColor', chkXplanetColor.Checked);
+  cqrini.WriteString('xplanet', 'loc', edtXplanetLoc.Text);
+  cqrini.WriteBool('xplanet', 'ShowOwnPos', chkShowOwnPos.Checked);
 
   cqrini.WriteString('ZipCode', 'First', cmbFirstZip.Text);
   cqrini.WriteString('ZipCode', 'FirstSaveTo', cmbFirstSaveTo.Text);
@@ -1413,6 +1448,9 @@ begin
   cqrini.WriteInteger('LoTW', 'BckColor', cmbLoTWBckColor.Selected);
   cqrini.WriteString('LoTW', 'eQSLName', edteQSLName.Text);
   cqrini.WriteString('LoTW', 'eQSLPass', edteQSLPass.Text);
+  cqrini.WriteString('LoTW', 'eQSLStartAddr',edteQSLStartAddr.Text);
+  cqrini.WriteString('LoTW', 'eQSLDnlAddr',edteQSLDnlAddr.Text);
+  cqrini.WriteString('LoTW', 'eQSViewAddr',edteQSLViewAddr.Text);
   cqrini.WriteBool('LoTW', 'eUseBackColor', chkShowBckEQSL.Checked);
   cqrini.WriteInteger('LoTW', 'eBckColor', cmbeQSLBckColor.Selected);
   cqrini.WriteBool('LoTW', 'ExpComment', chkExpCommet.Checked);
@@ -1453,6 +1491,13 @@ begin
   cqrini.WriteString('wsjt', 'deffreq', edtWsjtDefaultFreq.Text);
   cqrini.WriteInteger('wsjt', 'mode', rgWsjtModeFrom.ItemIndex);
   cqrini.WriteString('wsjt', 'defmode', cmbWsjtDefaultMode.Text);
+  cqrini.WriteString('wsjt', 'wb4calldate', DateEditCall.Text);
+  cqrini.WriteString('wsjt', 'wb4locdate', DateEditLoc.Text);
+  cqrini.WriteBool('wsjt','wb4CCall', cgLimit.Checked[0]);
+  cqrini.WriteBool('wsjt','wb4CLoc', cgLimit.Checked[1]);
+
+  cqrini.WriteString('n1mm','port',edtn1mmPort.Text);
+  cqrini.WriteString('n1mm','ip',edtn1mmIp.Text);
 
   if edtBackupPath.Text <> '' then
     if edtBackupPath.Text[Length(edtBackupPath.Text)] <> PathDelim then
@@ -1549,7 +1594,7 @@ begin
     frmNewQSO.InitializeCW
   end;
 
-  fraExportSettings.SaveExportPref;
+  fraExportPref1.SaveExportPref;
 
   dmUtils.TimeOffset := StrToCurr(edtOffset.Text);
   dmUtils.GrayLineOffset := StrToCurr(edtGrayLineOffset.Text);
@@ -1751,7 +1796,7 @@ begin
     lblqFont.Font.Name := dlgFont.Font.Name;
     lblqFont.Font.Size := fqSize;
     lblQSOList.Font.Name := dlgFont.Font.Name;
-    lblQSOList.Font.Size := fgSize;
+    lblQSOList.Font.Size := fqSize;
   end;
 end;
 
@@ -1764,7 +1809,7 @@ begin
     lblgFont.Font.Name := dlgFont.Font.Name;
     lblgFont.Font.Size := fgSize;
     lblStatistics.Font.Name := dlgFont.Font.Name;
-    lblStatistics.Font.Size := fqSize;
+    lblStatistics.Font.Size := fgSize;
   end;
 end;
 
@@ -1837,6 +1882,8 @@ var
   lat, long: currency;
   AProcess: TProcess;
   proj: string = '';
+  index: integer;
+  paramList : TStringList;
 begin
   if not FileExists(edtXplanetPath.Text) then
   begin
@@ -1847,7 +1894,12 @@ begin
 
   geom := ' -geometry ' + edtXWidth.Text + 'x' + edtXHeight.Text +
     '+' + edtXLeft.Text + '+' + edtXTop.Text;
-  if dmUtils.IsLocOK(edtLoc.Text) then
+  if dmUtils.IsLocOK(edtXplanetLoc.Text) then
+  begin
+    dmUtils.CoordinateFromLocator(dmUtils.CompleteLoc(edtXplanetLoc.Text), lat, long);
+    myloc := ' -longitude ' + CurrToStr(long) + ' -latitude ' + CurrToStr(lat);
+  end
+  else if dmUtils.IsLocOK(edtLoc.Text) then
   begin
     dmUtils.CoordinateFromLocator(dmUtils.CompleteLoc(edtLoc.Text), lat, long);
     myloc := ' -longitude ' + CurrToStr(long) + ' -latitude ' + CurrToStr(lat);
@@ -1859,16 +1911,28 @@ begin
     1: proj := ' -projection azimuthal -background ' + dmData.HomeDir +
         'xplanet' + PathDelim + 'bck.png';
     2: proj := ' -projection azimuthal';
+    3: proj := ' -projection rectangular';
   end; //case
 
-  cmd := edtXplanetPath.Text + ' -config ' + dmData.HomeDir +
+  cmd :=' -config ' + dmData.HomeDir +
     'xplanet' + PathDelim + 'geoconfig -window ' + myloc +
     ' -glare 28 -light_time -range 2.5 ' + wait + ' ' + geom +
     ' -window_title "CQRLOG - xplanet" ' + proj;
   AProcess := TProcess.Create(nil);
   try
-    AProcess.CommandLine := cmd;
-    Writeln('Command line: ', AProcess.CommandLine);
+    AProcess.Executable := edtXplanetPath.Text;
+    index:=0;
+    paramList := TStringList.Create;
+    paramList.Delimiter := ' ';
+    paramList.DelimitedText := cmd;
+    AProcess.Parameters.Clear;
+    while index < paramList.Count do
+    begin
+      AProcess.Parameters.Add(paramList[index]);
+      inc(index);
+    end;
+    paramList.Free;
+    if dmData.DebugLevel>=1 then Writeln('AProcess.Executable: ',AProcess.Executable,' Parameters: ',AProcess.Parameters.Text);
     AProcess.Execute;
   finally
     AProcess.Free;
@@ -2097,6 +2161,7 @@ begin
   dmMembership.CheckForMembershipUpdate
 end;
 
+
 procedure TfrmPreferences.chkClUpEnabledChange(Sender: TObject);
 begin
   edtClUserName.Enabled := chkClUpEnabled.Checked;
@@ -2307,6 +2372,12 @@ begin
   WinKeyerChanged := True
 end;
 
+procedure TfrmPreferences.edtLocChange(Sender: TObject);
+begin
+  edtLoc.Text := dmUtils.StdFormatLocator(edtLoc.Text);
+  edtLoc.SelStart := Length(edtLoc.Text);
+end;
+
 procedure TfrmPreferences.edtR1RigCtldArgsChange(Sender: TObject);
 begin
   TRXChanged := True
@@ -2363,6 +2434,12 @@ begin
   WinKeyerChanged := True
 end;
 
+procedure TfrmPreferences.edtXplanetLocChange(Sender: TObject);
+begin
+  edtXplanetLoc.Text := dmUtils.StdFormatLocator(edtXplanetLoc.Text);
+  edtXplanetLoc.SelStart := Length(edtXplanetLoc.Text);
+end;
+
 procedure TfrmPreferences.lbPreferencesClick(Sender: TObject);
 begin
   pgPreferences.ActivePageIndex := lbPreferences.ItemIndex;
@@ -2376,8 +2453,8 @@ begin
   dmUtils.InsertModes(cmbDefaultMode);
   dmUtils.InsertModes(cmbMode);
   dmUtils.InsertModes(cmbWsjtDefaultMode);
-  cmbDefaultMode.ReadOnly     := True;
-  cmbWsjtDefaultMode.ReadOnly := True;
+  cmbDefaultMode.Style := csDropDownList;
+  cmbWsjtDefaultMode.Style := csDropDownList;
 
   LoadMebershipCombo;
 
@@ -2409,6 +2486,7 @@ begin
   chkSkipModeFreq.Checked := cqrini.ReadBool('NewQSO', 'SkipModeFreq', True);
   chkAutoSearch.Checked := cqrini.ReadBool('NewQSO', 'AutoSearch', False);
   chkShowRecentQSOs.Checked := cqrini.ReadBool('NewQSO', 'ShowRecentQSOs', False);
+  chkShowB4call.Checked := cqrini.ReadBool('NewQSO', 'ShowB4call', False);
   edtRecetQSOs.Text := cqrini.ReadString('NewQSO', 'RecQSOsNum', '5');
   chkIgnoreQRZQSL.Checked := cqrini.ReadBool('NewQSO', 'IgnoreQRZ', False);
   chkMvToRem.Checked := cqrini.ReadBool('NewQSO', 'MvToRem', True);
@@ -2463,6 +2541,7 @@ begin
   chkQSL_VIA.Checked := cqrini.ReadBool('Columns', 'QSL_VIA', False);
   chkLoc.Checked := cqrini.ReadBool('Columns', 'Locator', False);
   chkMyLoc.Checked := cqrini.ReadBool('Columns', 'MyLoc', False);
+  chkDistance.Checked := cqrini.ReadBool('Columns', 'Distance', False);
   chkIOTA.Checked := cqrini.ReadBool('Columns', 'IOTA', False);
   chkAward.Checked := cqrini.ReadBool('Columns', 'Award', False);
   chkCounty.Checked := cqrini.ReadBool('Columns', 'County', False);
@@ -2488,6 +2567,11 @@ begin
   chkPropagation.Checked := cqrini.ReadBool('Columns', 'Propagation', False);
   chkSatellite.Checked := cqrini.ReadBool('Columns', 'SatelliteName', False);
   chkRXFreq.Checked := cqrini.ReadBool('Columns', 'RXFreq', False);
+  chkContestName.Checked := cqrini.ReadBool('Columns', 'ContestName', False);
+  chkSTX.Checked := cqrini.ReadBool('Columns', 'STX', False);
+  chkSRX.Checked := cqrini.ReadBool('Columns', 'SRX', False);
+  chkSTX_str.Checked := cqrini.ReadBool('Columns', 'ContMsgSent', False);
+  chkSRX_str.Checked := cqrini.ReadBool('Columns', 'ContMsgRcvd', False);
 
   cb136kHz.Checked := cqrini.ReadBool('Bands', '137kHz', False);
   cb472kHz.Checked := cqrini.ReadBool('Bands', '472kHz', False);
@@ -2727,6 +2811,8 @@ begin
   rgShowFrom.ItemIndex := cqrini.ReadInteger('xplanet', 'ShowFrom', 0);
   cmbXplanetColor.Selected := cqrini.ReadInteger('xplanet', 'color', clWhite);
   chkXplanetColor.Checked := cqrini.ReadBool('xplanet', 'UseDefColor', True);
+  edtXplanetLoc.Text := cqrini.ReadString('xplanet', 'loc', '');
+  chkShowOwnPos.Checked := cqrini.ReadBool('xplanet', 'ShowOwnPos', False);
 
   cmbFirstZip.Text := cqrini.ReadString('ZipCode', 'First', '');
   cmbFirstSaveTo.Text := cqrini.ReadString('ZipCode', 'FirstSaveTo', '');
@@ -2747,6 +2833,9 @@ begin
   cmbLoTWBckColor.Selected := cqrini.ReadInteger('LoTW', 'BckColor', clMoneyGreen);
   edteQSLName.Text := cqrini.ReadString('LoTW', 'eQSLName', '');
   edteQSLPass.Text := cqrini.ReadString('LoTW', 'eQSLPass', '');
+  edteQSLStartAddr.Text := cqrini.ReadString('LoTW', 'eQSLStartAddr','https://www.eqsl.cc/qslcard/DownloadInBox.cfm');
+  edteQSLDnlAddr.Text := cqrini.ReadString('LoTW', 'eQSLDnlAddr','https://www.eqsl.cc/downloadedfiles/');
+  edteQSLViewAddr.Text := cqrini.ReadString('LoTW', 'eQSViewAddr','https://www.eQSL.cc/qslcard/GeteQSL.cfm');
   chkShowBckEQSL.Checked := cqrini.ReadBool('LoTW', 'eUseBackColor', True);
   cmbeQSLBckColor.Selected := cqrini.ReadInteger('LoTW', 'eBckColor', clSkyBlue);
   chkExpCommet.Checked := cqrini.ReadBool('LoTW', 'ExpComment', True);
@@ -2789,6 +2878,14 @@ begin
   edtWsjtDefaultFreq.Text  := cqrini.ReadString('wsjt', 'deffreq', '3.600');
   rgWsjtModeFrom.ItemIndex := cqrini.ReadInteger('wsjt', 'mode', 1);
   cmbWsjtDefaultMode.Text  := cqrini.ReadString('wsjt', 'defmode', 'JT65');
+  DateEditCall.Text := cqrini.ReadString('wsjt', 'wb4calldate', '1900-01-01'); //sure all qsos by default :-)
+  DateEditLoc.Text := cqrini.ReadString('wsjt', 'wb4locdate','1900-01-01');
+  cgLimit.Checked[0] := cqrini.ReadBool('wsjt','wb4CCall', False);
+  cgLimit.Checked[1] := cqrini.ReadBool('wsjt','wb4CLoc', False);
+
+  edtn1mmPort.Text         := cqrini.ReadString('n1mm','port','2333');
+  edtn1mmIp.Text           := cqrini.ReadString('n1mm','ip','127.0.0.1');
+
 
   chkEnableBackup.Checked := cqrini.ReadBool('Backup', 'Enable', False);
   chkCompressBackup.Checked := cqrini.ReadBool('Backup', 'Compress', True);
@@ -2857,7 +2954,7 @@ begin
 
   wasOnlineLogSupportEnabled := chkHaUpEnabled.Checked or chkClUpEnabled.Checked or chkHrUpEnabled.Checked;
 
-  fraExportSettings.LoadExportPref;
+  fraExportPref1.LoadExportPref;
 
   lbPreferences.Selected[pgPreferences.ActivePageIndex] := True;
   edtCW1.Width := 60;
@@ -2887,6 +2984,11 @@ var
 begin
   if not TryStrToInt(edtPoll1.Text, tmp) then
     edtPoll1.Text := '500';
+end;
+
+procedure TfrmPreferences.Panel1Click(Sender: TObject);
+begin
+
 end;
 
 procedure TfrmPreferences.pgPreferencesChange(Sender: TObject);

@@ -1,14 +1,13 @@
 object frmAdifImport: TfrmAdifImport
-  Left = 425
-  Height = 280
-  Top = 252
-  Width = 444
-  ActiveControl = chkLotOfQSO
+  Left = 127
+  Height = 365
+  Top = 358
+  Width = 387
   BorderIcons = [biSystemMenu]
   BorderStyle = bsDialog
   Caption = 'Importing ADIF file'
-  ClientHeight = 280
-  ClientWidth = 444
+  ClientHeight = 365
+  ClientWidth = 387
   Icon.Data = {
     BE0C00000000010001002020000001001800A80C000016000000280000002000
     0000400000000100180000000000000C00006400000064000000000000000000
@@ -117,177 +116,383 @@ object frmAdifImport: TfrmAdifImport
   OnCreate = FormCreate
   OnShow = FormShow
   Position = poMainFormCenter
-  LCLVersion = '1.8.0.6'
-  object Label1: TLabel
-    Left = 6
-    Height = 17
-    Top = 3
-    Width = 28
-    Caption = 'File:'
-    ParentColor = False
-  end
-  object lblFileName: TLabel
-    Left = 38
-    Height = 17
-    Top = 3
-    Width = 81
-    Caption = 'lblFileName'
-    ParentColor = False
-  end
-  object Label2: TLabel
-    Left = 6
-    Height = 17
-    Top = 30
-    Width = 47
-    Caption = 'Errors:'
-    ParentColor = False
-  end
-  object Label3: TLabel
-    Left = 152
-    Height = 17
-    Top = 30
-    Width = 73
-    Caption = 'Importing:'
-    ParentColor = False
-  end
-  object lblErrors: TLabel
-    Left = 64
-    Height = 17
-    Top = 30
-    Width = 60
-    Alignment = taRightJustify
-    Caption = 'lblErrors'
-    ParentColor = False
-  end
-  object lblCount: TLabel
-    Left = 232
-    Height = 17
-    Top = 30
-    Width = 59
-    Caption = 'lblCount'
-    ParentColor = False
-  end
-  object Label4: TLabel
-    Left = 8
-    Height = 17
-    Top = 128
-    Width = 63
-    Caption = 'Remarks:'
-    ParentColor = False
-  end
-  object lblComplete: TLabel
-    Left = 373
-    Height = 17
-    Top = 146
-    Width = 70
-    Caption = 'Complete!'
-    Font.Color = clRed
-    ParentColor = False
-    ParentFont = False
-    Visible = False
-  end
-  object Label5: TLabel
-    Left = 8
-    Height = 17
-    Top = 192
-    Width = 80
-    Caption = 'QTH Profile'
-    ParentColor = False
-  end
-  object lblErrorLog: TLabel
-    Left = 6
-    Height = 1
-    Top = 56
-    Width = 1
-    ParentColor = False
-  end
-  object btnImport: TButton
-    Left = 368
-    Height = 25
-    Top = 187
-    Width = 75
-    Anchors = [akTop, akRight]
-    BorderSpacing.InnerBorder = 4
-    Caption = 'Import'
-    OnClick = btnImportClick
+  LCLVersion = '2.0.4.0'
+  object pnlFilterDateRange: TPanel
+    AnchorSideLeft.Control = Owner
+    AnchorSideTop.Control = pnlAll
+    AnchorSideTop.Side = asrBottom
+    AnchorSideRight.Control = Owner
+    AnchorSideRight.Side = asrBottom
+    Left = 0
+    Height = 45
+    Top = 287
+    Width = 387
+    Alignment = taLeftJustify
+    Anchors = [akTop, akLeft, akRight]
+    BevelOuter = bvNone
+    ClientHeight = 45
+    ClientWidth = 387
+    Enabled = False
     TabOrder = 0
+    object lblDateTo: TLabel
+      AnchorSideLeft.Control = edtDateFrom
+      AnchorSideLeft.Side = asrBottom
+      AnchorSideTop.Control = pnlFilterDateRange
+      AnchorSideTop.Side = asrCenter
+      Left = 161
+      Height = 17
+      Top = 14
+      Width = 13
+      BorderSpacing.Left = 12
+      Caption = 'to'
+      ParentColor = False
+    end
+    object edtDateFrom: TDateEdit
+      AnchorSideLeft.Control = lblDateFrom
+      AnchorSideLeft.Side = asrBottom
+      AnchorSideTop.Control = pnlFilterDateRange
+      AnchorSideTop.Side = asrCenter
+      Left = 46
+      Height = 34
+      Top = 5
+      Width = 103
+      CalendarDisplaySettings = [dsShowHeadings, dsShowDayNames]
+      DateOrder = doYMd
+      ButtonWidth = 23
+      BorderSpacing.Left = 12
+      NumGlyphs = 1
+      MaxLength = 10
+      TabOrder = 0
+      Text = '    .  .  '
+    end
+    object edtDateTo: TDateEdit
+      AnchorSideLeft.Control = lblDateTo
+      AnchorSideLeft.Side = asrBottom
+      AnchorSideTop.Control = pnlFilterDateRange
+      AnchorSideTop.Side = asrCenter
+      Left = 186
+      Height = 34
+      Top = 5
+      Width = 103
+      CalendarDisplaySettings = [dsShowHeadings, dsShowDayNames]
+      DateOrder = doYMd
+      ButtonWidth = 23
+      BorderSpacing.Left = 12
+      NumGlyphs = 1
+      MaxLength = 10
+      TabOrder = 1
+      Text = '    .  .  '
+    end
+    object lblDateFrom: TLabel
+      AnchorSideLeft.Control = pnlFilterDateRange
+      AnchorSideTop.Control = pnlFilterDateRange
+      AnchorSideTop.Side = asrCenter
+      Left = 3
+      Height = 17
+      Top = 14
+      Width = 31
+      BorderSpacing.Left = 3
+      Caption = 'from'
+      ParentColor = False
+    end
   end
-  object edtRemarks: TEdit
-    Left = 8
-    Height = 27
-    Top = 152
-    Width = 145
+  object pnlAll: TPanel
+    AnchorSideLeft.Control = Owner
+    AnchorSideTop.Control = Owner
+    AnchorSideRight.Control = Owner
+    AnchorSideRight.Side = asrBottom
+    Left = 0
+    Height = 287
+    Top = 0
+    Width = 387
+    Anchors = [akTop, akLeft, akRight]
+    ClientHeight = 287
+    ClientWidth = 387
     TabOrder = 1
-  end
-  object cmbProfiles: TComboBox
-    Left = 8
-    Height = 29
-    Top = 216
-    Width = 334
-    ItemHeight = 0
-    TabOrder = 2
-    Text = 'cmbProfiles'
-  end
-  object chkLotOfQSO: TCheckBox
-    Left = 8
-    Height = 24
-    Top = 88
-    Width = 301
-    Caption = 'ADIF file contains more than 10 000 QSO'
-    TabOrder = 3
+    object lbFile: TLabel
+      AnchorSideLeft.Control = pnlAll
+      AnchorSideTop.Control = pnlAll
+      Left = 4
+      Height = 17
+      Top = 13
+      Width = 27
+      BorderSpacing.Left = 3
+      BorderSpacing.Top = 12
+      Caption = 'File:'
+      ParentColor = False
+    end
+    object lblFileName: TLabel
+      AnchorSideLeft.Control = lbFile
+      AnchorSideLeft.Side = asrBottom
+      AnchorSideTop.Control = lbFile
+      Left = 37
+      Height = 17
+      Top = 13
+      Width = 78
+      BorderSpacing.Left = 6
+      Caption = 'lblFileName'
+      ParentColor = False
+    end
+    object lblError: TLabel
+      AnchorSideLeft.Control = lbFile
+      AnchorSideTop.Control = lbFile
+      AnchorSideTop.Side = asrBottom
+      Left = 4
+      Height = 17
+      Top = 36
+      Width = 42
+      BorderSpacing.Top = 6
+      Caption = 'Errors:'
+      ParentColor = False
+    end
+    object lblImport: TLabel
+      AnchorSideLeft.Control = lblErrors
+      AnchorSideLeft.Side = asrBottom
+      AnchorSideTop.Control = lblError
+      Left = 132
+      Height = 17
+      Top = 36
+      Width = 67
+      BorderSpacing.Left = 26
+      Caption = 'Importing:'
+      ParentColor = False
+    end
+    object lblErrors: TLabel
+      AnchorSideLeft.Control = lblError
+      AnchorSideLeft.Side = asrBottom
+      AnchorSideTop.Control = lblError
+      Left = 52
+      Height = 17
+      Top = 36
+      Width = 54
+      Alignment = taRightJustify
+      BorderSpacing.Left = 6
+      Caption = 'lblErrors'
+      ParentColor = False
+    end
+    object lblCount: TLabel
+      AnchorSideLeft.Control = lblImport
+      AnchorSideLeft.Side = asrBottom
+      AnchorSideTop.Control = lblImport
+      Left = 205
+      Height = 17
+      Top = 36
+      Width = 54
+      BorderSpacing.Left = 6
+      Caption = 'lblCount'
+      ParentColor = False
+    end
+    object lblRemaks: TLabel
+      AnchorSideLeft.Control = lbFile
+      AnchorSideTop.Control = chkLotOfQSO
+      AnchorSideTop.Side = asrBottom
+      Left = 4
+      Height = 17
+      Top = 137
+      Width = 134
+      BorderSpacing.Top = 6
+      Caption = 'Comment to QSO(s):'
+      ParentColor = False
+    end
+    object lblComplete: TLabel
+      AnchorSideTop.Control = lbFile
+      AnchorSideRight.Control = pnlAll
+      AnchorSideRight.Side = asrBottom
+      Left = 312
+      Height = 17
+      Top = 33
+      Width = 68
+      Anchors = [akRight]
+      BorderSpacing.Right = 6
+      Caption = 'Complete!'
+      Font.Color = clRed
+      ParentColor = False
+      ParentFont = False
+      Visible = False
+    end
+    object lblQthProfile: TLabel
+      AnchorSideLeft.Control = lbFile
+      AnchorSideTop.Control = edtRemarks
+      AnchorSideTop.Side = asrBottom
+      Left = 4
+      Height = 17
+      Top = 194
+      Width = 73
+      BorderSpacing.Top = 6
+      Caption = 'QTH Profile'
+      ParentColor = False
+    end
+    object lblErrorLog: TLabel
+      Left = 6
+      Height = 1
+      Top = 56
+      Width = 1
+      ParentColor = False
+    end
+    object btnImport: TButton
+      AnchorSideTop.Control = chkNoCheckOnDuplicates
+      AnchorSideRight.Control = pnlAll
+      AnchorSideRight.Side = asrBottom
+      Left = 305
+      Height = 25
+      Top = 85
+      Width = 75
+      Anchors = [akTop, akRight]
+      BorderSpacing.Right = 6
+      BorderSpacing.Bottom = 6
+      BorderSpacing.InnerBorder = 4
+      Caption = 'Import'
+      OnClick = btnImportClick
+      TabOrder = 0
+    end
+    object edtRemarks: TEdit
+      AnchorSideLeft.Control = lbFile
+      AnchorSideTop.Control = lblRemaks
+      AnchorSideTop.Side = asrBottom
+      Left = 4
+      Height = 34
+      Top = 154
+      Width = 145
+      AutoSize = False
+      TabOrder = 1
+    end
+    object btnClose: TButton
+      AnchorSideTop.Control = btnImport
+      AnchorSideTop.Side = asrBottom
+      AnchorSideRight.Control = pnlAll
+      AnchorSideRight.Side = asrBottom
+      Left = 305
+      Height = 25
+      Top = 116
+      Width = 75
+      Anchors = [akTop, akRight]
+      BorderSpacing.Top = 6
+      BorderSpacing.Right = 6
+      BorderSpacing.Bottom = 6
+      Caption = 'Close'
+      ModalResult = 2
+      TabOrder = 2
+    end
+    object chkFilterDateRange: TCheckBox
+      AnchorSideLeft.Control = lbFile
+      AnchorSideTop.Control = cmbProfiles
+      AnchorSideTop.Side = asrBottom
+      Left = 4
+      Height = 23
+      Top = 251
+      Width = 216
+      BorderSpacing.Top = 6
+      Caption = 'Filter: only import date range'
+      OnChange = chkFilterDateRangeChange
+      TabOrder = 3
+    end
+    object lblFilteredOut: TLabel
+      AnchorSideLeft.Control = lbFile
+      AnchorSideTop.Control = lblError
+      AnchorSideTop.Side = asrBottom
+      Left = 4
+      Height = 17
+      Top = 59
+      Width = 78
+      BorderSpacing.Top = 6
+      Caption = 'Filtered out:'
+      ParentColor = False
+    end
+    object cmbProfiles: TComboBox
+      AnchorSideLeft.Control = lbFile
+      AnchorSideTop.Control = lblQthProfile
+      AnchorSideTop.Side = asrBottom
+      Left = 4
+      Height = 34
+      Top = 211
+      Width = 334
+      ItemHeight = 0
+      TabOrder = 4
+    end
+    object chkLotOfQSO: TCheckBox
+      AnchorSideLeft.Control = lbFile
+      AnchorSideTop.Control = chkNoCheckOnDuplicates
+      AnchorSideTop.Side = asrBottom
+      Left = 4
+      Height = 23
+      Top = 108
+      Width = 291
+      Caption = 'ADIF file contains more than 10 000 QSO'
+      TabOrder = 5
+    end
+    object lblFilteredOutCount: TLabel
+      AnchorSideLeft.Control = lblFilteredOut
+      AnchorSideLeft.Side = asrBottom
+      AnchorSideTop.Control = lblFilteredOut
+      Left = 88
+      Height = 17
+      Top = 59
+      Width = 126
+      BorderSpacing.Left = 6
+      Caption = 'lblFilteredOutCount'
+      ParentColor = False
+    end
+    object chkNoCheckOnDuplicates: TCheckBox
+      AnchorSideLeft.Control = lbFile
+      AnchorSideTop.Control = lblError
+      AnchorSideTop.Side = asrBottom
+      Left = 4
+      Height = 23
+      Top = 85
+      Width = 285
+      BorderSpacing.Top = 32
+      Caption = 'No Check For Duplicates (faster Import)'
+      TabOrder = 6
+    end
   end
   object sb: TStatusBar
+    AnchorSideLeft.Control = Owner
+    AnchorSideRight.Control = Owner
+    AnchorSideBottom.Control = Owner
     Left = 0
-    Height = 21
-    Top = 259
-    Width = 444
+    Height = 25
+    Top = 340
+    Width = 387
+    AutoSize = False
+    BorderSpacing.InnerBorder = 3
     Panels = <    
       item
         Width = 200
       end>
     SimplePanel = False
   end
-  object btnClose: TButton
-    Left = 368
-    Height = 25
-    Top = 219
-    Width = 75
-    Caption = 'Close'
-    ModalResult = 2
-    TabOrder = 5
-  end
   object tr: TSQLTransaction
     Active = False
     Action = caNone
-    left = 118
-    top = 184
+    left = 152
+    top = 144
   end
   object Q1: TSQLQuery
     FieldDefs = <>
     Transaction = tr
     Params = <>
-    left = 170
-    top = 184
+    left = 184
+    top = 144
   end
   object Q2: TSQLQuery
     FieldDefs = <>
     Transaction = tr
     Params = <>
-    left = 219
-    top = 184
+    left = 216
+    top = 144
   end
   object Q3: TSQLQuery
     FieldDefs = <>
     Transaction = tr
     Params = <>
-    left = 267
-    top = 184
+    left = 248
+    top = 144
   end
   object Q4: TSQLQuery
     FieldDefs = <>
     Transaction = tr
     Params = <>
-    left = 315
-    top = 184
+    left = 280
+    top = 144
   end
 end

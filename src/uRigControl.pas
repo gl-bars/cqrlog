@@ -108,6 +108,8 @@ type TRigControl = class
     procedure PwrOn;
     procedure PwrOff;
     procedure PwrStBy;
+    procedure PttOn;
+    procedure PttOff;
 end;
 
 implementation
@@ -133,14 +135,26 @@ end;
 
 function TRigControl.StartRigctld : Boolean;
 var
-  cmd : String;
+   index     : integer;
+   paramList : TStringList;
 begin
-  cmd := fRigCtldPath + ' ' +RigCtldArgs;
 
   if fDebugMode then Writeln('Starting RigCtld ...');
-  if fDebugMode then Writeln(cmd);
 
-  rigProcess.CommandLine := cmd;
+  rigProcess.Executable := fRigCtldPath;
+  index:=0;
+  paramList := TStringList.Create;
+  paramList.Delimiter := ' ';
+  paramList.DelimitedText := RigCtldArgs;
+  rigProcess.Parameters.Clear;
+  while index < paramList.Count do
+  begin
+    rigProcess.Parameters.Add(paramList[index]);
+    inc(index);
+  end;
+  paramList.Free;
+  if fDebugMode then Writeln('rigProcess.Executable: ',rigProcess.Executable,' Parameters: ',rigProcess.Parameters.Text);
+
   try
     rigProcess.Execute;
     sleep(1500);
@@ -242,6 +256,14 @@ end;
 procedure TRigControl.ClearRit;
 begin
   RigCommand.Add('J 0')
+end;
+procedure TRigControl.PttOn;
+begin
+  RigCommand.Add('T 1')
+end;
+procedure TRigControl.PttOff;
+begin
+  RigCommand.Add('T 0')
 end;
 procedure TRigControl.PwrOn;
 begin

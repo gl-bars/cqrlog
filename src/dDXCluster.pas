@@ -916,7 +916,7 @@ begin
     if FileExists(dmData.HomeDir + 'xplanet'+PathDelim+'marker') then
       l.LoadFromFile(dmData.HomeDir + 'xplanet'+PathDelim+'marker');
     try
-      for i:= 0 to l.Count-1 do
+      for i:= 0 to l.Count-1 do // for loop try to find call and delete old position before adding the new
       begin
         if Pos(call,l.Strings[i]) > 0 then   //we do no need quotation marks: compares without
         begin
@@ -929,7 +929,7 @@ begin
       begin
         iMax := l.Count - iMax; // how many lines to delete?
         for i:= 0 to iMax-1 do
-          l.Delete(i)
+          l.Delete(0) // delete always index 0, this is always the oldest entry
       end;
       try
         l.SaveToFile(dmData.HomeDir + 'xplanet'+PathDelim+'marker');
@@ -1131,6 +1131,8 @@ end;
 procedure TdmDXCluster.RunCallAlertCmd(call,band,mode,freq : String);
 var
   AProcess : TProcess;
+  paramList :TStringList;
+  index     :integer;
   cmd      : String;
 begin
   cmd := cqrini.ReadString('DXCluster','AlertCmd','');
@@ -1142,9 +1144,19 @@ begin
       cmd := StringReplace(cmd,'$BAND',band,[rfReplaceAll, rfIgnoreCase]);
       cmd := StringReplace(cmd,'$MODE',mode,[rfReplaceAll, rfIgnoreCase]);
       cmd := StringReplace(cmd,'$FREQ',freq,[rfReplaceAll, rfIgnoreCase]);
-
-      AProcess.CommandLine := cmd;
-      if dmData.DebugLevel>=1 then Writeln('Command line: ',AProcess.CommandLine);
+      index:=0;
+      paramList := TStringList.Create;
+      paramList.Delimiter := ' ';
+      paramList.DelimitedText := cmd;
+      AProcess.Parameters.Clear;
+      while index < paramList.Count do
+      begin
+        if (index = 0) then AProcess.Executable := paramList[index]
+          else AProcess.Parameters.Add(paramList[index]);
+        inc(index);
+      end;
+      paramList.Free;
+      if dmData.DebugLevel>=1 then Writeln('AProcess.Executable: ',AProcess.Executable,' Parameters: ',AProcess.Parameters.Text);
       AProcess.Execute
     finally
       AProcess.Free

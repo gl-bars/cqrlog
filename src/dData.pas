@@ -24,7 +24,7 @@ uses
 
 const
   cDB_LIMIT = 500;
-  cDB_MAIN_VER = 15;
+  cDB_MAIN_VER = 16;
   cDB_COMN_VER = 4;
   cDB_PING_INT = 300;  //ping interval for database connection in seconds
                        //program crashed after long time of inactivity
@@ -167,6 +167,7 @@ type
     function  GetMysqldPath : String;
     function  TableExists(TableName : String) : Boolean;
     function  GetDebugLevel : Integer;
+    function  FieldExists(TableName, FieldName : String) : Boolean;
 
     procedure CreateDBConnections;
     procedure CreateViews;
@@ -184,7 +185,7 @@ type
     procedure UpgradeMainDatabaseEx;
     procedure PrepareMysqlConfigFile;
     procedure DeleteOldConfigFiles;
-    procedure GetCurrentFreqFromMem(var freq : Double; var mode : String; var bandwidth : Integer);
+    procedure GetCurrentFreqFromMem(var freq : Double; var mode : String; var bandwidth : Integer; var info : String);
   public
     MainCon      : TSQLConnection;
     BandMapCon   : TSQLConnection;
@@ -261,6 +262,7 @@ type
     function  LogExists(nr : Word) : Boolean;
     function  GetProperDBName(nr : Word) : String;
     function  GetQSOCount : Integer;
+    procedure GetQSODistanceSum(var SumDist:int64;var LongestDist:integer;var MainLocCount:Integer);
     function  UseseQSL(call : String) : Boolean;
     function  QueryLocate(qry : TSQLQuery; Column : String; Value : Variant; DisableGrid : Boolean; exatly : Boolean = True) : Boolean;
     function  BandModFromFreq(freq : String;var mode,band : String) : Boolean;
@@ -278,13 +280,15 @@ type
                       loc, my_loc,county,award,remarks : String; adif : Integer;
                       idcall,state,cont : String; qso_dxcc : Boolean; profile : Integer;
                       nclub1,nclub2,nclub3,nclub4,nclub5, PropMode, Satellite : String;
-                      RxFreq : Currency);
+                      RxFreq : Currency;srx : String;stx : String;srx_string : String;stx_string : String;
+                      contestname : String);
 
     procedure EditQSO(date : TDateTime; time_on,time_off,call : String; freq : Currency;mode,rst_s,
                       rst_r, stn_name,qth,qsl_s,qsl_r,qsl_via,iota,pwr : String; itu,waz : Integer;
                       loc, my_loc,county,award,remarks : String; adif : Word; idcall,state,cont : String;
                       qso_dxcc : Boolean; profile : Integer; PropMode, Satellite : String;
-                      RxFreq : Currency; idx : LongInt);
+                      RxFreq : Currency; idx : LongInt;srx : String;stx : String;srx_string : String;stx_string : String;
+                      contestname : String);
     procedure SaveComment(call,text : String);
     procedure DeleteComment(id : Integer);
     procedure PrepareImport;
@@ -322,8 +326,8 @@ type
     procedure RemoveLoTWUploadedFlag(id : Integer);
     procedure StoreFreqMemories(grid : TStringGrid);
     procedure LoadFreqMemories(grid : TStringGrid);
-    procedure GetPreviousFreqFromMem(var freq : Double; var mode : String; var bandwidth : Integer);
-    procedure GetNextFreqFromMem(var freq : Double; var mode : String; var bandwidth : Integer);
+    procedure GetPreviousFreqFromMem(var freq : Double; var mode : String; var bandwidth : Integer; var info : String);
+    procedure GetNextFreqFromMem(var freq : Double; var mode : String; var bandwidth : Integer; var info : String);
     procedure OpenFreqMemories(mode : String);
     procedure SaveBandChanges(band : String; BandBegin, BandEnd, BandCW, BandRTTY, BandSSB, RXOffset, TXOffset : Currency);
     procedure GetRXTXOffset(Freq : Currency; var RXOffset,TXOffset : Currency);
@@ -335,7 +339,7 @@ var
   dmData : TdmData;
   handle : THandle;
   reg    : TRegExpr;
-
+  MemNR  : array of integer;
 
 implementation
 
@@ -896,9 +900,9 @@ begin
   begin
     p := TProcess.Create(nil);
     try
-      if dmData.DebugLevel>=1 then Writeln('Command: ',p.CommandLine);
-      p.CommandLine := 'kill '+pid;
-      if fDebugLevel>=1 then Writeln(p.CommandLine);
+      p.Executable := 'kill';
+      p.Parameters.Add(pid);
+      if (dmData.DebugLevel>=1) or (fDebugLevel>=1) then Writeln('p.Executable: ',p.Executable,' Parameters: ',p.Parameters.Text);
       p.Execute;
       if OnStart then
         Sleep(3000);
@@ -1091,8 +1095,11 @@ var
   c      : TConnectionName;
   MySQLVer : String;
   param    : String;
+  AProcess: TProcess;
+  AStringList: TStringList;
   MySQLOpts: Array[0..3] of string;
   InitMysqlFunc: Function (Const LibraryName : AnsiString; argc: longint; argv:PPchar; groups:PPchar) : Integer;
+
 begin
   InitCriticalSection(csPreviousQSO);
   cqrini       := nil;
@@ -1108,6 +1115,23 @@ begin
   if fDebugLevel=0 then
     Writeln('**** CHANGE WITH --debug=1 PARAMETER ****');
   Writeln('');
+
+  Writeln('OS:');
+  AProcess := TProcess.Create(nil);
+  AStringList := TStringList.Create;
+  Try
+  AProcess.Executable := 'cat';
+  AProcess.Parameters.Add('/proc/version');
+  AProcess.Options := AProcess.Options + [poWaitOnExit, poUsePipes];
+  AProcess.Execute;
+  AStringList.LoadFromStream(AProcess.Output);
+  for i:=0 to pred(AStringList.Count) do
+    writeln(AStringList[i]);
+  except
+    writeln('Could not get Linux version! [tried: cat /proc/version]');
+  end;
+  AStringList.Free;
+  AProcess.Free;
 
   if fDebugLevel>0 then
   begin
@@ -1243,7 +1267,7 @@ begin
   end;
 
   tmrDBPing.Interval := CDB_PING_INT*1000;
-  tmrDBPing.Enabled  := True
+  tmrDBPing.Enabled  := True;
 end;
 
 procedure TdmData.DataModuleDestroy(Sender: TObject);
@@ -1377,7 +1401,8 @@ procedure TdmData.SaveQSO(date : TDateTime; time_on,time_off,call : String; freq
                  loc, my_loc,county,award,remarks : String; adif : Integer;
                  idcall,state,cont : String; qso_dxcc : Boolean; profile : Integer;
                  nclub1,nclub2,nclub3,nclub4,nclub5, PropMode, Satellite : String;
-                 RxFreq : Currency);
+                 RxFreq : Currency;srx : String;stx : String;srx_string : String;stx_string : String;
+                 contestname : String);
 var
   qsodate : String;
   band    : String;
@@ -1412,7 +1437,8 @@ begin
   Q.SQL.Text :=  'insert into cqrlog_main (qsodate,time_on,time_off,callsign,freq,mode,'+
                  'rst_s,rst_r,name,qth,qsl_s,qsl_r,qsl_via,iota,pwr,itu,waz,loc,my_loc,'+
                  'county,award,remarks,adif,idcall,state,qso_dxcc,band,profile,cont,club_nr1,'+
-                 'club_nr2,club_nr3,club_nr4,club_nr5, prop_mode, satellite, rxfreq) values('+QuotedStr(qsodate) +
+                 'club_nr2,club_nr3,club_nr4,club_nr5, prop_mode, satellite, rxfreq, srx, stx,'+
+                 'srx_string, stx_string, contestname) values('+QuotedStr(qsodate) +
                  ','+QuotedStr(time_on)+','+QuotedStr(time_off)+
                  ','+QuotedStr(call)+','+FloatToStr(freq)+
                  ','+QuotedStr(mode)+','+QuotedStr(rst_s)+
@@ -1423,14 +1449,15 @@ begin
                  ','+QuotedStr(qsl_r)+','+QuotedStr(qsl_via)+
                  ','+QuotedStr(iota)+','+QuotedStr(pwr)+
                  ','+sITU+','+sWAZ+
-                 ','+QuotedStr(loc)+','+QuotedStr(my_loc)+
+                    //here we make final check that for now on locator writing format is by std in database
+                 ','+QuotedStr(dmUtils.StdFormatLocator(loc))+','+QuotedStr(dmUtils.StdFormatLocator(my_loc))+
                  //','+QuotedStr(dmUtils.MyTrim(county))+',' + QuotedStr(dmUtils.MyTrim(award)) + ','+QuotedStr(dmUtils.MyTrim(remarks))+
                  ','+QuotedStr(trim(county))+',' + QuotedStr(trim(award)) + ','+QuotedStr(trim(remarks))+
                  ','+IntToStr(adif)+','+ QuotedStr(idcall) + ','+ QuotedStr(state) +','+IntToStr(changed)+
                  ','+QuotedStr(band)+','+ IntToStr(profile) +','+QuotedStr(cont)+
                  ','+QuotedStr(nclub1)+','+QuotedStr(nclub2)+','+QuotedStr(nclub3)+
                  ','+QuotedStr(nclub4)+','+QuotedStr(nclub5)+','+QuotedStr(PropMode)+','+QuotedStr(Satellite)+','+rx_freq+
-                 ')';
+                 ','+QuotedStr(srx)+','+QuotedStr(stx)+','+QuotedStr(srx_string)+','+QuotedStr(stx_string)+','+QuotedStr(contestname)+')';
   if fDebugLevel >=1 then
     Writeln(Q.SQL.Text);
   Q.ExecSQL;
@@ -1441,7 +1468,8 @@ procedure TdmData.EditQSO(date : TDateTime; time_on,time_off,call : String; freq
                  rst_r, stn_name,qth,qsl_s,qsl_r,qsl_via,iota,pwr : String; itu,waz : Integer;
                  loc, my_loc,county,award,remarks : String; adif : Word; idcall,state,cont : String;
                  qso_dxcc : Boolean; profile : Integer; PropMode, Satellite : String;
-                 RxFreq : Currency; idx : LongInt);
+                 RxFreq : Currency; idx : LongInt;srx : String;stx : String;srx_string : String;stx_string : String;
+                 contestname : String);
 var
   qsodate : String;
   band    : String;
@@ -1483,7 +1511,8 @@ begin
            ', qth = ' + QuotedStr(Trim(qth)) + ', award = ' + QuotedStr(award) +', band = ' + QuotedStr(band) +
            ', profile = ' + IntToStr(profile) + ', idcall = ' + QuotedStr(idcall) + ', state=' + QuotedStr(state) +
            ', cont = ' + QuotedStr(cont)+ ', prop_mode = ' + QuotedStr(PropMode) + ', satellite = ' + QuotedStr(Satellite)+
-           ', rxfreq = ' + rx_freq +
+           ', rxfreq = ' + rx_freq + ', stx = ' + QuotedStr(stx)+ ', stx_string = ' + QuotedStr(stx_string) + ', srx = ' + QuotedStr(srx)+
+           ', srx_string = ' + QuotedStr(srx_string) + ', contestname = ' + QuotedStr(contestname)+
            ' where id_cqrlog_main = ' + IntToStr(idx);
   if fDebugLevel >=1 then
     Writeln(Q.SQL.Text);
@@ -1677,7 +1706,7 @@ begin
   Q.ExecSQL;
 
   Q.SQL.Text := 'INSERT INTO cqrlog_common.bands (band,b_begin,b_end,cw,rtty,ssb) VALUES (' +
-                 QuotedStr('2190M')+',0.472,0.480,0.472,0.472,0.480)';
+                 QuotedStr('630M')+',0.472,0.480,0.472,0.472,0.480)';
   Q.ExecSQL;
 
   Q.SQL.Text := 'INSERT INTO cqrlog_common.bands (band,b_begin,b_end,cw,rtty,ssb) VALUES (' +
@@ -1991,6 +2020,15 @@ end;
 
 function TdmData.QSLMgrFound(call,date : String; var qsl_via : String) : Boolean;
 begin
+   // dmData.QSLMgrFound() needs date. if not set causes mysterious
+   // "'' is not valid date error" sometimes. (usually at first logged qso)
+   // So cheking both exist is needed.
+  if (call = '') or (date = '') then
+   Begin
+     Result := False;
+     Exit;
+   end;
+
   qsl_via := '';
   trQSLMgr.StartTransaction;
   qQSLMgr.SQL.Text := 'select * from cqrlog_common.qslmgr where (callsign = '+QuotedStr(call)+
@@ -2387,264 +2425,6 @@ begin
   end
 end;
 
-{$IFDEF CONTEST}
-
-procedure TdmData.CreateContestDatabase(FileName : String);
-begin
-  fContestDataFile := FileName+'.fdb';
-  ContestDatabase.DatabaseName := fContestDataFile;
-  Writeln(ContestDatabase.DatabaseName);
-  ContestDatabase.CreateDatabase();
-  try
-    ContestDataBase.Connected := True;
-    dsCQRTest.SQL.Clear;
-    trCQRTest.StartTransaction;
-    dsCQRTest.SQL.Add('CREATE GENERATOR gid_main;');
-    if fDebugLevel>=1 then  Writeln(dsCQRTest.SQL.Text);
-    dsCQRTest.ExecSQL;
-    trCQRTest.Commit;
-
-    dsCQRTest.SQL.Clear;
-
-    trCQRTest.StartTransaction;
-    dsCQRTest.SQL.Add('CREATE TABLE cqrtest (');
-    dsCQRTest.SQL.Add('             id_cqrtest INTEGER NOT NULL PRIMARY KEY,');
-    dsCQRTest.SQL.Add('             qsodate  VARCHAR(10),');
-    dsCQRTest.SQL.Add('             time_on  VARCHAR(5),');
-    dsCQRTest.SQL.Add('             qso_nr   INTEGER,');
-    dsCQRTest.SQL.Add('             call     VARCHAR(20),');
-    dsCQRTest.SQL.Add('             freq     NUMERIC(10,4),');
-    dsCQRTest.SQL.Add('             mode     VARCHAR(8),');
-    dsCQRTest.SQL.Add('             rst_s    VARCHAR(20),');
-    dsCQRTest.SQL.Add('             rst_r    VARCHAR(20),');
-    dsCQRTest.SQL.Add('             exch1    VARCHAR(20),');
-    dsCQRTest.SQL.Add('             exch2    VARCHAR(20),');
-    dsCQRTest.SQL.Add('             mult1    VARCHAR(1),');
-    dsCQRTest.SQL.Add('             mult2    VARCHAR(1),');
-    dsCQRTest.SQL.Add('             name     VARCHAR(20),');
-    dsCQRTest.SQL.Add('             qth      VARCHAR(20),');
-    dsCQRTest.SQL.Add('             points   INTEGER,');
-    dsCQRTest.SQL.Add('             power    VARCHAR(10),');
-    dsCQRTest.SQL.Add('             waz      VARCHAR(2),');
-    dsCQRTest.SQL.Add('             itu      VARCHAR(2),');
-    dsCQRTest.SQL.Add('             band     VARCHAR(10),');
-    dsCQRTest.SQL.Add('             wpx      VARCHAR(20),');
-    dsCQRTest.SQL.Add('             state    VARCHAR(20),');
-    dsCQRTest.SQL.Add('             iota     VARCHAR(6),');
-    dsCQRTest.SQL.Add('             dxcc_ref VARCHAR(20)');
-    dsCQRTest.SQL.Add(');');
-    if fDebugLevel>=1 then  Writeln(dsCQRTest.SQL.Text);
-    dsCQRTest.ExecSQL;
-    dsCQRTest.SQL.Clear;
-
-    dsCQRTest.SQL.Add('CREATE TABLE version (');
-    dsCQRTest.SQL.Add('       major INTEGER DEFAULT ' + IntToStr(major));
-    dsCQRTest.SQL.Add(');');
-    if fDebugLevel>=1 then  Writeln(dsCQRTest.SQL.Text);
-    dsCQRTest.ExecSQL;
-    dsCQRTest.SQL.Clear;
-
-    dsCQRTest.SQL.Add('CREATE INDEX dxcc_ref ON cqrtest (dxcc_ref);');
-    if fDebugLevel>=1 then  Writeln(dsCQRTest.SQL.Text);
-    dsCQRTest.ExecSQL;
-    dsCQRTest.SQL.Clear;
-    dsCQRTest.SQL.Add('CREATE INDEX qsodate ON cqrtest (qsodate);');
-    if fDebugLevel>=1 then  Writeln(dsCQRTest.SQL.Text);
-    dsCQRTest.ExecSQL;
-    dsCQRTest.SQL.Clear;
-    dsCQRTest.SQL.Add('CREATE INDEX call ON cqrtest (call);');
-    if fDebugLevel>=1 then  Writeln(dsCQRTest.SQL.Text);
-    dsCQRTest.ExecSQL;
-    trCQRTest.Commit;
-    dsCQRTest.SQL.Clear;
-
-    trCQRTest.StartTransaction;
-    dsCQRTest.SQL.Add('CREATE OR ALTER TRIGGER bi_cqrtest FOR cqrtest');
-    dsCQRTest.SQL.Add('ACTIVE BEFORE INSERT');
-    dsCQRTest.SQL.Add(' POSITION 0');
-    dsCQRTest.SQL.Add('AS');
-    dsCQRTest.SQL.Add('BEGIN');
-    dsCQRTest.SQL.Add('  if ((new.id_cqrtest is null) or (new.id_cqrtest = 0)) then');
-    dsCQRTest.SQL.Add('  BEGIN');
-    dsCQRTest.SQL.Add('    new.id_cqrtest = gen_id( gid_main, 1 );');
-    dsCQRTest.SQL.Add('  END');
-    dsCQRTest.SQL.Add('END');
-    if fDebugLevel>=1 then  Writeln(dsCQRTest.SQL.Text);
-    dsCQRTest.ExecSQL;
-    trCQRTest.Commit;
-    dsCQRTest.SQL.Clear
-  finally
-    ContestDatabase.Connected := False
-  end
-end;
-
-function TdmData.OpenContestDatabase(FileName : String) : Boolean;
-begin
-  Result := True;
-  try
-    fContestDataFile := FileName;
-    ContestDatabase.DatabaseName := fContestDataDir + fContestDataFile;
-    Writeln(ContestDatabase.DatabaseName);
-    ContestDatabase.Connected    := True;
-    dsCQRTest.Close;
-    dsCQRTest.SQL.Text := 'SELECT * FROM cqrtest ORDER BY qsodate,time_on,id_cqrtest';
-    if fDebugLevel>=1 then Writeln(dsCQRTest.SQL.Text);
-    dsCQRTest.Open;
-    dsCQRTest.Last
-  except
-    on E : Exception do
-    begin
-      Application.MessageBox(PChar('Cannot open database!'+#13+E.Message),'Error ...',mb_OK + mb_IconError);
-      Result := False
-    end
-  end
-end;
-
-procedure TdmData.DeleteContestQSO(id : LongInt);
-begin
-  Qc.Close;
-  Qc.SQL.Text := 'delete from cqrtest where id_cqrtest = ' + IntToStr(id);
-  if fDebugLevel>=1 then Writeln(Qc.SQL.Text);
-  trQc.StartTransaction;
-  dmData.Qc.ExecSQL;
-  trQc.Commit;
-  Qc.SQL.Clear
-end;
-procedure TdmData.SaveContestQSO(date : TDateTime;time_on,call,rst_s,rst_r,exch1,exch2,freq,mode,
-                             waz,itu,dxcc_ref : String);
-var
-  qsodate : String;
-  nr : Integer;
-  band : String;
-  iota : String = '';
-  sname : String = '';
-  qth  : String = '';
-  state : String = '';
-  cexch1 : String = '';
-  cexch2 : String = '';
-begin
-  dsCQRTest.Last;
-  band := IntToStr(dmUtils.GetBandFromFreq(freq))+'M';
-  if waz = '' then
-    WAZ := 'null';
-  if itu = '' then
-    ITU := 'null';
-  dsCQRTest.Last;
-  nr := dsCQRTest.Fields[3].AsInteger + 1;
-
-  cexch1 := UpperCase(trim(dmData.tstini.ReadString('Details','Exch1','None')));
-  cexch2 := UpperCase(trim(dmData.tstini.ReadString('Details','Exch2','None')));
-
-  if cexch1 = 'NONE' then
-    exch1 := ''
-  else if cexch1 = 'WAZ ZONE' then
-    waz := exch1
-  else if cexch1 = 'ITU ZONE' then
-    itu := exch1
-  else if cexch1 = 'IOTA' then
-    iota := exch1
-  else if cexch1 = 'NAME' then
-    sname := exch1
-  else if cexch1 = 'QTH' then
-    qth := exch1
-  else if cexch1 = 'STATE' then
-    state := exch1;
-
-  if cexch2 = 'NONE' then
-    exch2 := ''
-  else if cexch2 = 'WAZ ZONE' then
-    waz := exch2
-  else if cexch2 = 'ITU ZONE' then
-    itu := exch2
-  else if cexch2 = 'IOTA' then
-    iota := exch2
-  else if cexch2 = 'NAME' then
-    sname := exch2
-  else if cexch2 = 'QTH' then
-    qth := exch2
-  else if cexch2 = 'STATE' then
-    state := exch2;
-
-  trQc.StartTransaction;
-  qsodate := (FormatDateTime('YYYY-MM-DD',date));
-  //date : TDateTime;time_on,call,rst_s,nr_s,rst_r,nr_r,exch1,exch2,freq,band,mode,waz,itu
-  Qc.SQL.Text := 'insert into cqrtest (qsodate,time_on,call,rst_s,rst_r,exch1,exch2,'+
-                 'freq,band,mode,waz,itu,dxcc_ref,qso_nr,name,qth,iota,state) values (' + QuotedStr(qsodate) +
-                 ',' + QuotedStr(time_on) + ',' + QuotedStr(call) +
-                 ',' + QuotedStr(rst_s)+ ',' + QuotedStr(rst_r) +
-                 ',' + QuotedStr(exch1) + ',' + QuotedStr(exch2) +
-                 ',' + freq + ',' + QuotedStr(band) + ',' + QuotedStr(mode) +
-                 ',' + waz + ',' + itu + ',' + QuotedStr(dxcc_ref) + ',' + IntToStr(nr) +
-                 ','+QuotedStr(sName) + ','+QuotedStr(qth)+','+QuotedStr(iota)+','+QuotedStr(state)+')';
-  if fDebugLevel >=1 then Writeln(Qc.SQL.Text);
-  Qc.ExecSQL;
-  trQc.Commit
-end;
-
-procedure TdmData.EditTestQSO(qsodate,time_on,call,freq,mode,rst_s,rst_r,exch1,exch2,sname,qth,power,
-                      waz,itu,wpx,state,iota : String;points : Integer;mult1,mult2 : Boolean;
-                      id : LongInt);
-var
-  m1 : String = '';
-  m2 : String = '';
-begin
-  if mult1 then
-    m1 := 'X';
-  if mult2 then
-    m2 := 'X';
-  Qc.Close;
-  Qc.SQL.Text := 'update cqrtest set qsodate='+QuotedStr(qsodate)+',time_on='+QuotedStr(time_on)+
-                 ',call='+QuotedStr(call)+',freq='+freq+',mode='+QuotedStr(mode)+',rst_s='+QuotedStr(rst_s)+
-                 ',rst_r='+QuotedStr(rst_r)+',exch1='+QuotedStr(exch1)+',exch2='+QuotedStr(exch2)+',name='+QuotedStr(sname)+
-                 ',qth='+QuotedStr(qth)+',power='+QuotedStr(power)+',waz='+QuotedStr(waz)+',itu='+QuotedStr(itu)+
-                 ',wpx='+QuotedStr(wpx)+',state='+QuotedStr(state)+',iota='+QuotedStr(iota)+',points='+IntToStr(points)+
-                 ',mult1='+QuotedStr(m1)+',mult2='+QuotedStr(m2) + ' where id_cqrtest = '+IntToStr(id);
-  if fDebugLevel>=1 then Writeln(Qc.SQL.Text);
-  trQc.StartTransaction;
-  Qc.ExecSQL;
-  trQc.Commit;
-  Qc.Close()
-end;
-
-procedure TdmData.GetLastExchange(call : String; var exch : String; var CurPos : TCurPos);
-var
-  ex1 : Boolean;
-  ex2 : Boolean;
-  e1 : String = '';
-  e2 : String = '';
-begin
-  exch   := '';
-  CurPos := cpEnd;
-
-  e1 := UpperCase(trim(tstini.ReadString('Details','Exch1','None')));
-  e2 := UpperCase(trim(tstini.ReadString('Details','Exch2','None')));
-  ex1 := (e1 <> 'NONE') and (e1 <> 'QSO NUMBER');
-  ex2 := (e2 <> 'NONE') and (e2 <> 'QSO NUMBER');
-
-  if not (ex1 or ex2) then
-    exit;
-  Qc.Close;
-  Qc.SQL.Text := 'select exch1,exch2 from cqrtest where call = '+QuotedStr(call);
-  if fDebugLevel>=1 then Writeln(Qc.SQL.Text);
-  trQc.StartTransaction;
-  Qc.Open();
-  if Qc.Fields.AsString[0] <> '' then
-  begin
-    if ex1 and ex2 then
-      exch := Qc.Fields.AsString[0] + ' ' + Qc.Fields.AsString[1]
-    else begin
-      if ex1 then
-        exch := Qc.Fields.AsString[0];
-      if ex2 then
-      begin
-        exch   := ' ' + Qc.Fields.AsString[1];
-        CurPos := cpBegin
-      end
-    end
-  end;
-  Qc.Close(etmRollback)
-end;
-{$ENDIF}
 procedure TdmData.LoadLoTWCalls;
 
   procedure GrowArray(NextIndex: integer);
@@ -2804,7 +2584,79 @@ begin
   if call = eQSLUsers[i] then
     Result := True
 end;
+procedure TdmData.GetQSODistanceSum(var SumDist:int64; var LongestDist:integer;var MainLocCount:Integer);
 
+var
+   qrb,
+   qrc,
+   Myloc,
+   loc :String;
+
+  procedure HandleRecord;
+   Begin
+        Myloc := Q.Fields[0].AsString;
+        if length(Myloc) = 4 then Myloc := Myloc +'LL';
+        loc := Q.Fields[1].AsString;
+        if length(loc) = 4 then loc := loc +'LL';
+        dmUtils.DistanceFromLocator(Myloc,loc,qrb,qrc);
+        if StrToIntDef(qrb,0) > LongestDist then  LongestDist := StrToIntDef(qrb,0);
+        SumDist:= SumDist + StrToIntDef(qrb,0);
+  end;
+
+begin
+  SumDist :=0;
+  LongestDist :=0;
+  MainLocCount := 0;
+
+  Q.Close;
+  if trQ.Active then
+    trQ.RollBack;
+
+  if IsFilter then
+  begin
+    Q.SQL.Text := StringReplace(dmData.qCQRLOG.SQL.Text,'*','my_loc,loc',[]);
+    trQ.StartTransaction;
+    try
+      Q.Open;
+      while not Q.Eof do
+       begin
+        HandleRecord;
+        Q.Next;
+       end
+    finally
+      Q.Close;
+      trQ.RollBack
+    end
+  end
+  else begin
+    Q.SQL.Text := 'SELECT my_loc,loc FROM cqrlog_main';
+    trQ.StartTransaction;
+    try
+      Q.Open;
+      while not Q.Eof do
+       begin
+        HandleRecord;
+        Q.Next;
+       end
+    finally
+      Q.Close;
+      trQ.RollBack
+    end
+  end;
+  if pos('WHERE', Q.SQL.Text) > 0 then
+    Q.SQL.Text := 'SELECT COUNT(DISTINCT(LEFT(loc,4))) FROM cqrlog_main WHERE left(loc,4) <> "" AND '
+      + copy(Q.SQL.Text, pos('WHERE', Q.SQL.Text)+5, length(Q.SQL.Text))
+   else
+    Q.SQL.Text := 'SELECT COUNT(DISTINCT(LEFT(loc,4))) FROM cqrlog_main WHERE left(loc,4) <> "" ';
+   trQ.StartTransaction;
+    try
+      Q.Open;
+      MainLocCount := Q.Fields[0].AsInteger
+    finally
+      Q.Close;
+      trQ.RollBack
+    end
+end;
 function TdmData.GetQSOCount : Integer;
 begin
   Q.Close;
@@ -3245,7 +3097,8 @@ begin
         Q1.SQL.Add('  id int NOT NULL AUTO_INCREMENT PRIMARY KEY,');
         Q1.SQL.Add('  freq numeric(10,4) NOT NULL,');
         Q1.SQL.Add('  mode varchar(10) NOT NULL,');
-        Q1.SQL.Add('  bandwidth int NOT NULL');
+        Q1.SQL.Add('  bandwidth int NOT NULL,');
+        Q1.SQL.Add('  info varchar(25) NULL');      //null makes log backward compatible with old cqrlogs
         Q1.SQL.Add(') COLLATE '+QuotedStr('utf8_bin')+';');
         if fDebugLevel>=1 then Writeln(Q1.SQL.Text);
         Q1.ExecSQL;
@@ -3317,6 +3170,69 @@ begin
         if fDebugLevel>=1 then Writeln(Q1.SQL.Text);
         Q1.ExecSQL;
         trQ1.Commit
+      end;
+
+      if (old_version < 16) then
+      begin
+        if (not FieldExists('cqrlog_main', 'stx')) then
+        begin
+          trQ1.StartTransaction;
+          Q1.SQL.Text := 'alter table cqrlog_main add stx varchar(6) null';
+          if fDebugLevel>=1 then Writeln(Q1.SQL.Text);
+          Q1.ExecSQL;
+          trQ1.Commit;
+        end;
+
+        if (not FieldExists('cqrlog_main', 'srx')) then
+        begin
+          trQ1.StartTransaction;
+          Q1.SQL.Text := 'alter table cqrlog_main add srx varchar(6) null';
+          if fDebugLevel>=1 then Writeln(Q1.SQL.Text);
+          Q1.ExecSQL;
+          trQ1.Commit;
+        end;
+
+
+        if (not FieldExists('cqrlog_main', 'stx_string')) then
+        begin
+          trQ1.StartTransaction;
+          Q1.SQL.Text := 'alter table cqrlog_main add stx_string varchar(50) null';
+          if fDebugLevel>=1 then Writeln(Q1.SQL.Text);
+          Q1.ExecSQL;
+          trQ1.Commit;
+        end;
+
+        if (not FieldExists('cqrlog_main', 'srx_string')) then
+        begin
+          trQ1.StartTransaction;
+          Q1.SQL.Text := 'alter table cqrlog_main add srx_string varchar(50) null';
+          if fDebugLevel>=1 then Writeln(Q1.SQL.Text);
+          Q1.ExecSQL;
+          trQ1.Commit;
+        end;
+
+        if (not FieldExists('cqrlog_main', 'contestname')) then
+        begin
+          trQ1.StartTransaction;
+          Q1.SQL.Text := 'alter table cqrlog_main add contestname varchar(40) null';
+          if fDebugLevel>=1 then Writeln(Q1.SQL.Text);
+          Q1.ExecSQL;
+          trQ1.Commit;
+        end;
+
+        trQ1.StartTransaction;
+        Q1.SQL.Text := 'alter table log_changes modify cmd varchar(20)';
+        if fDebugLevel>=1 then Writeln(Q1.SQL.Text);
+        Q1.ExecSQL;
+        trQ1.Commit;
+
+        if (not FieldExists('freqmem', 'info')) then
+        begin
+          trQ1.StartTransaction;
+          Q1.SQL.Text := 'alter table freqmem add info varchar(25) null';
+          Q1.ExecSQL;
+          trQ1.Commit
+        end;
       end;
 
       if TableExists('view_cqrlog_main_by_callsign') then
@@ -3414,7 +3330,7 @@ begin
         Q.SQL.Add(scQSLExport.Script.Strings[i])
       else begin
         Q.SQL.Add(scQSLExport.Script.Strings[i]);
-        if fDebugLevel>=1 then Writeln(mQ.SQL.Text);
+        if fDebugLevel>=1 then Writeln(Q.SQL.Text);
         Q.ExecSQL;
         Q.SQL.Text := ''
       end
@@ -3500,15 +3416,30 @@ var
   //mysqld    : String;
   Connected : Boolean = False;
   Tryies    : Word = 0;
+  index     :integer;
+  paramList :TStringList;
+
 begin
   //mysqld := GetMysqldPath;
   PrepareMysqlConfigFile;
   {MySQLProcess := TProcess.Create(nil);
-  MySQLProcess.CommandLine := mysqld+' --defaults-file='+fHomeDir+'database/'+'mysql.cnf'+
+  MySQLProcess.Executable := mysqld;
+  index:=0;
+  paramList := TStringList.Create;
+  paramList.Delimiter := ' ';
+  paramList.DelimitedText := (' --defaults-file='+fHomeDir+'database/'+'mysql.cnf'+
                               ' --datadir='+fHomeDir+'database/'+
                               ' --socket='+fHomeDir+'database/sock'+
-                              ' --port=64000';
-  if fDebugLevel >= 1 then Writeln(MySQLProcess.CommandLine);
+                              ' --port=64000');
+  MySQLProcess.Parameters.Clear;
+  while index < paramList.Count do
+  begin
+    MySQLProcess.Parameters.Add(paramList[index]);
+    inc(index);
+  end;
+  paramList.Free;
+
+  if dmData.DebugLevel>=1 then Writeln('MySQLProcess.Executable: ',MySQLProcess.Executable,' Parameters: ',MySQLProcess.Parameters.Text);
   MySQLProcess.Execute;}
 
   if MainCon.Connected then
@@ -3519,7 +3450,6 @@ begin
   MainCon.DatabaseName := {'information_schema'} cDB_CQRLOG_COMMON;
   MainCon.UserName     := 'cqrlog';
   MainCon.Password     := 'cqrlog';
-  //MainCon.LoginPrompt:=true;
   Exit; //no-server
 
   while true do
@@ -3784,6 +3714,34 @@ begin
   end
 end;
 
+function TdmData.FieldExists(TableName, FieldName : String) : Boolean;
+const
+  C_SEL = 'select column_name from information_schema.columns where table_schema=%s and table_name=%s and column_name=%s';
+var
+  t  : TSQLQuery;
+  tr : TSQLTransaction;
+begin
+  Result := True;
+  t := TSQLQuery.Create(nil);
+  tr := TSQLTransaction.Create(nil);
+  try
+    t.Transaction := tr;
+    tr.DataBase   := MainCon;
+    t.DataBase    := MainCon;
+
+    t.SQL.Text := Format(C_SEL,[QuotedStr(fDBName),QuotedStr(TableName), QuotedStr(FieldName)]);
+    if fDebugLevel>=1 then Writeln(t.SQL.Text);
+    t.Open;
+    Result := t.RecordCount>0
+  finally
+    t.Close;
+    tr.Rollback;
+    FreeAndNil(t);
+    FreeAndNil(tr)
+  end
+end;
+
+
 procedure TdmData.PrepareEmptyLogUploadStatusTables(lQ : TSQLQuery;lTr : TSQLTransaction);
 var
   Commit : Boolean = False;
@@ -4038,7 +3996,7 @@ end;
 
 procedure TdmData.StoreFreqMemories(grid : TStringGrid);
 const
-  C_INS = 'insert into freqmem (freq,mode,bandwidth) values (:freq,:mode,:bandwidth)';
+  C_INS = 'insert into freqmem (freq,mode,bandwidth,info) values (:freq,:mode,:bandwidth,:info)';
   C_DEL = 'delete from freqmem';
 var
   i : Integer;
@@ -4054,6 +4012,7 @@ begin
       Q.Params[0].AsFloat   := StrToFloat(grid.Cells[0,i]);
       Q.Params[1].AsString  := grid.Cells[1,i];
       Q.Params[2].AsInteger := StrToInt(grid.Cells[2,i]);
+      Q.Params[3].AsString  := grid.Cells[3,i];
       Q.ExecSQL
     end
   except
@@ -4069,7 +4028,7 @@ end;
 
 procedure TdmData.LoadFreqMemories(grid : TStringGrid);
 const
-  C_SEL = 'select freq,mode,bandwidth from freqmem order by id';
+  C_SEL = 'select freq,mode,bandwidth,info from freqmem order by id';
 begin
   try
     grid.RowCount := 1;
@@ -4082,6 +4041,7 @@ begin
       grid.Cells[0,grid.RowCount-1] := FloatToStrF(Q.Fields[0].AsFloat,ffFixed,15,3);
       grid.Cells[1,grid.RowCount-1] := Q.Fields[1].AsString;
       grid.Cells[2,grid.RowCount-1] := IntToStr(Q.Fields[2].AsInteger);
+      grid.Cells[3,grid.RowCount-1] := Q.Fields[3].AsString;
       Q.Next
     end
   finally
@@ -4092,54 +4052,89 @@ end;
 
 procedure TdmData.OpenFreqMemories(mode : String);
 const
-  C_SEL = 'select id,freq,mode,bandwidth from freqmem';
+  C_SEL = 'select id,freq,mode,bandwidth,info from freqmem';
+var
+  c : integer;
 begin
   qFreqMem.Close;
   if trFreqMem.Active then
     trFreqMem.Rollback;
 
-  if (mode='') then
-    qFreqMem.SQL.Text := C_SEL + ' order by id'
-  else begin
-    if ((mode='LSB') or (mode='USB') or (mode='FM') or (mode='AM')) then
-    begin
-      qFreqMem.SQL.Text := C_SEL + ' where (mode = ' + QuotedStr('LSB') +') or ' +
-                           '(mode = ' + QuotedStr('USB') + ') or (mode = ' + QuotedStr('FM') + ') or ' +
-                           '(mode = ' + QuotedStr('AM')+ ') order by id'
-    end
-    else
-      qFreqMem.SQL.Text := C_SEL + ' where (mode = ' + QuotedStr(mode) +') order by id'
-  end;
+  if not cqrini.ReadBool('TRX','MemModeRelated',False) then mode:='';   //use related settings!!
 
+  if (mode='') then qFreqMem.SQL.Text := C_SEL + ' order by id'
+  else
+   begin
+    case mode of
+         'LSB','USB','FM','AM'     :qFreqMem.SQL.Text := C_SEL + ' where (mode = ' + QuotedStr('LSB') +') or ' +
+                                                           '(mode = ' + QuotedStr('USB') + ') or (mode = ' + QuotedStr('FM') + ') or ' +
+                                                           '(mode = ' + QuotedStr('AM')+ ') order by id';
+         'RTTY','PKTLSB','PKTUSB',
+         'PKTFM','DATA'            :qFreqMem.SQL.Text := C_SEL + ' where (mode = ' + QuotedStr('RTTY') +') or ' +
+                                                           '(mode = ' + QuotedStr('PKTLSB') + ') or (mode = ' + QuotedStr('PKTUSB') + ') or ' +
+                                                           '(mode = ' + QuotedStr('PKTFM') + ') or (mode = ' + QuotedStr('DATA')+ ') order by id';
+     else
+      qFreqMem.SQL.Text := C_SEL + ' where (mode = ' + QuotedStr(mode) +') order by id'
+    end;
+   end;
   if fDebugLevel>=1 then Writeln('FreqmemSql:',qFreqMem.SQL.Text);
   trFreqMem.StartTransaction;
   qFreqMem.Open;
 
+  qFreqMem.First;
+  qFreqMem.prior;
+  fFirstMemId := qFreqMem.Fields[0].AsInteger;
+
+  c:=-1;
+  setLength(MemNR,qFreqMem.RecordCount+1);
+  repeat
+    begin
+      inc(c);
+       MemNR[c]:= qFreqMem.Fields[0].AsInteger;
+       if fDebugLevel>=1 then Writeln('FreqmemNR:',c,'=',MemNR[c]);
+       qFreqMem.Next;
+    end;
+   until qFreqMem.Eof;
+
   qFreqMem.Last;
   fLastMemId := qFreqMem.Fields[0].AsInteger;
 
-  qFreqMem.First;
-  fFirstMemId := qFreqMem.Fields[0].AsInteger;
+
   if fDebugLevel>=1 then Writeln('FreqmemFirst:',fFirstMemId,'  FreqmemLast:',fLastMemId);
 end;
 
-procedure TdmData.GetCurrentFreqFromMem(var freq : Double; var mode : String; var bandwidth : Integer);
+procedure TdmData.GetCurrentFreqFromMem(var freq : Double; var mode : String; var bandwidth : Integer; var info : String);
+var
+   c: integer;
 begin
-  if (qFreqMem.RecordCount > 0) then
+  if qFreqMem.Active and (qFreqMem.RecordCount > 0) then
   begin
     freq      := qFreqMem.Fields[1].AsFloat;
     mode      := qFreqMem.Fields[2].AsString;
-    bandwidth := qFreqMem.Fields[3].AsInteger
+    bandwidth := qFreqMem.Fields[3].AsInteger;
+    info      := qFreqMem.Fields[4].AsString;
+    frmTRXControl.edtMemNr.Font.Color:= clDefault; // May be red if previous was "None"
+    if info='' then
+          begin
+            for c:=0 to  qFreqMem.RecordCount do
+                if MemNR[c]= qFreqMem.Fields[0].AsInteger then break;
+            frmTRXControl.edtMemNr.Text := IntToStr(c+1)+' of '+ IntToStr(qFreqMem.RecordCount );
+            end
+               else frmTRXControl.edtMemNr.Text := info;
+    frmTRXControl.infosetstage :=1;
   end
   else begin
      freq      := 0;
      mode      := 'CW';
-     bandwidth := 0
+     bandwidth := 0;
+     frmTRXControl.edtMemNr.Font.Color:= clRed;
+     frmTRXControl.edtMemNr.Text := 'None';
+     frmTRXControl.infosetstage :=1;
   end;
   if fDebugLevel>=1 then Writeln('Freq:',freq,' mode:',mode,' bandwidth:',bandwidth);
 end;
 
-procedure TdmData.GetPreviousFreqFromMem(var freq : Double; var mode : String; var bandwidth : Integer);
+procedure TdmData.GetPreviousFreqFromMem(var freq : Double; var mode : String; var bandwidth : Integer; var info : String);
 begin
   if not qFreqMem.Active then
   begin
@@ -4149,16 +4144,17 @@ begin
   else begin
     //if qFreqMem.Bof then  doesn't work because when it's on the first record, it has to call Prior again to be sure that
     //it's really first - that caused user has to click twice to get on the end of the table
+    if fDebugLevel>=1 then writeln('-----------UP---', qFreqMem.Fields[0].AsInteger,' ',   fFirstMemId);
     if (fFirstMemId = qFreqMem.Fields[0].AsInteger) then
       qFreqMem.Last
     else
       qFreqMem.Prior
   end;
-  GetCurrentFreqFromMem(freq,mode,bandwidth)
+  GetCurrentFreqFromMem(freq,mode,bandwidth,info)
 end;
 
 
-procedure TdmData.GetNextFreqFromMem(var freq : Double; var mode : String; var bandwidth : Integer);
+procedure TdmData.GetNextFreqFromMem(var freq : Double; var mode : String; var bandwidth : Integer; var info : String);
 begin
   if not qFreqMem.Active then
   begin
@@ -4167,12 +4163,13 @@ begin
   end
   else begin
     //if qFreqMem.Eof then the same problem like with Bof()
+    if fDebugLevel>=1 then writeln('-----------DN---', qFreqMem.Fields[0].AsInteger,' ',   fLastMemId);
     if (fLastMemId = qFreqMem.Fields[0].AsInteger) then
       qFreqMem.First
     else
       qFreqMem.Next
   end;
-  GetCurrentFreqFromMem(freq,mode,bandwidth)
+  GetCurrentFreqFromMem(freq,mode,bandwidth,info)
 end;
 
 
