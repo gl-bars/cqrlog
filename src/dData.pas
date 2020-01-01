@@ -20,7 +20,7 @@ uses
   memds, mysql51conn, sqldb, inifiles, stdctrls, RegExpr,
   dynlibs, lcltype, ExtCtrls, sqlscript, process, mysql51dyn, ssl_openssl_lib,
   mysql55dyn, mysql55conn, CustApp, mysql56dyn, mysql56conn, grids, LazFileUtils,
-  mysql57dyn, mysql57conn, uMyFindFile, Graphics;
+  mysql57dyn, mysql57conn, uMyFindFile, Graphics, strutils;
 
 const
   cDB_LIMIT = 500;
@@ -1099,6 +1099,7 @@ var
   AStringList: TStringList;
   MySQLOpts: Array[0..3] of string;
   InitMysqlFunc: Function (Const LibraryName : AnsiString; argc: longint; argv:PPchar; groups:PPchar) : Integer;
+  Msg: string;
 
 begin
   InitCriticalSection(csPreviousQSO);
@@ -1152,17 +1153,24 @@ begin
       Writeln('**************************')
     end;
 
-    if MySQLVer = '10.' then
-      MySQLVer := '5.6';
-    if MySQLVer = '10.1' then
-      MySQLVer := '5.7'
+    if AnsiStartsStr('10.', MySQLVer) then
+    begin
+      if MySQLVer = '10.' then
+        MySQLVer := '5.6'
+      else if MySQLVer >= '10.1' then
+        MySQLVer := '5.7';
+    end;
 
   except
     on E : Exception do
     begin
-      Writeln('FATAL ERROR: Can not get MySQL client library version version!',LineEnding,
-              'Setting to default version (5.1)');
-      MySQLVer := '5.1'
+      MySQLVer := '5.1';
+      Msg := E.ClassName + ': ' + E.Message + LineEnding +
+        LineEnding +
+        'FATAL ERROR: Can not get MySQL client library version version!' + LineEnding +
+        'Setting to default version (5.1)';
+      Writeln(Msg);
+      MessageDlg(dmData.Name, Msg, mtError, [mbOK], 0);
     end
   end
   finally
